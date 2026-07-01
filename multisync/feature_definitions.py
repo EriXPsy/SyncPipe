@@ -26,9 +26,9 @@ or produce figures.  Those belong to ``dynamic_features``,
 All other modules MUST import feature math from here rather
 than reimplement it.
 
-Three-Axis Classification System
+Four-Axis Classification System
 ---------------------------------------------
-Features are classified along three INDEPENDENT axes. Axis C (FDR
+Features are classified along four INDEPENDENT axes. Axis C (FDR
 membership) is deliberately NOT a mechanical derivation of Axis A — see
 the rationale below.
 
@@ -67,10 +67,11 @@ must not be re-derived by filtering ``FEATURE_TIER``.
   L1 (local temporal structure): dwell_time, switching_rate,
                              bimodality_coefficient (structural semantics)
     → Null model: WCC-LEVEL IAAFT (preserve L0 moments, destroy run-length)
-  L2 (event-locked morphology): onset_latency, rise_time, recovery_time
-    → Null model: CIRCULAR TIME-SHIFT (preserve L0+L1, destroy absolute phase)
-  See ``docs/surrogate_threshold_design.md`` for the full rationale.
-  Axis D is the sole driver for null model selection in ``dynamic_features.py``.
+  L2 (event-locked / peak-timing morphology): onset_latency, rise_time,
+                             recovery_time, first_peak_time, inter_peak_cv
+    → v1 status: exploratory descriptors. Their existence null is not validated
+      for confirmatory use in v1; see ``docs/METHOD_LOG.md``.
+  Axis D guides null-model selection where a validated null exists.
   Axes A/B/C are external communication labels (functional, informational, FDR).
   A feature's mathematical tier is NOT derived from its functional tier.
 
@@ -82,20 +83,21 @@ Functional tiers:
     fraction_above_threshold  Fraction of finite WCC values >= threshold;
                               permutation-invariant coverage descriptor
 
-  CORE       (3 features, cross-morphology, cross-paradigm; FDR family)
+  CORE       (3 implemented primary v1 descriptors; FDR family when the
+              thresholding scheme is group-comparable)
     peak_amplitude        [Intensity]
     dwell_time            [Structure — stability pole]
     switching_rate        [Structure — flexibility pole]
 
-  CONDITIONAL (5 features, morphology/paradigm-dependent; FDR family)
-    onset_latency         [Temporal]  Requires low→high ignition trajectory
-    recovery_time         [Temporal]  Requires identifiable post-peak decay
-    rise_time             [Temporal]  Requires clear single-peak morphology
-    synchrony_entropy     [Structure] Shannon entropy of WCC distribution;
-                          bridges Structure and Temporal dimensions
-    bimodality_coefficient [Structure] Bimodality of WCC distribution;
-                          detects high/low state separability (exploratory
-                          descriptor, not in the FDR family)
+  CONDITIONAL / EXPLORATORY (implemented, reported with restrictions;
+                             NOT automatically FDR-family members)
+    onset_latency         [Temporal]  Event-locked only
+    recovery_time         [Temporal]  Event-locked only
+    rise_time             [Temporal]  Event-locked only
+    synchrony_entropy     [Structure] Distribution diversity diagnostic
+    bimodality_coefficient [Structure] Distribution-shape diagnostic
+    fraction_above_threshold [Occupancy] Threshold coverage descriptor
+    first_peak_time / inter_peak_cv [Timing] Exploratory morphology descriptors
 
 **Morphology-Agnostic Timers** (diagnostic, not in FDR family)
     first_peak_time       Time of first prominent peak — all morphologies
@@ -256,12 +258,12 @@ FEATURE_TIER (Axis A) is the external communication label.
 #   Null model: WCC-LEVEL IAAFT (shuffle WCC, preserves L0 moments).
 #   Tests "incremental temporal structure beyond mean/peak".
 #
-# L2 (event-locked morphology):
-#   Features that depend on absolute phase anchors (t=0 = stimulus onset).
-#   Null model: CIRCULAR TIME-SHIFT (preserves L0+L1, destroys phase).
-#   Tests "event-locked timing beyond duration/dynamics".
+# L2 (event-locked / peak-timing morphology):
+#   Features that depend on absolute phase anchors or peak ordering/spacing.
+#   v1 status: exploratory.  A validated existence null for these descriptors
+#   is deferred to v2; do not treat them as confirmatory endpoints.
 #
-# Reference: docs/surrogate_threshold_design.md (nested null architecture).
+# Reference: docs/METHOD_LOG.md (v1 audited evidence-chain architecture).
 
 MATHEMATICAL_TIER: Dict[str, str] = {
     # L0 — permutation-invariant (signal-level null)
@@ -436,7 +438,8 @@ CONDITIONAL_FEATURES: Tuple[str, ...] = tuple(
 class DynamicFeatures:
     """Container for FDR-family features + reference + diagnostics + definedness flags."""
 
-    # --- FDR family (L0: 2 + L1: 3 = 5; DECISION-09 revised 2026-06-23)
+    # --- Implemented descriptors.  The v1 primary FDR family is the explicit
+    #     FDR_FEATURES tuple: peak_amplitude, dwell_time, switching_rate.
     onset_latency: float = float("nan")
     rise_time: float = float("nan")
     peak_amplitude: float = float("nan")
@@ -462,6 +465,15 @@ class DynamicFeatures:
     inter_peak_cv: float = float("nan")
     first_peak_time: float = float("nan")
 
+    # --- Optional imputed timing values for machine-learning workflows.
+    #     The scientific timing fields above remain raw values and are NaN when
+    #     undefined.  These companion fields retain the conservative legacy
+    #     imputation (undefined -> wcc_window_sec) only for callers that
+    #     explicitly need filled duration-like predictors.
+    onset_latency_imputed: float = float("nan")
+    rise_time_imputed: float = float("nan")
+    recovery_time_imputed: float = float("nan")
+
     # --- Definedness flags ---
     onset_defined: int = 0
     rise_defined: int = 0
@@ -469,7 +481,7 @@ class DynamicFeatures:
 
     # --- Meta ---
     notes: str = ""
-    params: Dict[str, float] = field(default_factory=dict)
+    params: Dict[str, Any] = field(default_factory=dict)
 
     FDR_KEYS = FDR_FEATURES  # plain class attribute, NOT a dataclass field
     # Alias for FDR_FEATURES; kept because the test-suite references it.
@@ -486,10 +498,9 @@ class DynamicFeatures:
         d: Dict[str, float] = {
             k: getattr(self, k)
             for k in (
-                # FDR-family (L0: mean_synchrony, peak_amplitude)
-                #         + (L1: dwell_time, switching_rate, bimodality_coefficient)
+                # Primary FDR-family descriptors
                 *self.FDR_KEYS,
-                # Reference — always computed, in FDR L0
+                # Reference — always computed, not in the primary FDR family
                 "mean_synchrony",
                 # L2 event-locked (exploratory; not in FDR)
                 "onset_latency",
@@ -504,6 +515,10 @@ class DynamicFeatures:
                 # Exploratory timing descriptors (not in FDR)
                 "inter_peak_cv",
                 "first_peak_time",
+                # Explicit ML-only timing imputations
+                "onset_latency_imputed",
+                "rise_time_imputed",
+                "recovery_time_imputed",
                 # Definedness flags
                 "onset_defined",
                 "rise_defined",
@@ -524,12 +539,10 @@ class DynamicFeatures:
         - Missing reference / definedness keys (defaults applied)
         - Extra unknown keys (silently ignored)
 
-        Strict on:
-        - The FDR-family keys MUST be present (subject to the
-          backward-compatibility default exception below).  Pre-lock-in
-          v2 artifacts lacking ``dwell_time``, ``switching_rate``, or
-          ``synchrony_entropy`` will raise ``KeyError`` to force
-          migration (see DECISION_LOG.md).
+        Round-trip invariant:
+        - Every public dataclass field exported by ``to_dict()`` is accepted
+          here. Missing fields fall back to dataclass defaults so older artifacts
+          remain readable, while extra unknown keys are ignored.
         """
         if not isinstance(data, dict):
             raise TypeError(
@@ -537,23 +550,17 @@ class DynamicFeatures:
                 f"{type(data).__name__}"
             )
 
-        known = {
-            *cls.FDR_KEYS,
-            "mean_synchrony",
-            "bimodality_coefficient",
-            "fraction_above_threshold",
-            "inter_peak_cv",
-            "first_peak_time",
-            "onset_defined",
-            "rise_defined",
-            "recovery_defined",
-        }
+        # Keep deserialization aligned with the dataclass rather than with a
+        # hand-maintained subset.  The previous subset silently dropped several
+        # non-FDR descriptors (onset/rise/recovery/synchrony_entropy), breaking
+        # ``DynamicFeatures.from_dict(x.to_dict()).to_dict()`` round-trips.
+        known = {f.name for f in _dc_fields(cls)} - {"notes", "params"}
         kwargs: Dict[str, Any] = {k: data[k] for k in known if k in data}
 
-        # FDR keys without a dataclass default are strictly required.
-        # Fields with a default (e.g. bimodality_coefficient, added
-        # 2026-06-20) are tolerated as missing for backward compatibility
-        # with pre-promotion artifacts.
+        # Backward compatibility: all current feature fields have dataclass
+        # defaults.  If a future required field is added without a default, keep
+        # the existing migration guard rather than silently constructing a
+        # partially-defined feature object.
         _fields_with_defaults = {
             f.name for f in _dc_fields(cls)
             if f.default is not _DC_MISSING
@@ -565,7 +572,7 @@ class DynamicFeatures:
         if missing:
             raise KeyError(
                 f"DynamicFeatures.from_dict: missing required key(s) "
-                f"{missing}.  This may indicate a pre-lock-in v2 artifact; "
+                f"{missing}. This may indicate an incompatible artifact; "
                 f"see docs/DECISION_LOG.md for migration guidance."
             )
 
@@ -1015,6 +1022,8 @@ def compute_bimodality_coefficient(wcc: np.ndarray) -> float:
     finite = wcc[np.isfinite(wcc)]
     if finite.size < 10:
         return float("nan")
+    if float(np.nanstd(finite)) < 1e-12:
+        return float("nan")
     from scipy.stats import skew, kurtosis
     sk = float(skew(finite))
     kt_excess = float(kurtosis(finite))  # scipy returns excess kurtosis
@@ -1164,7 +1173,7 @@ def compute_surrogate_threshold(
     r-metric anchor.
 
     Methodological lineage: Lykken & Venables (1971), Ben-Shakhar (1985).
-    See docs/surrogate_threshold_design.md for full rationale.
+    See ``docs/METHOD_LOG.md`` for the current v1 threshold stance.
 
     Parameters
     ----------
@@ -1191,8 +1200,8 @@ def compute_surrogate_threshold(
     -----
     **Session-level pooling** (DECISION-01r): pool ALL timepoints across ALL
     surrogate replicates before computing the quantile.  This gives a single
-    threshold per session, preserving cross-condition comparability (Task A
-    in surrogate_threshold_design.md).
+    threshold per session, preserving cross-condition comparability.  Use
+    ``multisync.session_threshold`` for pooled thresholds.
 
     For condition-level thresholds (sensitivity analysis), call this function
     separately for each condition's surrogate WCC slice.
@@ -1250,6 +1259,10 @@ def extract_features(
     Returns
     -------
     DynamicFeatures
+        Raw event-timing fields are ``NaN`` when scientifically undefined.
+        Companion ``*_imputed`` fields carry the conservative legacy fill for
+        downstream ML workflows that explicitly need imputed duration-like
+        predictors.
     """
     wcc = np.asarray(wcc, dtype=float)
 
@@ -1284,31 +1297,34 @@ def extract_features(
     ipc = compute_inter_peak_cv(wcc, hz=hz, threshold=threshold)
     fpt = compute_first_peak_time(wcc, hz=hz, threshold=threshold)
 
-    # Undefined onset/rise/recovery → filled with wcc_window_sec (conservative
-    # upper bound). _defined flags encode structural distinction for downstream
-    # classifiers.
-    if not onset_def:
-        onset_lat = float(wcc_window_sec)
-    if not rise_def:
-        rise_t = float(wcc_window_sec)
-    if not rec_def:
-        rec_t = float(wcc_window_sec)
+    # Scientific timing fields remain raw: undefined == NaN.  Companion
+    # *_imputed fields preserve the old conservative upper-bound fill only for
+    # downstream ML workflows that explicitly need complete duration-like
+    # predictors.
+    onset_lat_raw = onset_lat
+    rise_t_raw = rise_t
+    rec_t_raw = rec_t
+    onset_lat_imp = onset_lat if onset_def else float(wcc_window_sec)
+    rise_t_imp = rise_t if rise_def else float(wcc_window_sec)
+    rec_t_imp = rec_t if rec_def else float(wcc_window_sec)
 
     notes: list[str] = []
 
     # DECISION-16: paradigm-aware feature reporting
     if paradigm == "continuous":
-        rise_t = float("nan")
-        rec_t = float("nan")
+        rise_t_raw = float("nan")
+        rec_t_raw = float("nan")
+        rise_t_imp = float("nan")
+        rec_t_imp = float("nan")
         rise_def = 0
         rec_def = 0
         notes.append("rise/recovery set NaN (continuous paradigm)")
 
     return DynamicFeatures(
-        onset_latency=onset_lat,
-        rise_time=rise_t,
+        onset_latency=onset_lat_raw,
+        rise_time=rise_t_raw,
         peak_amplitude=peak_value,
-        recovery_time=rec_t,
+        recovery_time=rec_t_raw,
         dwell_time=dwell,
         switching_rate=switch,
         mean_synchrony=mean_s,
@@ -1317,6 +1333,9 @@ def extract_features(
         fraction_above_threshold=frac_above,
         inter_peak_cv=ipc,
         first_peak_time=fpt,
+        onset_latency_imputed=onset_lat_imp,
+        rise_time_imputed=rise_t_imp,
+        recovery_time_imputed=rec_t_imp,
         onset_defined=int(onset_def),
         rise_defined=int(rise_def),
         recovery_defined=int(rec_def),
@@ -1325,6 +1344,7 @@ def extract_features(
             "threshold": float(threshold),
             "hz": float(hz),
             "wcc_window_sec": float(wcc_window_sec),
+            "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN",
         },
     )
 

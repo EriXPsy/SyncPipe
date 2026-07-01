@@ -481,7 +481,7 @@ required in v2 before any promotion.
 
 ### 7d.2 v1.0 final code audit (read-then-fix, all changes traceable)
 
-A full read-only audit (`docs/AUDIT_V1_REPORT.md`) was run before v1.0 release.
+A full read-only audit was run before the v1.0 release cleanup.
 Resolved this round:
 
 - **Version SSoT.** Package version is `1.0.0` in `__about__.py`, `pyproject.toml`,

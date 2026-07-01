@@ -313,7 +313,7 @@ def build_feature_matrix(
     for i, s in enumerate(starts):
         wcc_window = wcc[s : s + window_size]
         feat = _ssot_extract(wcc_window, hz=hz, wcc_window_sec=1.0, threshold=onset_threshold)
-        # DECISION-10: joint feature matrix uses the 6 epoch confirmatory
+        # DECISION-10: joint feature matrix uses the v1 dynamic descriptor
         # features.  mean_synchrony is intentionally absent here; it is
         # extracted separately by ``_extract_mean_synchrony_per_window``
         # for the AR baseline.
@@ -340,7 +340,7 @@ def _extract_mean_synchrony_per_window(
 
     DECISION-10 (METHODOLOGY_LOCK_IN.md): ``mean_synchrony`` is removed
     from the joint feature matrix (which now contains only the 6 epoch
-    confirmatory features) but is retained as the **AR baseline
+    dynamic descriptors) but is retained as the **AR baseline
     (restricted model) predictor** — it lets ``delta_auc`` measure
     incremental value beyond "current synchrony level predicts future
     synchrony", which is the methodological floor for any synchrony
@@ -481,11 +481,16 @@ def rolling_origin_cv(
     -------
     PredictionResult
     """
-    # Auto-adjust window_size if too small for reliable feature extraction
+    diagnostics: Dict[str, Any] = {}
+
+    # Auto-adjust window_size if too small for reliable feature extraction.
+    # Record this as a structured diagnostic rather than emitting a warning.
     n = len(wcc)
     min_window = min(60, n // 4)
     if window_size < min_window:
-        warnings.warn(f"window_size={window_size} is too small for reliable feature extraction, increasing to {min_window}")
+        diagnostics["window_size_auto_adjusted"] = True
+        diagnostics["window_size_requested"] = int(window_size)
+        diagnostics["window_size_effective"] = int(min_window)
         window_size = min_window
 
     # 1. Build feature matrix
@@ -515,7 +520,7 @@ def rolling_origin_cv(
     y = y[both_valid].astype(int)
 
     # Imputation strategy depends on feature semantics:
-    # DECISION-10: with the 6 epoch confirmatory features, duration
+    # DECISION-10: with the v1 dynamic descriptor set, duration
     # features are onset_latency (0), rise_time (1), recovery_time (3),
     # and dwell_time (4).  peak_amplitude (2) and switching_rate (5)
     # are bounded-range / rate quantities and use the 0-fill default.
@@ -600,17 +605,15 @@ def rolling_origin_cv(
     # --- Physical-time-aware gap ---
     effective_gap = _compute_effective_gap(gap, window_size, horizon_windows)
     if effective_gap > gap:
-        diagnostics = {
+        diagnostics.update({
             "gap_auto_adjusted": True,
             "gap_requested": gap,
             "gap_effective": effective_gap,
-        }
+        })
         logger.info(
             "Gap auto-adjusted from %d to %d (window_size=%d, horizon=%d)",
             gap, effective_gap, window_size, horizon_windows,
         )
-    else:
-        diagnostics = {}
 
     tscv = TimeSeriesSplit(n_splits=n_splits, gap=effective_gap)
 
@@ -641,9 +644,8 @@ def rolling_origin_cv(
             X_test_scaled = scaler.transform(X_test)
 
             clf = LogisticRegression(
-                # sklearn 1.8+: omit penalty=, use l1_ratio=1 for L1 via saga
+                penalty="l1",
                 solver="saga",
-                l1_ratio=1.0,
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
             )
@@ -729,7 +731,7 @@ def rolling_origin_cv(
             folds=[],
             warning="no_valid_folds",
             n_features_used=avg_features_used,
-            diagnostics={},
+            diagnostics=diagnostics,
         )
 
     mean_dynamic = np.mean([f.dynamic_auc for f in folds])
@@ -756,7 +758,7 @@ def rolling_origin_cv(
         folds=folds,
         warning=warning,
         n_features_used=avg_features_used,
-        diagnostics={},
+        diagnostics=diagnostics,
     )
 
 
@@ -874,12 +876,12 @@ def cross_modal_prediction(
     """
     step = max(1, window_size // 2)
 
-    # Build features from SOURCE (6 epoch confirmatory features)
+    # Build features from SOURCE (v1 dynamic descriptor set)
     X_source, source_feature_names = build_feature_matrix(
         source_wcc, window_size, hz, onset_threshold
     )
 
-    # Build features from TARGET (6 epoch confirmatory features,
+    # Build features from TARGET (v1 dynamic descriptor set,
     # for restricted model)
     X_target, target_feature_names = build_feature_matrix(
         target_wcc, window_size, hz, onset_threshold
@@ -947,7 +949,7 @@ def cross_modal_prediction(
     target_mean_sync_col = target_mean_sync_col[both_valid]
 
     # Imputation strategy depends on feature semantics:
-    # DECISION-10: with the 6 epoch confirmatory features, duration
+    # DECISION-10: with the v1 dynamic descriptor set, duration
     # features are onset_latency (0), rise_time (1), recovery_time (3),
     # and dwell_time (4).  peak_amplitude (2) and switching_rate (5)
     # are bounded-range / rate quantities and use the 0-fill default.
@@ -1138,8 +1140,8 @@ def cross_modal_prediction(
         # --- Restricted model (target shape + target AR) ---
         try:
             clf_restricted = LogisticRegression(
+                penalty="l1",
                 solver="saga",
-                l1_ratio=1.0,
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
             )
@@ -1154,8 +1156,8 @@ def cross_modal_prediction(
         joint_auc = 0.5
         try:
             clf_joint = LogisticRegression(
+                penalty="l1",
                 solver="saga",
-                l1_ratio=1.0,
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
             )
@@ -1172,8 +1174,8 @@ def cross_modal_prediction(
         ablation_auc = float("nan")
         try:
             clf_abl = LogisticRegression(
+                penalty="l1",
                 solver="saga",
-                l1_ratio=1.0,
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
             )
@@ -1284,7 +1286,7 @@ def cross_modal_prediction(
         if ablation_delta_ci is not None and ablation_delta_ci[0] > 0.0:
             ablation_conclusion = (
                 f"Strict validation passed: source temporal-shape "
-                f"features (6 epoch confirmatory features) retain "
+                f"features (v1 dynamic descriptor set) retain "
                 f"significant incremental predictive value beyond "
                 f"target's full model and source's overall synchrony "
                 f"level (ablation delta_AUC = {mean_ablation_delta:.3f}, "

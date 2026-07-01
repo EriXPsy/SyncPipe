@@ -33,7 +33,9 @@ from .dynamic_features import (
     extract_features_segmented,
     sliding_window_wcc,
 )
+from .feature_definitions import ONSET_THRESHOLD
 from .prediction import FoldResult, PredictionResult, rolling_origin_cv
+from .qc import DataQualityError, run_quality_check
 
 
 class Dyad(SynchronyDataset):
@@ -84,7 +86,7 @@ class AnalysisResults:
     dynamic_features: Dict[str, Dict[str, float]] = field(default_factory=dict)
     # Dynamic features (segmented by context)
     dynamic_features_segmented: Dict[str, Dict[str, Dict[str, float]]] = field(default_factory=dict)
-    # Threshold metadata — per-pair {"threshold": float, "mode": "surrogate"|"fixed", ...}
+    # Threshold metadata — per-pair {"threshold": float, "mode": "within_dyad_surrogate"|"fixed", ...}
     threshold_meta: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     # Prediction (nested by modality pair key, e.g. "neural__behavioral")
     prediction: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -239,6 +241,18 @@ class DynamicAnalyzer:
         tests) where the rolling-origin CV + LogisticRegression cost
         is wasted compute. Static / dynamic results are unaffected;
         ``results.prediction`` will be an empty dict.
+    threshold_mode : {"within_dyad", "fixed"}, default "within_dyad"
+        ``"within_dyad"`` computes a per-pair signal-level IAAFT threshold
+        for descriptive/existence workflows. ``"fixed"`` uses
+        ``onset_threshold`` (or the default 0.5).  Session-pooled thresholds
+        are intentionally handled by ``BatchComputationPipeline`` because one
+        ``DynamicAnalyzer`` instance only sees one dyad.
+    run_qc : bool, default True
+        Run the 3-stage quality gate before feature extraction.
+    qc_raise_on_fail : bool, default True
+        Raise ``DataQualityError`` on QC FAIL. Set False only for exploratory
+        inspection where a failed QC report should be exported instead of
+        blocking analysis.
     """
 
     def __init__(
@@ -253,6 +267,10 @@ class DynamicAnalyzer:
         prediction_horizon: int = 5,
         prediction_gap: int = 5,
         enable_prediction: bool = True,
+        threshold_mode: str = "within_dyad",
+        run_qc: bool = True,
+        qc_raise_on_fail: bool = True,
+        qc_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.window_size = window_size
         self.surrogate_n = surrogate_n
@@ -260,18 +278,39 @@ class DynamicAnalyzer:
         self.alpha = alpha
         self.seed = seed
         self.enable_prediction = bool(enable_prediction)
-        # onset_threshold resolution:
-        #   None  → surrogate-derived (per-dyad IAAFT 95th pct) — PRIMARY
-        #   float → explicit fixed threshold (sensitivity sweep [0.3, 0.7])
-        #
-        # The surrogate-derived threshold is the primary analysis path.
-        # Fixed ONSET_THRESHOLD (0.5) is retained as sensitivity analysis only.
-        # None is stored as sentinel; fit_transform() computes per-dyad
-        # surrogate thresholds via compute_surrogate_threshold_from_signals().
-        self.onset_threshold = (
-            float(onset_threshold) if onset_threshold is not None else None
-        )
-        self._use_surrogate_threshold = (onset_threshold is None)
+
+        threshold_mode = str(threshold_mode).lower()
+        if threshold_mode == "session_pooled":
+            raise ValueError(
+                "DynamicAnalyzer operates on one dyad and cannot compute a "
+                "session-pooled threshold. Use BatchComputationPipeline "
+                "(onset_threshold='session_pooled') for between-dyad/group "
+                "comparability."
+            )
+        if threshold_mode not in ("within_dyad", "fixed"):
+            raise ValueError(
+                "threshold_mode must be 'within_dyad' or 'fixed' "
+                f"for DynamicAnalyzer, got {threshold_mode!r}."
+            )
+        if onset_threshold is not None:
+            threshold_mode = "fixed"
+
+        self.threshold_mode = threshold_mode
+        if threshold_mode == "fixed":
+            self.onset_threshold = (
+                float(onset_threshold) if onset_threshold is not None else ONSET_THRESHOLD
+            )
+            self._use_surrogate_threshold = False
+        else:
+            # Within-dyad/per-pair signal-level IAAFT threshold. This is for
+            # descriptive/existence workflows; group-comparable episode features
+            # should be computed with BatchComputationPipeline's pooled threshold.
+            self.onset_threshold = None
+            self._use_surrogate_threshold = True
+
+        self.run_qc = bool(run_qc)
+        self.qc_raise_on_fail = bool(qc_raise_on_fail)
+        self.qc_config = qc_config
         self.prediction_window = prediction_window
         self.prediction_horizon = prediction_horizon
         self.prediction_gap = prediction_gap
@@ -327,9 +366,21 @@ class DynamicAnalyzer:
         hz = dataset.target_hz
         wcc_window_sec = self.window_size / hz if hz > 0 else 1.0
 
-        # Determine threshold mode for parameter reporting
-        _thr_mode = "surrogate" if self._use_surrogate_threshold else "fixed"
-        _thr_value = self.onset_threshold  # None if surrogate, float if fixed
+        qc_report = None
+        if self.run_qc:
+            qc_report = run_quality_check(
+                dataset,
+                config=self.qc_config,
+                raise_on_fail=False,
+            )
+            if not qc_report.passed and self.qc_raise_on_fail:
+                raise DataQualityError(qc_report.summary())
+
+        # Determine threshold mode for parameter reporting.  A DynamicAnalyzer
+        # threshold is either within-dyad/per-pair surrogate-derived or fixed;
+        # session-pooled thresholds live in BatchComputationPipeline.
+        _thr_mode = "within_dyad_surrogate" if self._use_surrogate_threshold else "fixed"
+        _thr_value = self.onset_threshold  # None if within-dyad surrogate, float if fixed
 
         results = AnalysisResults(
             dyad_id=dataset.dyad_id,
@@ -341,12 +392,21 @@ class DynamicAnalyzer:
                 "seed": self.seed,
                 "onset_threshold": _thr_value,
                 "onset_threshold_mode": _thr_mode,
+                "threshold_scope": self.threshold_mode,
                 "prediction_window": self.prediction_window,
                 "prediction_horizon": self.prediction_horizon,
                 "prediction_gap": self.prediction_gap,
                 "hz": hz,
+                "qc": qc_report.to_dict() if qc_report is not None else None,
             },
         )
+        if qc_report is not None and qc_report.overall_verdict != "PASS":
+            results.diagnostics.append({
+                "stage": "qc",
+                "pair": "all",
+                "reason": qc_report.overall_verdict,
+                "detail": qc_report.to_dict(),
+            })
 
         # 1. Dynamic features (global)
         feat_dict, threshold_meta = extract_features_all_pairs(
@@ -356,6 +416,8 @@ class DynamicAnalyzer:
             onset_threshold=self.onset_threshold,
             wcc_window_sec=wcc_window_sec,
             use_surrogate_threshold=self._use_surrogate_threshold,
+            surrogate_n=self.surrogate_n,
+            surrogate_seed=self.seed,
         )
         results.dynamic_features = {k: v.to_dict() for k, v in feat_dict.items()}
         results.threshold_meta = threshold_meta
@@ -369,6 +431,8 @@ class DynamicAnalyzer:
                 onset_threshold=self.onset_threshold,
                 wcc_window_sec=wcc_window_sec,
                 use_surrogate_threshold=self._use_surrogate_threshold,
+                surrogate_n=self.surrogate_n,
+                surrogate_seed=self.seed,
             )
             results.dynamic_features_segmented = {
                 label: {pair: feat.to_dict() for pair, feat in pairs.items()}

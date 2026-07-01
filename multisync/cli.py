@@ -23,6 +23,7 @@ from .__about__ import __version__
 from .core import Dyad, DynamicAnalyzer
 from .dataset import SynchronyDataset
 from .design_controls import design_control_audit, synchrony_existence_audit
+from .qc import format_qc_report, run_quality_check
 from .feature_status import feature_status_latex, feature_status_table
 from .io import load_csv
 from .synthetic import generate_ground_truth_dyad
@@ -63,15 +64,30 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     dyad.align(target_hz=hz)
     dyad.zscore()
 
+    qc_report = run_quality_check(dyad, raise_on_fail=False)
+    print(format_qc_report(qc_report))
+    if not qc_report.passed:
+        print("Analysis stopped because QC failed. Fix the issues above or use the Python API with qc_raise_on_fail=False for exploratory inspection.", file=sys.stderr)
+        sys.exit(2)
+
     analyzer = DynamicAnalyzer(
         window_size=args.window_size,
         surrogate_n=args.surrogates,
         max_lag_sec=args.max_lag,
         seed=args.seed,
+        run_qc=False,
     )
 
     print("  Running analysis...")
     results = analyzer.fit_transform(dyad)
+    results.parameters["qc"] = qc_report.to_dict()
+    if qc_report.overall_verdict != "PASS":
+        results.diagnostics.append({
+            "stage": "qc",
+            "pair": "all",
+            "reason": qc_report.overall_verdict,
+            "detail": qc_report.to_dict(),
+        })
 
     output_path = args.output or "results.json"
     results.export_viewer_json(output_path)

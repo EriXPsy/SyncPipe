@@ -120,10 +120,14 @@ def iaaft_surrogate(
     """
     Generate one IAAFT surrogate of ``x``.
 
-    Preserves **both** the power spectrum **and** the amplitude distribution
-    of ``x``.  This is the primary (more conservative, field-standard)
-    null model; see ``ft_surrogate`` for the phase-randomization
-    robustness comparator.
+    The IAAFT algorithm alternates between matching the empirical amplitude
+    distribution and matching the Fourier magnitudes.  A finite surrogate
+    cannot, in general, preserve both constraints exactly.  SyncPipe returns
+    the final **rank-adjusted** sequence: the empirical amplitude distribution
+    is preserved exactly (up to floating-point ordering/ties), while the power
+    spectrum / linear autocorrelation is matched approximately.  This is the
+    appropriate default for SyncPipe's signal-level and WCC-level nulls, where
+    the null should not change the marginal value distribution.
 
     Parameters
     ----------
@@ -134,12 +138,13 @@ def iaaft_surrogate(
     max_iter : int
         Maximum number of iterative adjustment cycles.
     tol : float
-        Convergence tolerance on spectral error (sum-of-squares).
+        Convergence tolerance on iterative signal change.
 
     Returns
     -------
     np.ndarray
-        IAAFT surrogate of ``x``.
+        IAAFT surrogate of ``x`` with the same empirical amplitude
+        distribution as ``x`` and an approximately matched power spectrum.
     """
     x = np.asarray(x, dtype=float)
     if not np.all(np.isfinite(x)):
@@ -148,7 +153,7 @@ def iaaft_surrogate(
     if n < 4:
         return x.copy()
 
-    # Step 1: target sorted values (amplitude distribution)
+    # Step 1: target sorted values (empirical amplitude distribution)
     x_sorted = np.sort(x)
 
     # Step 2: initial FT surrogate (phase randomization)
@@ -165,9 +170,8 @@ def iaaft_surrogate(
     x_surr = np.fft.irfft(X_init, n=n)
 
     # Step 3: iterative amplitude-spectrum matching
-    prev_amp = None
     for _ in range(max_iter):
-        # (a) Match amplitude distribution via rank ordering
+        # (a) Match amplitude distribution via rank ordering.
         rank_order = np.argsort(np.argsort(x_surr))
         x_adjusted = x_sorted[rank_order]
 
@@ -177,15 +181,17 @@ def iaaft_surrogate(
         # (c) Replace magnitudes with original power spectrum
         X_new = magnitudes * np.exp(1j * np.angle(X_adj))
 
-        # (d) IFFT
+        # (d) IFFT back to time domain
         x_new = np.fft.irfft(X_new, n=n)
 
-        # (e) Convergence check on SIGNAL change
-        if prev_amp is not None:
-            signal_change = float(np.sum((x_new - x_surr) ** 2))
-            if signal_change < tol * n:
-                return x_new
-        prev_amp = x_new.copy()
+        # (e) Convergence check on iterative signal change
+        signal_change = float(np.sum((x_new - x_surr) ** 2))
         x_surr = x_new
+        if signal_change < tol * n:
+            break
 
-    return x_surr
+    # Final rank adjustment: exact empirical amplitude distribution, approximate
+    # spectrum. Returning x_surr here would instead privilege the exact spectrum
+    # and allow the marginal distribution to drift.
+    final_rank_order = np.argsort(np.argsort(x_surr))
+    return x_sorted[final_rank_order]

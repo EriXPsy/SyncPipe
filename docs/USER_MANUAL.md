@@ -3,7 +3,7 @@
 > Measurement infrastructure for multimodal interpersonal synchrony.
 > This manual is for human users. For an agent-oriented capability sheet see
 > [`SKILL.md`](SKILL.md). For the intellectual lineage see
-> [`SYNCPIPE_FAMILY_TREE.html`](SYNCPIPE_FAMILY_TREE.html) and `METHOD_LOG.md`.
+> `SYNCPIPE_FAMILY_TREE.md` (when present) and `METHOD_LOG.md`.
 
 ---
 
@@ -24,28 +24,29 @@ single number.** What SyncPipe gives you is the audit, not a verdict.
 ## 2. Installation
 
 ```bash
-cd multisync-core
+cd SyncPipe
 python -m pip install -e .          # core
 python -m pip install -e ".[dev]"   # + test tools
 ```
 Requires Python ≥ 3.10. Check the install:
 ```bash
-multisync --version          # -> syncpipe 1.0.0
+syncpipe --version          # -> syncpipe 1.0.0
 ```
+`syncpipe` is the preferred v1 command/import namespace. The older `multisync`
+namespace is retained as a compatibility alias during the transition.
 
 ---
 
-## 3. One-click reproduction
+## 3. Reproduction smoke check
 
-From `multisync-core/`:
+From the repository root:
 ```bash
-bash reproduce.sh
+python -m pytest
+python -m syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 --no-prediction -o artifacts/demo_v1
+python scripts/build_feature_table.py
 ```
-This runs, in order: (1) the test suite, (2) the synthetic demo with the full
-three-step audited evidence chain, (3) the authoritative feature table from the
-single source of truth, (4) the timing-descriptor validation (block-bootstrap
-null + incremental AUC). Outputs land in `artifacts/repro_demo/`,
-`docs/FEATURE_TABLE.*`, and `artifacts/timing_validation/`.
+This runs the test suite, the synthetic demo with the audited evidence chain,
+and the authoritative feature table from the single source of truth.
 
 > The full Gordon / Lerique / Andersen real-data pipelines need raw datasets
 > that are not shipped in the repo; `docs/SCRIPT_MAP.md` lists the per-dataset
@@ -78,19 +79,19 @@ results".
 
 ## 5. The two CLI commands
 
-### `multisync demo`
+### `syncpipe demo`
 Runs the complete methods demonstration on a synthetic ground-truth dyad and
 writes all audit reports. Fast smoke run:
 ```bash
-multisync demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifacts/demo
+syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifacts/demo
 ```
 Outputs: `viewer_results.json`, `feature_table.csv`, `feature_status_table.csv`,
 `TABLE1_FEATURE_STATUS.tex`, `DEMO_REPORT.md`.
 
-### `multisync analyze`
+### `syncpipe analyze`
 Runs the pipeline on your own data:
 ```bash
-multisync analyze -i behavior.csv,neural.csv -n behavior,neural \
+syncpipe analyze -i behavior.csv,neural.csv -n behavior,neural \
     --hz 4 --window-size 40 --surrogates 500 -o results.json
 ```
 
@@ -141,6 +142,13 @@ Key facts (v1.0):
 Always read a descriptor's row in the status table before reporting it: it tells
 you the paradigm restriction (e.g. event-only), the main risk, and whether it
 enters the primary FDR family.
+
+Timing / morphology descriptors use raw missing-value semantics: if an event is
+not scientifically defined in the WCC trace, the main timing field is `NaN`
+(JSON `null`) and the corresponding `*_defined` flag is 0.  Separate
+`*_imputed` companion fields exist only for downstream machine-learning workflows
+that explicitly need filled duration-like predictors; do not report imputed
+values as measured latencies.
 
 ---
 
@@ -209,4 +217,3 @@ confirmatory"; "more synchrony is always better".
 | `scripts/` | main-trunk result generators (see `docs/SCRIPT_MAP.md`) |
 | `experimental/` | v2 staging: unintegrated / falsified / one-off code |
 | `docs/METHOD_LOG.md` | dated methodological decisions |
-| `docs/AUDIT_V1_REPORT.md` | v1.0 pre-release code audit |

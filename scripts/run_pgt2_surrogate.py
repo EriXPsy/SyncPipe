@@ -136,11 +136,18 @@ def main() -> None:
     # -----------------------------------------------------------------------
     # 3. Save comparison JSON
     # -----------------------------------------------------------------------
+    def _jsonable(vv):
+        if isinstance(vv, (np.bool_, bool)):
+            return bool(vv)
+        if isinstance(vv, (int, float, np.floating, np.integer)):
+            return float(vv)
+        return vv
+
     comparison = {
-        "surrogate": {k: {kk: (float(vv) if isinstance(vv, (int, float, np.floating, np.integer)) else vv)
-                          for kk, vv in v.items()} for k, v in hyp_surr.items()},
-        "fixed": {k: {kk: (float(vv) if isinstance(vv, (int, float, np.floating, np.integer)) else vv)
-                       for kk, vv in v.items()} for k, v in hyp_fixed.items()},
+        "surrogate": {k: {kk: _jsonable(vv) for kk, vv in v.items()}
+                      for k, v in hyp_surr.items()},
+        "fixed": {k: {kk: _jsonable(vv) for kk, vv in v.items()}
+                  for k, v in hyp_fixed.items()},
     }
     comp_path = os.path.join(OUT_DIR, "pgt2_comparison.json")
     with open(comp_path, "w") as f:

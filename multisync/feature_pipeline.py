@@ -173,6 +173,28 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         unit="dimensionless [0, 1]",
         typical_range="0.3 to 0.8",
     ),
+    "first_peak_time": FeatureInfo(
+        name="first_peak_time",
+        tier="conditional",
+        axis="temporal",
+        fdr_member=False,
+        description="Time of the first prominent above-threshold WCC peak.",
+        hkb_interpretation="Exploratory trace-morphology timing descriptor. "
+        "Report only with definedness rates and paradigm restrictions.",
+        unit="seconds",
+        typical_range="paradigm-dependent",
+    ),
+    "inter_peak_cv": FeatureInfo(
+        name="inter_peak_cv",
+        tier="conditional",
+        axis="temporal",
+        fdr_member=False,
+        description="Coefficient of variation of intervals between prominent WCC peaks.",
+        hkb_interpretation="Exploratory regularity/irregularity descriptor for multi-peak traces. "
+        "Requires enough defined peaks and is not a v1 confirmatory endpoint.",
+        unit="dimensionless",
+        typical_range="paradigm-dependent",
+    ),
 }
 
 
@@ -219,7 +241,7 @@ def get_fdr_features() -> List[str]:
 
 
 def get_core_features() -> List[str]:
-    """Return core (confirmatory) feature names."""
+    """Return core v1 descriptor names."""
     return list(CORE_FEATURES)
 
 
@@ -247,51 +269,53 @@ def recommend_features(research_question: str = "general") -> Dict[str, List[str
     """
     recommendations = {
         "general": {
-            "primary": ["peak_amplitude"],
-            "supplementary": ["fraction_above_threshold", "dwell_time", "switching_rate", "bimodality_coefficient"],
+            "primary": list(FDR_FEATURES),
+            "supplementary": ["fraction_above_threshold", "bimodality_coefficient", "synchrony_entropy", "first_peak_time", "inter_peak_cv"],
             "reference": ["mean_synchrony"],
             "rationale": (
-                "General-purpose v1 set: peak_amplitude as the primary "
-                "synchrony-existence descriptor; occupancy/structure features "
-                "reported as exploratory-secondary descriptors."
+                "General-purpose v1 set: peak_amplitude, dwell_time, and "
+                "switching_rate are the primary FDR-family descriptors when "
+                "thresholding is group-comparable; distribution/timing descriptors "
+                "are exploratory-secondary."
             ),
         },
         "intensity": {
             "primary": ["peak_amplitude"],
-            "supplementary": ["onset_latency", "recovery_time"],
+            "supplementary": ["fraction_above_threshold"],
             "reference": ["mean_synchrony"],
             "rationale": (
-                "Focus on coupling intensity: peak_amplitude as primary measure, "
-                "onset_latency and recovery_time to characterize the intensity envelope."
+                "Focus on coupling magnitude: peak_amplitude as the primary "
+                "intensity workhorse; mean_synchrony remains a reference comparator."
             ),
         },
         "dynamics": {
-            "primary": ["rise_time", "recovery_time", "onset_latency"],
-            "supplementary": ["peak_amplitude"],
+            "primary": [],
+            "supplementary": ["onset_latency", "rise_time", "recovery_time", "first_peak_time", "inter_peak_cv", "peak_amplitude"],
             "reference": ["mean_synchrony"],
             "rationale": (
-                "Focus on temporal dynamics: how quickly coupling builds (rise_time), "
-                "how long it persists (recovery_time), and when it starts (onset_latency)."
+                "Timing/morphology descriptors are exploratory in v1. Report them "
+                "only with paradigm restrictions and definedness rates; they are not "
+                "primary confirmatory endpoints."
             ),
         },
         "structure": {
-            "primary": ["fraction_above_threshold", "dwell_time", "switching_rate"],
-            "supplementary": ["bimodality_coefficient", "synchrony_entropy"],
+            "primary": ["dwell_time", "switching_rate"],
+            "supplementary": ["fraction_above_threshold", "bimodality_coefficient", "synchrony_entropy"],
             "reference": ["mean_synchrony"],
             "rationale": (
-                "Focus on coordination structure: fraction_above_threshold for occupancy, "
-                "dwell_time for stability, switching_rate for flexibility. "
-                "BC can reveal dual-state (on/off) coupling patterns; "
-                "entropy captures state-complexity (descriptive only, not FDR)."
+                "Focus on coordination structure: dwell_time and switching_rate "
+                "summarize above-threshold state persistence/flexibility when the "
+                "threshold is comparable; occupancy and distribution-shape descriptors "
+                "are reported as exploratory-secondary."
             ),
         },
         "full": {
             "primary": list(FDR_FEATURES),
-            "supplementary": ["onset_latency", "rise_time", "recovery_time", "synchrony_entropy"],
+            "supplementary": ["fraction_above_threshold", "bimodality_coefficient", "synchrony_entropy", "onset_latency", "rise_time", "recovery_time", "first_peak_time", "inter_peak_cv"],
             "reference": ["mean_synchrony"],
             "rationale": (
-                "Complete feature set for comprehensive analysis "
-                "(all FDR-family features, plus diagnostics)."
+                "Complete v1 descriptor map: primary FDR-family descriptors plus "
+                "reference and exploratory diagnostics."
             ),
         },
     }

@@ -222,21 +222,32 @@ class SynchronyDataset:
         for name, df in self.modalities.items():
             time_types[name] = _detect_time_type(df["time"])
 
-        all_relative = all(tt == "relative" for tt in time_types.values())
-        any_absolute = any(tt == "absolute" for tt in time_types.values())
-        mixed = any_absolute and not all_relative
+        abs_names = [n for n, t in time_types.items() if t == "absolute"]
+        rel_names = [n for n, t in time_types.items() if t == "relative"]
+        unknown_names = [n for n, t in time_types.items() if t == "unknown"]
 
-        if mixed:
-            # Some files have absolute timestamps, some don't — very dangerous
-            abs_names = [n for n, t in time_types.items() if t == "absolute"]
-            rel_names = [n for n, t in time_types.items() if t == "relative"]
+        any_absolute = bool(abs_names)
+        any_relative = bool(rel_names)
+        any_unknown = bool(unknown_names)
+        all_relative = any_relative and not any_absolute and not any_unknown
+        all_absolute = any_absolute and not any_relative and not any_unknown
+
+        # Safe: every modality uses absolute timestamps.  The previous logic
+        # incorrectly rejected this case because it treated "any absolute and
+        # not all relative" as mixed.
+        if all_absolute:
+            pass
+        # Dangerous: absolute clocks mixed with relative or unknown clocks.
+        elif any_absolute and (any_relative or any_unknown):
             raise ValueError(
-                f"Timestamp type mismatch! Modalities {abs_names} use absolute "
-                f"timestamps while {rel_names} use relative timestamps. "
-                f"Either convert all to absolute or ensure co-starting."
+                "Timestamp type mismatch! "
+                f"Absolute-timestamp modalities: {abs_names}; "
+                f"relative-timestamp modalities: {rel_names}; "
+                f"unknown-timestamp modalities: {unknown_names}. "
+                "Convert all modalities to one absolute time base, or use only "
+                "co-started relative time axes."
             )
-
-        if all_relative and require_co_start:
+        elif all_relative and require_co_start:
             raise ValueError(
                 "All modalities use RELATIVE timestamps (starting near 0). "
                 "Cross-device synchrony analysis requires PRECISE time "
@@ -245,8 +256,7 @@ class SynchronyDataset:
                 "were started at the exact same moment (co-started). "
                 "If co-started, set require_co_start=False to proceed."
             )
-
-        if all_relative and not require_co_start:
+        elif all_relative:
             warnings.warn(
                 "All modalities use relative timestamps (starting near 0). "
                 "If recording devices started at DIFFERENT times, CCF will "
@@ -256,6 +266,15 @@ class SynchronyDataset:
                 "this check.",
                 UserWarning,
             )
+        elif any_unknown:
+            msg = (
+                f"Some modality timestamp types are unknown: {unknown_names}. "
+                "SyncPipe cannot verify cross-device co-start from these time "
+                "axes. Use absolute timestamps when possible."
+            )
+            if require_co_start:
+                raise ValueError(msg)
+            warnings.warn(msg, UserWarning)
 
         self.target_hz = target_hz
         feat_cols = self.feature_columns
@@ -425,6 +444,14 @@ class SynchronyDataset:
             stats[name] = {}
             for col in feat_cols[name]:
                 vals = df[col].values.astype(float)
+                finite = np.isfinite(vals)
+                if not finite.any():
+                    # Never convert missing data into a valid constant signal.
+                    # A full-NaN channel should fail QC downstream, not become
+                    # a zero-variance time series that can enter WCC silently.
+                    stats[name][col] = {"status": "all_nan", "n_finite": 0}
+                    df[col] = np.full(vals.shape, np.nan, dtype=float)
+                    continue
 
                 if method == "robust":
                     median = float(np.nanmedian(vals))
@@ -434,20 +461,28 @@ class SynchronyDataset:
                     stats[name][col] = {
                         "median": median, "iqr": iqr,
                         "q25": q25, "q75": q75,
+                        "n_finite": int(finite.sum()),
                     }
                     if iqr > 0:
                         df[col] = (vals - median) / iqr
                     else:
-                        df[col] = 0.0
+                        out = np.full(vals.shape, np.nan, dtype=float)
+                        out[finite] = 0.0
+                        df[col] = out
                 else:
                     # standard (mean/std)
                     mu = float(np.nanmean(vals))
-                    sigma = float(np.nanstd(vals, ddof=1))  # ddof=1: sample std (psychology standard)
-                    stats[name][col] = {"mean": mu, "std": sigma}
+                    sigma = float(np.nanstd(vals, ddof=1)) if finite.sum() > 1 else 0.0
+                    stats[name][col] = {
+                        "mean": mu, "std": sigma,
+                        "n_finite": int(finite.sum()),
+                    }
                     if sigma > 0:
                         df[col] = (vals - mu) / sigma
                     else:
-                        df[col] = 0.0
+                        out = np.full(vals.shape, np.nan, dtype=float)
+                        out[finite] = 0.0
+                        df[col] = out
 
                 # Post-normalization Winsorization (clip extreme tails)
                 if clip_sigma is not None:

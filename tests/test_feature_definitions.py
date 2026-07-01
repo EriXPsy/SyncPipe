@@ -102,22 +102,24 @@ def test_find_dominant_peak_all_nan_returns_none():
 def test_onset_undefined_when_trace_all_above_threshold():
     """A trace with no baseline phase has scientifically undefined onset.
 
-    Per NaN semantics (v1.0 2026-06-13): undefined onset is filled with
-    wcc_window_sec as a conservative upper bound, not NaN.
-    onset_defined=0 encodes the structural information downstream.
+    Raw timing semantics: undefined onset is NaN.  The companion
+    onset_latency_imputed field preserves the conservative wcc_window_sec fill
+    for downstream ML workflows that explicitly need imputation.
     """
     wcc = np.full(300, 0.9)
     feats = extract_features(wcc, hz=1.0, wcc_window_sec=30.0)
     assert feats.onset_defined == 0
-    assert feats.onset_latency == 30.0  # wcc_window_sec fill
+    assert np.isnan(feats.onset_latency)
+    assert feats.onset_latency_imputed == 30.0
 
 
 def test_onset_undefined_when_trace_all_below_threshold():
-    """All-below trace has no onset — wcc_window_sec fill per NaN semantics."""
+    """All-below trace has no onset — raw value is NaN, imputed value is explicit."""
     wcc = np.full(300, 0.2)
     feats = extract_features(wcc, hz=1.0, wcc_window_sec=30.0)
     assert feats.onset_defined == 0
-    assert feats.onset_latency == 30.0  # wcc_window_sec fill
+    assert np.isnan(feats.onset_latency)
+    assert feats.onset_latency_imputed == 30.0
 
 
 def test_onset_defined_for_clear_step_up():
@@ -295,7 +297,8 @@ def test_recovery_nan_when_never_returns():
     ])
     feats = extract_features(wcc, hz=1.0, wcc_window_sec=30.0)
     assert feats.recovery_defined == 0
-    assert feats.recovery_time == 30.0  # wcc_window_sec fill per NaN semantics
+    assert np.isnan(feats.recovery_time)
+    assert feats.recovery_time_imputed == 30.0
 
 
 # ---------------------------------------------------------------------------

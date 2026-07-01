@@ -174,6 +174,33 @@ class DataImporter:
             })
         return result
 
+    def load_signal(
+        self,
+        filepath: str,
+        column: str = "signal",
+        time_col: Optional[str] = None,
+        delimiter: Optional[str] = None,
+        skip_rows: int = 0,
+        encoding: str = "utf-8",
+    ) -> np.ndarray:
+        """Load one numeric signal column from a CSV/TSV file.
+
+        This small helper backs ``ComputationPipeline.load_from_files``.  It
+        deliberately returns only the requested 1-D signal array; alignment and
+        time handling are the caller's responsibility in that low-level API.
+        """
+        loaded = self.load_csv(
+            filepath,
+            time_col=time_col,
+            signal_cols=[column],
+            delimiter=delimiter,
+            skip_rows=skip_rows,
+            encoding=encoding,
+        )
+        if column not in loaded:
+            raise ValueError(f"Column {column!r} was not loaded from {filepath!r}.")
+        return loaded[column][column].to_numpy(dtype=float)
+
     # ------------------------------------------------------------------
     # OpenFace AU CSV
     # ------------------------------------------------------------------

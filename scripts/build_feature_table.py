@@ -46,7 +46,7 @@ from multisync.feature_definitions import (
 NULL_MODEL = {
     "L0": "Signal-level IAAFT (shuffle raw signals, recompute WCC)",
     "L1": "WCC-level IAAFT (shuffle WCC; preserves L0 moments)",
-    "L2": "Circular time-shift (preserves L0+L1; destroys phase anchor)",
+    "L2": "Exploratory in v1; validated timing/morphology existence null deferred to v2",
 }
 
 # ---------------------------------------------------------------------------

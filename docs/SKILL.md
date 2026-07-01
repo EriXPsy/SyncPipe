@@ -27,57 +27,59 @@ interpersonal synchrony built on a windowed cross-correlation (WCC) substrate.
 - Never describe `mean_synchrony` as confirmatory; it is a reference comparator.
 
 ## Environment
-- Python ≥ 3.10. Install: `python -m pip install -e .` from `multisync-core/`.
-- Version check: `multisync --version` → `syncpipe 1.0.0`.
+- Python ≥ 3.10. Install: `python -m pip install -e .` from the repository root.
+- Version check: `syncpipe --version` → `syncpipe 1.0.0`.
 
 ## CLI entry points
 ```bash
 # Methods demo + all audit reports on a synthetic ground-truth dyad
-multisync demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifacts/demo
+syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifacts/demo
 
 # Analyze user data (one CSV per modality, comma-separated)
-multisync analyze -i a.csv,b.csv -n behavior,neural --hz 4 --window-size 40 \
+syncpipe analyze -i a.csv,b.csv -n behavior,neural --hz 4 --window-size 40 \
     --surrogates 500 -o results.json
 
-# One-click reproduction of self-contained trunk results
-bash reproduce.sh
+# Self-contained reproduction smoke check
+python -m pytest
+python -m syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 --no-prediction -o artifacts/demo_v1
+python scripts/build_feature_table.py
 ```
 
-## Python API (import multisync as ms)
+## Python API (import syncpipe as sp)
 ```python
-import multisync as ms
+import syncpipe as sp
 
 # Build a dyad and run dynamic analysis
-dyad = ms.Dyad(...)                       # see core.py
-analyzer = ms.DynamicAnalyzer(...)
+dyad = sp.Dyad(...)                       # see core.py
+analyzer = sp.DynamicAnalyzer(...)
 
 # Pipelines
-pipe  = ms.ComputationPipeline(hz=4.0, window_size=40)
-infer = ms.InferencePipeline(features_df, hz=4.0, wcc_window_sec=10.0)
+pipe  = sp.ComputationPipeline(hz=4.0, window_size=40)
+infer = sp.InferencePipeline(features_df, hz=4.0, wcc_window_sec=10.0)
 
 # Three-step evidence chain
-ms.synchrony_existence_audit(sig_a, sig_b, hz=4.0, window_size=40)   # step 1
-ms.design_control_audit(signal_pairs, hz=4.0, window_size=40)        # step 2
+sp.synchrony_existence_audit(sig_a, sig_b, hz=4.0, window_size=40)   # step 1
+sp.design_control_audit(signal_pairs, hz=4.0, window_size=40)        # step 2
 # step 3 = InferencePipeline (dyad-paired permutation + BH-FDR)
 
 # Surrogate thresholds
-ms.compute_session_pooled_threshold(...)        # between-dyad comparability
-ms.compute_condition_pooled_thresholds(...)
+sp.compute_session_pooled_threshold(...)        # between-dyad comparability
+sp.compute_condition_pooled_thresholds(...)
 
 # Feature surface
-ms.FDR_FEATURES        # ('peak_amplitude','dwell_time','switching_rate')
-ms.REFERENCE_FEATURE   # ('mean_synchrony',)
-ms.feature_status_table()   # rows with source level / paradigm / risk
-ms.explain_feature("dwell_time")
+sp.FDR_FEATURES        # ('peak_amplitude','dwell_time','switching_rate')
+sp.REFERENCE_FEATURE   # ('mean_synchrony',)
+sp.feature_status_table()   # rows with source level / paradigm / risk
+sp.explain_feature("dwell_time")
 ```
 
 ## Key constants
-- `ms.ONSET_THRESHOLD` = 0.5 (episode = WCC above threshold).
+- `sp.ONSET_THRESHOLD` = 0.5 (episode = WCC above threshold).
 - `SURROGATE_THRESHOLD_PERCENTILE` = 95 (per-dyad surrogate cut-off).
 - Primary FDR family size = 3 → BH multiplicity denominator m = 3.
 
 ## Mandatory workflow (do not reorder)
-1. **QC gate**: `ms.run_quality_check(dataset)` → handle WARN/FAIL. A FAIL
+1. **QC gate**: `sp.run_quality_check(dataset)` → handle WARN/FAIL. A FAIL
    raises `DataQualityError`. Watch the temporal-alignment stage: misaligned
    start times create a false CCF lag.
 2. **Existence audit** (signal-level IAAFT). Necessary, not sufficient.
@@ -96,5 +98,5 @@ ms.explain_feature("dwell_time")
 ## Pointers
 - Decisions & lineage: `docs/METHOD_LOG.md` (esp. §3 evidence chain, §7d lineage).
 - Script → trunk-result mapping: `docs/SCRIPT_MAP.md`.
-- Visual overview: `docs/SYNCPIPE_FAMILY_TREE.html`.
+- Visual overview: `docs/SYNCPIPE_FAMILY_TREE.md` (if present).
 - v2 staging (do not treat as v1 API): `experimental/`.

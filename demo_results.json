@@ -4,51 +4,59 @@
   "dynamic_features": {
     "behavior_person_a__neural_person_a": {
       "peak_amplitude": 0.9045854173679508,
-      "dwell_time": 6.5,
-      "switching_rate": 3.2989690721649487,
+      "dwell_time": 7.833333333333333,
+      "switching_rate": 2.4742268041237114,
       "mean_synchrony": 0.27981442042048965,
       "onset_latency": 34.0,
       "rise_time": 1.0,
-      "recovery_time": 9.0,
+      "recovery_time": 3.0,
       "synchrony_entropy": 4.070533998686995,
       "bimodality_coefficient": 0.47657384851022633,
-      "fraction_above_threshold": 0.18213058419243985,
+      "fraction_above_threshold": 0.17869415807560138,
       "inter_peak_cv": 1.1379369737079408,
       "first_peak_time": 36.0,
+      "onset_latency_imputed": 34.0,
+      "rise_time_imputed": 1.0,
+      "recovery_time_imputed": 3.0,
       "onset_defined": 1,
       "rise_defined": 1,
       "recovery_defined": 1,
       "_params": {
-        "threshold": 0.6742776452360456,
+        "threshold": 0.6892335466945961,
         "hz": 1.0,
-        "wcc_window_sec": 10.0
+        "wcc_window_sec": 10.0,
+        "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN"
       }
     },
     "behavior_person_a__neural_person_b": {
       "peak_amplitude": 0.9413651597182056,
-      "dwell_time": 7.5,
-      "switching_rate": 3.2989690721649487,
+      "dwell_time": 8.0,
+      "switching_rate": 2.8865979381443303,
       "mean_synchrony": 0.23184439546430963,
-      "onset_latency": 40.0,
-      "rise_time": 1.0,
+      "onset_latency": 41.0,
+      "rise_time": 83.0,
       "recovery_time": 5.0,
       "synchrony_entropy": 4.193782206730324,
       "bimodality_coefficient": 0.5539614809430439,
-      "fraction_above_threshold": 0.23024054982817868,
+      "fraction_above_threshold": 0.21305841924398625,
       "inter_peak_cv": 1.1331302609314202,
       "first_peak_time": 26.0,
+      "onset_latency_imputed": 41.0,
+      "rise_time_imputed": 83.0,
+      "recovery_time_imputed": 5.0,
       "onset_defined": 1,
       "rise_defined": 1,
       "recovery_defined": 1,
       "_params": {
-        "threshold": 0.6722305336263115,
+        "threshold": 0.6844456105717045,
         "hz": 1.0,
-        "wcc_window_sec": 10.0
+        "wcc_window_sec": 10.0,
+        "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN"
       }
     },
     "behavior_person_b__neural_person_a": {
       "peak_amplitude": 0.8958200789786994,
-      "dwell_time": 7.8,
+      "dwell_time": 7.0,
       "switching_rate": 4.123711340206186,
       "mean_synchrony": 0.25932570425837764,
       "onset_latency": 36.0,
@@ -56,16 +64,20 @@
       "recovery_time": 3.0,
       "synchrony_entropy": 4.090435886053551,
       "bimodality_coefficient": 0.5296747813426009,
-      "fraction_above_threshold": 0.2542955326460481,
-      "inter_peak_cv": 1.3086806962080861,
+      "fraction_above_threshold": 0.24054982817869416,
+      "inter_peak_cv": 1.268663396192293,
       "first_peak_time": 40.0,
+      "onset_latency_imputed": 36.0,
+      "rise_time_imputed": 2.0,
+      "recovery_time_imputed": 3.0,
       "onset_defined": 1,
       "rise_defined": 1,
       "recovery_defined": 1,
       "_params": {
-        "threshold": 0.6805593536127016,
+        "threshold": 0.6943348810140131,
         "hz": 1.0,
-        "wcc_window_sec": 10.0
+        "wcc_window_sec": 10.0,
+        "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN"
       }
     },
     "behavior_person_b__neural_person_b": {
@@ -78,16 +90,20 @@
       "recovery_time": 7.0,
       "synchrony_entropy": 4.029342441666545,
       "bimodality_coefficient": 0.42042870920765296,
-      "fraction_above_threshold": 0.14432989690721648,
+      "fraction_above_threshold": 0.14776632302405499,
       "inter_peak_cv": 1.2198564213903476,
       "first_peak_time": 43.0,
+      "onset_latency_imputed": 42.0,
+      "rise_time_imputed": 157.0,
+      "recovery_time_imputed": 7.0,
       "onset_defined": 1,
       "rise_defined": 1,
       "recovery_defined": 1,
       "_params": {
-        "threshold": 0.6841902930251519,
+        "threshold": 0.6753180604282218,
         "hz": 1.0,
-        "wcc_window_sec": 10.0
+        "wcc_window_sec": 10.0,
+        "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN"
       }
     }
   },
@@ -95,24 +111,28 @@
     "PreTask": {
       "behavior_person_a__neural_person_a": {
         "peak_amplitude": 0.9045854173679508,
-        "dwell_time": 7.25,
-        "switching_rate": 3.404255319148936,
+        "dwell_time": 8.666666666666666,
+        "switching_rate": 2.553191489361702,
         "mean_synchrony": 0.31480030335067766,
         "onset_latency": 34.0,
         "rise_time": 1.0,
-        "recovery_time": 9.0,
+        "recovery_time": 3.0,
         "synchrony_entropy": 4.05717377769154,
         "bimodality_coefficient": 0.46785570057214143,
         "fraction_above_threshold": 0.20567375886524822,
         "inter_peak_cv": 1.1081741740358326,
         "first_peak_time": 36.0,
+        "onset_latency_imputed": 34.0,
+        "rise_time_imputed": 1.0,
+        "recovery_time_imputed": 3.0,
         "onset_defined": 1,
         "rise_defined": 1,
         "recovery_defined": 1,
         "_params": {
-          "threshold": 0.6742776452360456,
+          "threshold": 0.6892335466945961,
           "hz": 1.0,
-          "wcc_window_sec": 10.0
+          "wcc_window_sec": 10.0,
+          "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN"
         }
       },
       "behavior_person_a__neural_person_b": {
@@ -120,21 +140,25 @@
         "dwell_time": 7.0,
         "switching_rate": 2.553191489361702,
         "mean_synchrony": 0.21075939090121948,
-        "onset_latency": 40.0,
-        "rise_time": 17.0,
+        "onset_latency": 41.0,
+        "rise_time": 1.0,
         "recovery_time": 10.0,
         "synchrony_entropy": 4.217550519142451,
         "bimodality_coefficient": 0.5759229924048187,
-        "fraction_above_threshold": 0.18439716312056736,
+        "fraction_above_threshold": 0.1702127659574468,
         "inter_peak_cv": 1.314703117141986,
         "first_peak_time": 26.0,
+        "onset_latency_imputed": 41.0,
+        "rise_time_imputed": 1.0,
+        "recovery_time_imputed": 10.0,
         "onset_defined": 1,
         "rise_defined": 1,
         "recovery_defined": 1,
         "_params": {
-          "threshold": 0.6722305336263115,
+          "threshold": 0.6844456105717045,
           "hz": 1.0,
-          "wcc_window_sec": 10.0
+          "wcc_window_sec": 10.0,
+          "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN"
         }
       },
       "behavior_person_b__neural_person_a": {
@@ -147,16 +171,20 @@
         "recovery_time": 4.0,
         "synchrony_entropy": 4.149638521173979,
         "bimodality_coefficient": 0.48241566733042324,
-        "fraction_above_threshold": 0.1702127659574468,
-        "inter_peak_cv": 1.2108607655596708,
+        "fraction_above_threshold": 0.16312056737588654,
+        "inter_peak_cv": 1.0968286313857025,
         "first_peak_time": 40.0,
+        "onset_latency_imputed": 36.0,
+        "rise_time_imputed": 1.0,
+        "recovery_time_imputed": 4.0,
         "onset_defined": 1,
         "rise_defined": 1,
         "recovery_defined": 1,
         "_params": {
-          "threshold": 0.6805593536127016,
+          "threshold": 0.6943348810140131,
           "hz": 1.0,
-          "wcc_window_sec": 10.0
+          "wcc_window_sec": 10.0,
+          "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN"
         }
       },
       "behavior_person_b__neural_person_b": {
@@ -165,71 +193,83 @@
         "switching_rate": 2.553191489361702,
         "mean_synchrony": 0.2354309752123308,
         "onset_latency": 42.0,
-        "rise_time": 10.0,
-        "recovery_time": 2.0,
+        "rise_time": null,
+        "recovery_time": 3.0,
         "synchrony_entropy": 3.995176272812315,
         "bimodality_coefficient": 0.42983231492736035,
-        "fraction_above_threshold": 0.11347517730496454,
+        "fraction_above_threshold": 0.12056737588652482,
         "inter_peak_cv": 1.2665743271974956,
         "first_peak_time": 43.0,
+        "onset_latency_imputed": 42.0,
+        "rise_time_imputed": 10.0,
+        "recovery_time_imputed": 3.0,
         "onset_defined": 1,
         "rise_defined": 0,
         "recovery_defined": 1,
         "_params": {
-          "threshold": 0.6841902930251519,
+          "threshold": 0.6753180604282218,
           "hz": 1.0,
-          "wcc_window_sec": 10.0
+          "wcc_window_sec": 10.0,
+          "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN"
         }
       }
     },
     "Task": {
       "behavior_person_a__neural_person_a": {
         "peak_amplitude": 0.8989399943653509,
-        "dwell_time": 5.75,
-        "switching_rate": 3.404255319148936,
+        "dwell_time": 7.0,
+        "switching_rate": 2.553191489361702,
         "mean_synchrony": 0.2527469513787973,
         "onset_latency": 41.0,
-        "rise_time": 10.0,
+        "rise_time": null,
         "recovery_time": 5.0,
         "synchrony_entropy": 4.0372347342639925,
         "bimodality_coefficient": 0.5005138329466643,
-        "fraction_above_threshold": 0.1702127659574468,
+        "fraction_above_threshold": 0.16312056737588654,
         "inter_peak_cv": 0.8331849873894195,
         "first_peak_time": 39.0,
+        "onset_latency_imputed": 41.0,
+        "rise_time_imputed": 10.0,
+        "recovery_time_imputed": 5.0,
         "onset_defined": 1,
         "rise_defined": 0,
         "recovery_defined": 1,
         "_params": {
-          "threshold": 0.6742776452360456,
+          "threshold": 0.6892335466945961,
           "hz": 1.0,
-          "wcc_window_sec": 10.0
+          "wcc_window_sec": 10.0,
+          "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN"
         }
       },
       "behavior_person_a__neural_person_b": {
         "peak_amplitude": 0.9413651597182077,
-        "dwell_time": 7.8,
-        "switching_rate": 4.25531914893617,
+        "dwell_time": 8.75,
+        "switching_rate": 3.404255319148936,
         "mean_synchrony": 0.30081335838689655,
         "onset_latency": 21.0,
         "rise_time": 28.0,
         "recovery_time": 5.0,
         "synchrony_entropy": 4.096049437234013,
         "bimodality_coefficient": 0.541530375696689,
-        "fraction_above_threshold": 0.2907801418439716,
+        "fraction_above_threshold": 0.2695035460992908,
         "inter_peak_cv": 0.8248138571449737,
         "first_peak_time": 21.0,
+        "onset_latency_imputed": 21.0,
+        "rise_time_imputed": 28.0,
+        "recovery_time_imputed": 5.0,
         "onset_defined": 1,
         "rise_defined": 1,
         "recovery_defined": 1,
         "_params": {
-          "threshold": 0.6722305336263115,
+          "threshold": 0.6844456105717045,
           "hz": 1.0,
-          "wcc_window_sec": 10.0
+          "wcc_window_sec": 10.0,
+          "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN"
         }
       },
       "behavior_person_b__neural_person_a": {
         "peak_amplitude": 0.8958200789787018,
-        "dwell_time": 9.0,
+        "dwell_time": 8.0,
         "switching_rate": 4.680851063829787,
         "mean_synchrony": 0.36939519269373156,
         "onset_latency": 32.0,
@@ -237,16 +277,20 @@
         "recovery_time": 3.0,
         "synchrony_entropy": 3.939758483246346,
         "bimodality_coefficient": 0.5989061463924373,
-        "fraction_above_threshold": 0.3475177304964539,
-        "inter_peak_cv": 0.612398149963823,
+        "fraction_above_threshold": 0.3262411347517731,
+        "inter_peak_cv": 0.5863843701540102,
         "first_peak_time": 32.0,
+        "onset_latency_imputed": 32.0,
+        "rise_time_imputed": 51.0,
+        "recovery_time_imputed": 3.0,
         "onset_defined": 1,
         "rise_defined": 1,
         "recovery_defined": 1,
         "_params": {
-          "threshold": 0.6805593536127016,
+          "threshold": 0.6943348810140131,
           "hz": 1.0,
-          "wcc_window_sec": 10.0
+          "wcc_window_sec": 10.0,
+          "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN"
         }
       },
       "behavior_person_b__neural_person_b": {
@@ -255,51 +299,59 @@
         "switching_rate": 2.553191489361702,
         "mean_synchrony": 0.24938138243420188,
         "onset_latency": 47.0,
-        "rise_time": 1.0,
+        "rise_time": 3.0,
         "recovery_time": 7.0,
         "synchrony_entropy": 3.933210159528902,
         "bimodality_coefficient": 0.413571540980301,
         "fraction_above_threshold": 0.18439716312056736,
         "inter_peak_cv": 0.8551315688243535,
         "first_peak_time": 43.0,
+        "onset_latency_imputed": 47.0,
+        "rise_time_imputed": 3.0,
+        "recovery_time_imputed": 7.0,
         "onset_defined": 1,
         "rise_defined": 1,
         "recovery_defined": 1,
         "_params": {
-          "threshold": 0.6841902930251519,
+          "threshold": 0.6753180604282218,
           "hz": 1.0,
-          "wcc_window_sec": 10.0
+          "wcc_window_sec": 10.0,
+          "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN"
         }
       }
     }
   },
   "threshold_meta": {
     "behavior_person_a__neural_person_a": {
-      "threshold": 0.6742776452360456,
-      "mode": "surrogate",
+      "threshold": 0.6892335466945961,
+      "mode": "within_dyad_surrogate",
+      "scope": "within_dyad",
       "is_surrogate_derived": true,
-      "surrogate_n": 200,
+      "surrogate_n": 20,
       "surrogate_percentile": 95.0
     },
     "behavior_person_a__neural_person_b": {
-      "threshold": 0.6722305336263115,
-      "mode": "surrogate",
+      "threshold": 0.6844456105717045,
+      "mode": "within_dyad_surrogate",
+      "scope": "within_dyad",
       "is_surrogate_derived": true,
-      "surrogate_n": 200,
+      "surrogate_n": 20,
       "surrogate_percentile": 95.0
     },
     "behavior_person_b__neural_person_a": {
-      "threshold": 0.6805593536127016,
-      "mode": "surrogate",
+      "threshold": 0.6943348810140131,
+      "mode": "within_dyad_surrogate",
+      "scope": "within_dyad",
       "is_surrogate_derived": true,
-      "surrogate_n": 200,
+      "surrogate_n": 20,
       "surrogate_percentile": 95.0
     },
     "behavior_person_b__neural_person_b": {
-      "threshold": 0.6841902930251519,
-      "mode": "surrogate",
+      "threshold": 0.6753180604282218,
+      "mode": "within_dyad_surrogate",
+      "scope": "within_dyad",
       "is_surrogate_derived": true,
-      "surrogate_n": 200,
+      "surrogate_n": 20,
       "surrogate_percentile": 95.0
     }
   },
@@ -313,7 +365,7 @@
       "mean_delta_auc": 0.0,
       "feature_importance": {},
       "warning": "class_imbalance",
-      "n_features_used": 6,
+      "n_features_used": 5,
       "folds": []
     },
     "behavior_person_a__neural_person_b": {
@@ -337,7 +389,7 @@
       "mean_delta_auc": 0.0,
       "feature_importance": {},
       "warning": "class_imbalance",
-      "n_features_used": 6,
+      "n_features_used": 5,
       "folds": []
     },
     "behavior_person_b__neural_person_b": {
@@ -410,10 +462,41 @@
     "alpha": 0.05,
     "seed": 42,
     "onset_threshold": null,
-    "onset_threshold_mode": "surrogate",
+    "onset_threshold_mode": "within_dyad_surrogate",
+    "threshold_scope": "within_dyad",
     "prediction_window": 10,
     "prediction_horizon": 5,
     "prediction_gap": 5,
-    "hz": 1.0
+    "hz": 1.0,
+    "qc": {
+      "dyad_id": "synthetic_lag0.0s_noise0.3_coup0.7_identical",
+      "overall_verdict": "PASS",
+      "passed": true,
+      "n_warnings": 0,
+      "n_failures": 0,
+      "warnings": [],
+      "failures": [],
+      "suggested_actions": [],
+      "stages": [
+        {
+          "stage": "temporal_alignment",
+          "verdict": "PASS",
+          "details": [],
+          "message": "All 2 modalities share a common time axis (300 samples)."
+        },
+        {
+          "stage": "nan_integrity",
+          "verdict": "PASS",
+          "details": [],
+          "message": "NaN rates acceptable across 4 features."
+        },
+        {
+          "stage": "sampling_uniformity",
+          "verdict": "PASS",
+          "details": [],
+          "message": "Sampling is uniform (300 samples, effective rate ~1.00 Hz)."
+        }
+      ]
+    }
   }
 }

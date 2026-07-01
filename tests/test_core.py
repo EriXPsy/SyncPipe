@@ -475,9 +475,10 @@ class TestHighLevelAPI:
     def test_four_line_workflow(self):
         """Verify the 4-line API from the README works."""
         import multisync as ms
+        from multisync.synthetic import generate_ground_truth_dyad
 
         # 1. Load and align
-        ds = ms.generate_ground_truth_dyad(
+        ds = generate_ground_truth_dyad(
             lead_modality="behavior",
             lag_modality="neural",
             true_lag_sec=12.0,
@@ -522,7 +523,8 @@ class TestHighLevelAPI:
     def test_analysis_results_schema(self):
         """Verify the viewer JSON has all required fields."""
         import multisync as ms
-        ds = ms.generate_ground_truth_dyad(duration_sec=200, noise_ratio=0.2)
+        from multisync.synthetic import generate_ground_truth_dyad
+        ds = generate_ground_truth_dyad(duration_sec=200, noise_ratio=0.2)
         ds.align(target_hz=1.0)
         ds.zscore()
         analyzer = ms.DynamicAnalyzer(surrogate_n=20)
@@ -578,7 +580,8 @@ class TestHighLevelAPI:
         """High-level test: verify that prediction results now report
         dynamic feature importance (not raw WCC lag coefficients)."""
         import multisync as ms
-        ds = ms.generate_ground_truth_dyad(
+        from multisync.synthetic import generate_ground_truth_dyad
+        ds = generate_ground_truth_dyad(
             duration_sec=300, noise_ratio=0.2,
         )
         ds.align(target_hz=1.0)
@@ -741,11 +744,9 @@ class TestEdgeCases:
         result = sliding_window_wcc(x, y, window_size=10, hz=1.0)
         assert len(result) == 0  # empty array
 
-    def test_mostly_nan_pair_produces_warning(self):
-        """A modality pair with 90%+ NaN should trigger a logging warning
-        but should not crash the pipeline."""
+    def test_mostly_nan_pair_fails_qc_by_default(self):
+        """A modality pair with 90%+ NaN should fail the mandatory QC gate."""
         import multisync as ms
-        import logging
         n = 100
         t = np.arange(n, dtype=float)
         vals_a = np.random.randn(n)
@@ -757,6 +758,10 @@ class TestEdgeCases:
         dyad.align(target_hz=1.0)
         dyad.zscore()
         analyzer = ms.DynamicAnalyzer(surrogate_n=10)
-        # Should not raise
-        results = analyzer.fit_transform(dyad)
+        with pytest.raises(ms.DataQualityError):
+            analyzer.fit_transform(dyad)
+
+        exploratory = ms.DynamicAnalyzer(surrogate_n=10, qc_raise_on_fail=False)
+        results = exploratory.fit_transform(dyad)
         assert "dynamic_features" in results.to_dict()
+        assert any(d["stage"] == "qc" for d in results.diagnostics)

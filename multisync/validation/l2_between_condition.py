@@ -21,8 +21,8 @@ Method
 1. For each feature k, compute observed Δ_k = median(C1) - median(C2)
 2. Permute condition labels within each dyad (swap C1↔C2), recompute Δ
 3. Phipson-Smyth p-value: p = (|Δ_perm| >= |Δ_obs| + 1) / (n_perm + 1)
-4. BH-FDR across features (family = 8 confirmatory)
-5. Cohen's d = Δ_obs / SD(Δ_perm)
+4. BH-FDR across the user-specified feature family (SyncPipe v1 default = 3 primary descriptors)
+5. Standardized permutation effect = Δ_obs / SD(Δ_perm)
 
 This is the correct between-condition null for dyadic designs where
 each dyad contributes data to both conditions (paired design).
@@ -156,8 +156,8 @@ def between_condition_fdr(
     dyad_col : str
         Column name for dyad/pair identifier (default "dyad_label").
     feature_cols : sequence of str, optional
-        Which feature columns to test. Defaults to the SSoT
-        confirmatory 6 + bimodality_coefficient + mean_synchrony.
+        Which feature columns to test. Defaults to the SSoT v1 primary FDR
+        family (peak_amplitude, dwell_time, switching_rate).
     n_permutations : int
         Number of permutation iterations (default 10000).
     seed : int
@@ -186,11 +186,8 @@ def between_condition_fdr(
     """
     # ── Validate ───────────────────────────────────────────────────────
     if feature_cols is None:
-        feature_cols = [
-            "onset_latency", "rise_time", "peak_amplitude",
-            "recovery_time", "dwell_time", "switching_rate",
-            "bimodality_coefficient", "mean_synchrony",
-        ]
+        from ..feature_definitions import FDR_FEATURES
+        feature_cols = list(FDR_FEATURES)
 
     # Only use columns actually present
     feature_cols = [c for c in feature_cols if c in df.columns]

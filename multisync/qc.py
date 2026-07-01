@@ -66,6 +66,33 @@ class StageResult:
         }
 
 
+def _suggest_actions_for_detail(detail: Dict[str, Any]) -> List[str]:
+    """Return short, user-facing repair suggestions for a QC detail."""
+    dtype = detail.get("type")
+    if dtype == "length_mismatch":
+        return ["Run dataset.align(target_hz=...) before analysis."]
+    if dtype == "time_divergence":
+        return ["Confirm all modalities share the same clock; realign or use absolute timestamps."]
+    if dtype == "non_monotonic":
+        return ["Sort the affected file by time and remove duplicate/backward timestamps."]
+    if dtype == "high_nan_rate":
+        return [
+            "Inspect raw sensor dropout/artifacts for the affected channel.",
+            "Interpolate only short gaps with handle_nan(..., max_gap_sec=...).",
+            "Exclude the channel or participant if dropout is structural.",
+        ]
+    if dtype == "long_nan_gap":
+        return [
+            "Treat long missing stretches as sensor dropout; avoid interpolating across long gaps.",
+            "Add exclusion intervals or remove the affected segment/channel.",
+        ]
+    if dtype == "irregular_sampling":
+        return ["Resample to a uniform grid before WCC/IAAFT analysis."]
+    if dtype == "zero_mean_isi":
+        return ["Fix the time column; timestamps must be strictly increasing."]
+    return []
+
+
 @dataclass
 class DataQualityReport:
     """Aggregated data quality check report.
@@ -126,6 +153,20 @@ class DataQualityReport:
                 lines.append(f"    {w}")
         return "\n".join(lines)
 
+    def suggested_actions(self) -> List[str]:
+        """Actionable, de-duplicated suggestions derived from stage details."""
+        actions: List[str] = []
+        for stage in self.stages:
+            for detail in stage.details:
+                actions.extend(_suggest_actions_for_detail(detail))
+        seen = set()
+        out = []
+        for action in actions:
+            if action not in seen:
+                out.append(action)
+                seen.add(action)
+        return out
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "dyad_id": self.dyad_id,
@@ -135,6 +176,7 @@ class DataQualityReport:
             "n_failures": self.n_failures,
             "warnings": self.warnings,
             "failures": self.failures,
+            "suggested_actions": self.suggested_actions(),
             "stages": [st.to_dict() for st in self.stages],
         }
 
@@ -470,6 +512,40 @@ def _check_sampling_uniformity(dataset: Any, config: Dict[str, Any]) -> StageRes
         message=f"Sampling is uniform ({n_samples} samples, "
                 f"effective rate ~{1.0 / np.mean(np.diff(first_mod['time'].values)):.2f} Hz).",
     )
+
+
+def format_qc_report(report: DataQualityReport) -> str:
+    """Return a concise user-facing QC message.
+
+    Intended for CLI/user-facing logs.  The structured version remains
+    available via ``DataQualityReport.to_dict()``.
+    """
+    verdict = report.overall_verdict
+    if verdict == StageVerdict.PASS:
+        header = f"QC: PASS — {report.dyad_id}; analysis can proceed."
+    elif verdict == StageVerdict.WARN:
+        header = f"QC: WARN — {report.dyad_id}; analysis can proceed, but review warnings."
+    else:
+        header = f"QC: FAIL — {report.dyad_id}; analysis should stop before WCC computation."
+
+    lines = [header]
+    for stage in report.stages:
+        if stage.verdict == StageVerdict.PASS:
+            continue
+        lines.append(f"- {stage.stage}: {stage.message}")
+        for detail in stage.details[:5]:
+            dtype = detail.get("type", "issue")
+            mod = detail.get("modality")
+            feat = detail.get("feature")
+            where = "/".join(str(x) for x in (mod, feat) if x is not None)
+            suffix = f" ({where})" if where else ""
+            lines.append(f"  • {dtype}{suffix}")
+    actions = report.suggested_actions()
+    if actions:
+        lines.append("Suggested fixes:")
+        for i, action in enumerate(actions, start=1):
+            lines.append(f"  {i}. {action}")
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------

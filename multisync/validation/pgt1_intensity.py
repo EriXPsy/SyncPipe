@@ -5,8 +5,9 @@ Implements the statistical testing framework for the dynamic features
 extracted from WCC time series.  Provides two single-signal surrogate
 null models: an FT surrogate (Fourier-phase randomization; Theiler et al.
 1992) and IAAFT (Schreiber & Schmitz 1996).  IAAFT is the primary,
-more conservative null (preserves both power spectrum and amplitude
-distribution); the FT surrogate is provided as a robustness comparator
+more conservative null: SyncPipe's implementation preserves the empirical
+amplitude distribution exactly and approximates the power spectrum / linear
+autocorrelation. The FT surrogate is provided as a robustness comparator
 (preserves the power spectrum only).
 
 Feature partition (SSoT Option B, revised 2026-06-29)
@@ -28,7 +29,7 @@ Feature partition (SSoT Option B, revised 2026-06-29)
   separate synchrony-existence audit but are NOT in the confirmatory FDR
   family.  L2 features (onset_latency, rise_time, recovery_time) and
   synchrony_entropy are likewise EXCLUDED (exploratory).
-  See ``docs/surrogate_threshold_design.md`` for the nested null model
+  See ``docs/METHOD_LOG.md`` for the v1 audited null-model stance
   architecture.
 
 - **Reference** (``REFERENCE_TAILS``):
@@ -297,7 +298,7 @@ class Level3Config:
       (Theiler et al. 1992).  Default for this **synthetic** burst-dominated
       Level 3 sweep, where IAAFT can inflate the null by preserving
       coincident burst peaks.
-    - ``"iaaft"``: preserves both power spectrum and amplitude distribution
+    - ``"iaaft"``: preserves the empirical amplitude distribution exactly and approximates the power spectrum
       (Schreiber & Schmitz 1996).  The more conservative, field-standard
       null; used as the **primary** method for the real-dataset main results
       and as the conservative comparator here.
@@ -736,7 +737,7 @@ def compute_dyad_surrogate_threshold(
     -----
     Session-level use: pass the full-session ``sig_a`` / ``sig_b`` to obtain
     a single threshold shared across conditions (Task A comparability in
-    docs/surrogate_threshold_design.md).
+    docs/METHOD_LOG.md).
     Condition-level use: pass the condition-specific signal slices.
     """
     from ..dynamic_features import sliding_window_wcc

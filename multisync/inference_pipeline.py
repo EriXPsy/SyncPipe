@@ -1,26 +1,18 @@
 """
 Pipeline 3: Inference pipeline.
 
-Purpose: Statistical validation — determine whether observed synchrony features
-are real (L0), structured (L1), and condition-differentiated (L2).
+Purpose: audited statistical evidence chain for WCC-derived synchrony
+measurement.
 
-This pipeline wraps the validation modules and implements the full
-L0 → L1 → L2 cascade: three nested null hypotheses that together
-build a positive evidence chain for genuine interpersonal coupling.
+The recommended v1 public workflow is:
+1. synchrony-existence audit (signal-level IAAFT);
+2. design-control audit (pseudo-pair, time-shift, and when applicable
+   across-stimulus shuffle);
+3. group condition inference (dyad-paired permutation + BH-FDR).
 
-Quick reference
----------------
-L0 — Signal-level IAAFT:  "Does the WCC exceed what independent signals
-     with the same spectra could produce?"  Tests mean_synchrony,
-     peak_amplitude, bimodality_coefficient.
-
-L1 — WCC-level IAAFT:     "Does the WCC have temporal structure beyond
-     what a reshuffled WCC with the same distribution would show?"
-     Tests dwell_time, switching_rate.
-
-L2 — Between-condition:   "Do features differ between experimental
-     conditions after controlling for dyad identity?"
-     Dyad-paired permutation + BH-FDR on the FDR-family features.
+The older L0/L1/L2 method names remain for backward compatibility, but their
+results must be interpreted as audits of specific null hypotheses, not as proof
+of dyad-specific interpersonal coupling or psychological mechanism.
 """
 
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
@@ -46,7 +38,7 @@ from .validation.l2_between_condition import (
 
 
 class InferencePipeline:
-    """Statistical validation: L0 → L1 → L2 cascade.
+    """Audited inference pipeline for WCC-derived synchrony descriptors.
 
     Parameters
     ----------
@@ -690,7 +682,8 @@ def _build_cascade_summary(
     if l0_rate >= 0.5:
         parts.append(
             f"L0: {l0_pass}/{l0_total} ({l0_rate:.0%}) dyads show above-chance synchrony. "
-            "This confirms that genuine interpersonal coupling exists."
+            "This supports synchrony-like evidence above the signal-level null, "
+            "but does not by itself prove dyad-specific coupling."
         )
     elif l0_rate > 0:
         parts.append(

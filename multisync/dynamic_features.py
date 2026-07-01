@@ -299,7 +299,7 @@ def _sliding_window_wcc_stride(
 # ---------------------------------------------------------------------------
 # Surrogate testing — tiered null models (L0 / L1)
 # ---------------------------------------------------------------------------
-# Mathematical invariance tiers (see docs/surrogate_threshold_design.md):
+# Mathematical invariance tiers (see docs/METHOD_LOG.md):
 #   L0 (permutation-invariant moments of the WCC value distribution):
 #     mean_synchrony, peak_amplitude, synchrony_entropy,
 #     bimodality_coefficient — ALL computed from the flat distribution of
@@ -975,7 +975,8 @@ def extract_features_all_pairs(
     -------
     Tuple[Dict[str, DynamicFeatures], Dict[str, Dict[str, Any]]]
         ``(features, threshold_meta)`` where ``threshold_meta`` maps each
-        pair key to ``{"threshold": float, "mode": "surrogate"|"fixed",
+        pair key to ``{"threshold": float,
+        "mode": "within_dyad_surrogate"|"fixed",
         "is_surrogate_derived": bool}``.
     """
     feat_cols = dataset.feature_columns
@@ -1005,7 +1006,8 @@ def extract_features_all_pairs(
                         )
                         threshold_meta[key] = {
                             "threshold": thr,
-                            "mode": "surrogate",
+                            "mode": "within_dyad_surrogate",
+                            "scope": "within_dyad",
                             "is_surrogate_derived": is_surr,
                             "surrogate_n": surrogate_n,
                             "surrogate_percentile": SURROGATE_THRESHOLD_PERCENTILE,
@@ -1019,6 +1021,7 @@ def extract_features_all_pairs(
                         threshold_meta[key] = {
                             "threshold": thr,
                             "mode": "fixed",
+                            "scope": "fixed",
                             "is_surrogate_derived": False,
                         }
 
@@ -1049,7 +1052,7 @@ def extract_features_segmented(
 
     Surrogate-derived thresholds are computed once per dyad from
     full-length raw signals, then shared across all context segments
-    (Task A comparability; see docs/surrogate_threshold_design.md).
+    (cross-condition comparability; see docs/METHOD_LOG.md).
 
     Parameters
     ----------
@@ -1112,7 +1115,8 @@ def extract_features_segmented(
                         dyad_thresholds[key] = thr
                         threshold_meta[key] = {
                             "threshold": thr,
-                            "mode": "surrogate",
+                            "mode": "within_dyad_surrogate",
+                            "scope": "within_dyad",
                             "is_surrogate_derived": is_surr,
                             "surrogate_n": surrogate_n,
                             "surrogate_percentile": SURROGATE_THRESHOLD_PERCENTILE,
@@ -1127,6 +1131,7 @@ def extract_features_segmented(
                         threshold_meta[key] = {
                             "threshold": thr,
                             "mode": "fixed",
+                            "scope": "fixed",
                             "is_surrogate_derived": False,
                         }
 

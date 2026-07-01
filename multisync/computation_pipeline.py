@@ -165,8 +165,8 @@ class ComputationPipeline:
             from .dynamic_features import _sliding_window_wcc_cumsum
 
             if normalize:
-                a_min, a_max = self._sig_a.min(), self._sig_a.max()
-                b_min, b_max = self._sig_b.min(), self._sig_b.max()
+                a_min, a_max = np.nanmin(self._sig_a), np.nanmax(self._sig_a)
+                b_min, b_max = np.nanmin(self._sig_b), np.nanmax(self._sig_b)
                 sig_a_n = (self._sig_a - a_min) / max(a_max - a_min, 1e-10)
                 sig_b_n = (self._sig_b - b_min) / max(b_max - b_min, 1e-10)
             else:
@@ -176,8 +176,15 @@ class ComputationPipeline:
                 sig_a_n, sig_b_n, self.window_size
             )
         else:
+            if normalize:
+                a_min, a_max = np.nanmin(self._sig_a), np.nanmax(self._sig_a)
+                b_min, b_max = np.nanmin(self._sig_b), np.nanmax(self._sig_b)
+                sig_a_n = (self._sig_a - a_min) / max(a_max - a_min, 1e-10)
+                sig_b_n = (self._sig_b - b_min) / max(b_max - b_min, 1e-10)
+            else:
+                sig_a_n, sig_b_n = self._sig_a, self._sig_b
             self._wcc = sliding_window_wcc(
-                self._sig_a, self._sig_b, self.window_size, normalize=normalize
+                sig_a_n, sig_b_n, self.window_size, hz=self.hz
             )
 
         return self._wcc

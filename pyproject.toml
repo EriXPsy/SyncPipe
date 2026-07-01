@@ -29,11 +29,12 @@ web = [
 ]
 
 [project.scripts]
+syncpipe = "multisync.cli:main"
 multisync = "multisync.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["multisync*"]
+include = ["multisync*", "syncpipe*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
