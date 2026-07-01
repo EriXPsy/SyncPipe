@@ -27,7 +27,7 @@ interpersonal synchrony built on a windowed cross-correlation (WCC) substrate.
 - Never describe `mean_synchrony` as confirmatory; it is a reference comparator.
 
 ## Environment
-- Python ≥ 3.10. Install: `python -m pip install -e .` from `multisync-core/`.
+- Python ≥ 3.10. Install: `python -m pip install -e .` from the repository root.
 - Version check: `multisync --version` → `syncpipe 1.0.0`.
 
 ## CLI entry points
@@ -39,8 +39,10 @@ multisync demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifac
 multisync analyze -i a.csv,b.csv -n behavior,neural --hz 4 --window-size 40 \
     --surrogates 500 -o results.json
 
-# One-click reproduction of self-contained trunk results
-bash reproduce.sh
+# Self-contained reproduction smoke check
+python -m pytest
+python -m multisync demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 --no-prediction -o artifacts/demo_v1
+python scripts/build_feature_table.py
 ```
 
 ## Python API (import multisync as ms)
@@ -96,5 +98,5 @@ ms.explain_feature("dwell_time")
 ## Pointers
 - Decisions & lineage: `docs/METHOD_LOG.md` (esp. §3 evidence chain, §7d lineage).
 - Script → trunk-result mapping: `docs/SCRIPT_MAP.md`.
-- Visual overview: `docs/SYNCPIPE_FAMILY_TREE.html`.
+- Visual overview: `docs/SYNCPIPE_FAMILY_TREE.md` (if present).
 - v2 staging (do not treat as v1 API): `experimental/`.
