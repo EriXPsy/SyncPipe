@@ -203,7 +203,7 @@ Alternative metrics such as WCLC, PLV, CRQA, mutual information, or recurrence m
 Install in editable mode:
 
 ```bash
-cd multisync-core
+cd SyncPipe
 pip install -e ".[dev]"
 ```
 
@@ -276,7 +276,7 @@ This separation is intentional. Internal mathematical invariance labels are usef
 The current v1 method log is maintained in:
 
 ```text
-multisync-core/docs/METHOD_LOG_V1.md
+docs/METHOD_LOG.md
 ```
 
 Negative results, abandoned feature promotions, and null-model limitations should be logged rather than silently removed.
