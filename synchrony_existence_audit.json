@@ -18,7 +18,7 @@
   "observed": {
     "mean_synchrony": 0.22160239475466179,
     "peak_amplitude": 0.9313407426835805,
-    "bimodality_coefficient": 0.4396240138909192
+    "bimodality_coefficient": 0.43962401389091926
   },
   "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
 }

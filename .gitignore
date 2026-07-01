@@ -15,3 +15,15 @@ venv/
 .vscode/
 .idea/
 *.swp
+
+# Generated demo/analysis outputs (reproducible via syncpipe demo)
+DEMO_REPORT.md
+demo_results.json
+design_control_audit.json
+feature_status_table.csv
+feature_table.csv
+results.json
+synchrony_existence_audit.json
+SYNCPIPE_FAMILY_TREE.html
+TABLE1_FEATURE_STATUS.tex
+artifacts/

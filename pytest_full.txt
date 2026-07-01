@@ -1,0 +1,13 @@
+...........................x............................................ [ 40%]
+........................................................................ [ 80%]
+...................................                                      [100%]
+============================== warnings summary ===============================
+tests/test_core.py: 22 warnings
+tests/test_session_threshold.py: 10 warnings
+tests/test_v1_safety_fixes.py: 1 warning
+tests/test_wclr_backend.py: 21 warnings
+  C:\Users\陈思丞\WorkBuddy\20260413150513\syncpipe_clone\multisync\dataset.py:260: UserWarning: All modalities use relative timestamps (starting near 0). If recording devices started at DIFFERENT times, CCF will show a FALSE LAG equal to the start-time difference. Please confirm all devices were co-started, or use absolute timestamps (Unix/ISO). Set require_co_start=True to block this check.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+178 passed, 1 xfailed, 54 warnings in 503.87s (0:08:23)

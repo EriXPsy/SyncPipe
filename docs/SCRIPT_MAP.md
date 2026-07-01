@@ -35,17 +35,19 @@
 | `run_lerique_shuffle.py` | [AUC] | **? → 偏 K** | AUC 加入顺序鲁棒性（100次随机顺序）。是对增量 AUC 的稳健性背书，**建议保留**。请确认。 |
 | `surrogate_controls.py` | [REAL][AUDIT] | **? → 偏 K** | Lerique post-hoc specificity 检验（排除 nuisance 假设）。**建议保留**。请确认。 |
 | `analyze_all_gt.py` | [GT] | **? → 偏 K** | 综合 GT 分析（PGT-2+PGT-3+EGT-4）。可能是主干汇总，也可能被单独 run_* 取代。**请你确认**是否冗余。 |
-| `analyze_pgt2_fixed.py` | — | **E** | "fixed" 后缀，读 `pgt2_grid_results.csv` 测 H2.4。一次性临时分析。剥离。 |
-| `diagnose_pgt2_drift.py` | — | **E** | 一次性诊断（peak_amplitude 随 n_epochs 漂移）。剥离。 |
-| `diagnose_h2_switching_entropy.py` | — | **E** | 一次性诊断（switching/entropy 噪声来源）。剥离。 |
+| `experimental/scripts/analyze_pgt2_fixed.py` | — | **E** | "fixed" 后缀，读 `pgt2_grid_results.csv` 测 H2.4。一次性临时分析。已移至 experimental/。 |
+| `experimental/scripts/diagnose_pgt2_drift.py` | — | **E** | 一次性诊断（peak_amplitude 随 n_epochs 漂移）。已移至 experimental/。 |
+| `experimental/scripts/diagnose_h2_switching_entropy.py` | — | **E** | 一次性诊断（switching/entropy 噪声来源）。已移至 experimental/。 |
 
 ## 汇总
 
 - **K（保留主干）**：16 个 —— 这些是你"所有代码依附在清晰研究主干上"的主干结果生成器，将在 User Manual 里按 [PIPE]/[GT]/[REAL]/[AUC]/[AUDIT] 分类登记。
-- **E（建议剥离）**：3 个明确的一次性诊断/fixed 脚本 → `experimental/scripts/`。
+- **E（已剥离）**：4 个一次性诊断/fixed/FALSIFIED 脚本 → `experimental/scripts/`。
 - **?（需你拍板）**：4 个 —— `lerique_feature_analysis`、`run_lerique_shuffle`、`surrogate_controls`（我倾向保留，是严谨性背书）、`analyze_all_gt`（可能与单独 run_* 冗余，请你确认）。
+- **Morphology**：3 个形态分析脚本 → `scripts/morphology/`，主干形态学分析。
+- **Docs**：`build_feature_table.py` 输出 → `docs/FEATURE_TABLE.{csv,md}`。
 
 ## 待你确认的剥离动作
-1. 明确的 3 个 **E** 是否批准剥离到 `experimental/scripts/`？
+1. 明确的 3 个 **E** 已剥离到 `experimental/scripts/`。
 2. 4 个 **?** 里：`analyze_all_gt.py` 是不是被单独的 `run_pgt2/3_grid.py`+`run_egt4_matrix.py` 取代了（若是→E）？其余 3 个我倾向保留，你同意吗？
-3. round-4 的 `_deprecated_nulls/circular_shift_timing_null_FALSIFIED.py` 是否一并移到 `experimental/scripts/` 统一管理？
+3. `circular_shift_timing_null_FALSIFIED.py` 已移至 `experimental/scripts/`。
