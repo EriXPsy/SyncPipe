@@ -1,0 +1,36 @@
+comparison,feature_set,n_features,auc
+multiclass_4morph,mean_synchrony,1,0.8978333333333334
+multiclass_4morph,+ peak_amplitude,2,1.0
+multiclass_4morph,+ dwell_time,3,1.0
+multiclass_4morph,+ switching_rate,4,1.0
+multiclass_4morph,+ synchrony_entropy,5,1.0
+multiclass_4morph,+ onset/rise/recovery,8,1.0
+multiclass_4morph,+ morphology-agnostic timing,11,1.0
+sustained_vs_early_high_late_low,mean_synchrony,1,0.620125
+sustained_vs_early_high_late_low,+ peak_amplitude,2,1.0
+sustained_vs_early_high_late_low,+ dwell_time,3,1.0
+sustained_vs_early_high_late_low,+ switching_rate,4,1.0
+sustained_vs_early_high_late_low,+ synchrony_entropy,5,1.0
+sustained_vs_early_high_late_low,+ onset/rise/recovery,8,1.0
+sustained_vs_early_high_late_low,+ morphology-agnostic timing,11,1.0
+sustained_vs_oscillatory,mean_synchrony,1,1.0
+sustained_vs_oscillatory,+ peak_amplitude,2,1.0
+sustained_vs_oscillatory,+ dwell_time,3,1.0
+sustained_vs_oscillatory,+ switching_rate,4,1.0
+sustained_vs_oscillatory,+ synchrony_entropy,5,1.0
+sustained_vs_oscillatory,+ onset/rise/recovery,8,1.0
+sustained_vs_oscillatory,+ morphology-agnostic timing,11,1.0
+sustained_vs_single_peak,mean_synchrony,1,0.9018749999999999
+sustained_vs_single_peak,+ peak_amplitude,2,1.0
+sustained_vs_single_peak,+ dwell_time,3,1.0
+sustained_vs_single_peak,+ switching_rate,4,1.0
+sustained_vs_single_peak,+ synchrony_entropy,5,1.0
+sustained_vs_single_peak,+ onset/rise/recovery,8,1.0
+sustained_vs_single_peak,+ morphology-agnostic timing,11,1.0
+early_high_late_low_vs_oscillatory,mean_synchrony,1,1.0
+early_high_late_low_vs_oscillatory,+ peak_amplitude,2,1.0
+early_high_late_low_vs_oscillatory,+ dwell_time,3,1.0
+early_high_late_low_vs_oscillatory,+ switching_rate,4,1.0
+early_high_late_low_vs_oscillatory,+ synchrony_entropy,5,1.0
+early_high_late_low_vs_oscillatory,+ onset/rise/recovery,8,1.0
+early_high_late_low_vs_oscillatory,+ morphology-agnostic timing,11,1.0

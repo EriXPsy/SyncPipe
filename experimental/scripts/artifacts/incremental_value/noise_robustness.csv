@@ -1,0 +1,50 @@
+noise_sigma,feature_set,n_features,auc
+0.02,mean_synchrony,1,0.9169444444444445
+0.02,+ peak_amplitude,2,1.0
+0.02,+ dwell_time,3,1.0
+0.02,+ switching_rate,4,1.0
+0.02,+ synchrony_entropy,5,1.0
+0.02,+ onset/rise/recovery,8,1.0
+0.02,+ morphology-agnostic timing,11,1.0
+0.05,mean_synchrony,1,0.8982592592592592
+0.05,+ peak_amplitude,2,1.0
+0.05,+ dwell_time,3,1.0
+0.05,+ switching_rate,4,1.0
+0.05,+ synchrony_entropy,5,1.0
+0.05,+ onset/rise/recovery,8,1.0
+0.05,+ morphology-agnostic timing,11,1.0
+0.1,mean_synchrony,1,0.8682777777777778
+0.1,+ peak_amplitude,2,0.9999814814814816
+0.1,+ dwell_time,3,1.0
+0.1,+ switching_rate,4,1.0
+0.1,+ synchrony_entropy,5,1.0
+0.1,+ onset/rise/recovery,8,1.0
+0.1,+ morphology-agnostic timing,11,1.0
+0.15,mean_synchrony,1,0.8501851851851852
+0.15,+ peak_amplitude,2,0.9955555555555555
+0.15,+ dwell_time,3,1.0
+0.15,+ switching_rate,4,1.0
+0.15,+ synchrony_entropy,5,1.0
+0.15,+ onset/rise/recovery,8,1.0
+0.15,+ morphology-agnostic timing,11,1.0
+0.2,mean_synchrony,1,0.8318888888888889
+0.2,+ peak_amplitude,2,0.9794444444444445
+0.2,+ dwell_time,3,0.9996481481481482
+0.2,+ switching_rate,4,0.9996296296296296
+0.2,+ synchrony_entropy,5,0.9995925925925926
+0.2,+ onset/rise/recovery,8,0.9998148148148148
+0.2,+ morphology-agnostic timing,11,0.9998888888888888
+0.3,mean_synchrony,1,0.7541111111111111
+0.3,+ peak_amplitude,2,0.7801296296296296
+0.3,+ dwell_time,3,0.983851851851852
+0.3,+ switching_rate,4,0.984962962962963
+0.3,+ synchrony_entropy,5,0.9895370370370371
+0.3,+ onset/rise/recovery,8,0.9934444444444444
+0.3,+ morphology-agnostic timing,11,0.9943333333333333
+0.4,mean_synchrony,1,0.7547777777777778
+0.4,+ peak_amplitude,2,0.8571481481481482
+0.4,+ dwell_time,3,0.9490000000000001
+0.4,+ switching_rate,4,0.9492407407407407
+0.4,+ synchrony_entropy,5,0.9509444444444444
+0.4,+ onset/rise/recovery,8,0.9654629629629629
+0.4,+ morphology-agnostic timing,11,0.9799999999999999

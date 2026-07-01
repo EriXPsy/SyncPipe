@@ -1,0 +1,65 @@
+{
+  "dataset": "gordon",
+  "n_rows": 366,
+  "features": [
+    "onset_latency",
+    "rise_time",
+    "peak_amplitude",
+    "recovery_time",
+    "mean_synchrony",
+    "synchrony_entropy"
+  ],
+  "vif": {
+    "onset_latency": 1.1021792507235635,
+    "rise_time": 1.1133349312979444,
+    "peak_amplitude": 3.9972868879768826,
+    "recovery_time": 1.0508535175796794,
+    "mean_synchrony": 4.251364040613872,
+    "synchrony_entropy": 1.3005221689628454
+  },
+  "vif_concern": [],
+  "vif_severe": [],
+  "top_correlated_pairs": [
+    {
+      "pair": "peak_amplitude ~ mean_synchrony",
+      "rho": 0.87066021625705
+    },
+    {
+      "pair": "recovery_time ~ mean_synchrony",
+      "rho": -0.3175886433608579
+    },
+    {
+      "pair": "onset_latency ~ rise_time",
+      "rho": -0.279199169552845
+    },
+    {
+      "pair": "onset_latency ~ mean_synchrony",
+      "rho": -0.21026408680228578
+    },
+    {
+      "pair": "onset_latency ~ peak_amplitude",
+      "rho": -0.19212436728593166
+    },
+    {
+      "pair": "peak_amplitude ~ recovery_time",
+      "rho": -0.1621385777391446
+    },
+    {
+      "pair": "recovery_time ~ synchrony_entropy",
+      "rho": 0.14770156461206532
+    },
+    {
+      "pair": "peak_amplitude ~ synchrony_entropy",
+      "rho": 0.1278699055167609
+    },
+    {
+      "pair": "onset_latency ~ synchrony_entropy",
+      "rho": 0.10121739447555134
+    },
+    {
+      "pair": "rise_time ~ peak_amplitude",
+      "rho": 0.08449712556924363
+    }
+  ],
+  "interpretation": "0 feature(s) with severe VIF (>=10.0), 0 concerning (>=5.0). High-VIF features should not be treated as independent tests in an FDR family."
+}

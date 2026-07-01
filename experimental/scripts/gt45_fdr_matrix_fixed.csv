@@ -1,0 +1,5 @@
+morphology,family_fpr,fpr_onset_latency,fpr_rise_time,fpr_peak_amplitude,fpr_recovery_time,fpr_dwell_time,fpr_switching_rate
+sustained,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+single_peak,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+oscillatory,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+asymmetric_decay,0.0,0.0,0.0,0.0,0.0,0.0,0.0

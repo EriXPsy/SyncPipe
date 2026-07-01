@@ -1,0 +1,55 @@
+======================================================================
+SyncPipe GT-4/5 FDR Calibration Report
+Date: 2026-06-10
+SURROGATE_N: 499
+N_SEEDS_FDR: 30
+FDR_ALPHA: 0.05
+======================================================================
+
+NULL ARCHITECTURE:
+  Null = 2 independent oscillators, Δθ ~ Uniform(0,2π) i.i.d.
+  r_null(t) = |cos(Δθ/2)| — NO deterministic temporal structure.
+
+FAMILY-WISE FPR (target ≤ 0.05):
+  sustained           : 0.000  ✅ PASS
+  single_peak         : 0.000  ✅ PASS
+  oscillatory         : 0.000  ✅ PASS
+  asymmetric_decay    : 0.000  ✅ PASS
+
+PER-FEATURE FPR:
+  sustained:
+    onset_latency       : 0.000
+    rise_time           : 0.000
+    peak_amplitude      : 0.000
+    recovery_time       : 0.000
+    dwell_time          : 0.000
+    switching_rate      : 0.000
+  single_peak:
+    onset_latency       : 0.000
+    rise_time           : 0.000
+    peak_amplitude      : 0.000
+    recovery_time       : 0.000
+    dwell_time          : 0.000
+    switching_rate      : 0.000
+  oscillatory:
+    onset_latency       : 0.000
+    rise_time           : 0.000
+    peak_amplitude      : 0.000
+    recovery_time       : 0.000
+    dwell_time          : 0.000
+    switching_rate      : 0.000
+  asymmetric_decay:
+    onset_latency       : 0.000
+    rise_time           : 0.000
+    peak_amplitude      : 0.000
+    recovery_time       : 0.000
+    dwell_time          : 0.000
+    switching_rate      : 0.000
+
+INTERPRETATION
+----------------------------------------
+FPR ≈ 0.05  → FDR is well-calibrated (features respect null).
+FPR  > 0.10 → features may be over-sensitive to WCC noise structure.
+FPR  ≈ 0.00 → test may be too conservative (increase SURROGATE_N).
+
+P-value granularity: 1/(499+1) ≈ 0.0020

@@ -1,0 +1,197 @@
+{
+  "constant_high": {
+    "scenario": "constant_high",
+    "theta_fixed": 0.5,
+    "theta_adaptive": 0.7,
+    "W_AB_mean": 0.95,
+    "W_AB_std": 0.0,
+    "features_fixed": {
+      "onset_latency": null,
+      "rise_time": 5.0,
+      "peak_amplitude": 0.986,
+      "recovery_time": null,
+      "dwell_time": 295.0,
+      "switching_rate": 0.0,
+      "mean_synchrony": 0.9811,
+      "synchrony_entropy": NaN
+    },
+    "features_lagged_fixed": {
+      "lagged_dwell": 290.0,
+      "lagged_switching": 0.0,
+      "lagged_peak": 0.984,
+      "lag_consistency": 0.0,
+      "lag_direction": 0.0,
+      "overlap_ratio": 1.0
+    },
+    "features_adaptive": {
+      "dwell_time": 295.0,
+      "switching_rate": 0.0
+    },
+    "multiscale": {
+      "consistency_2scale": 1.0,
+      "consistency_3scale": 1.0
+    },
+    "ground_truth_checks": {
+      "peak_as_expected": true,
+      "switching_as_expected": true,
+      "lagged_detected": false
+    },
+    "elapsed_sec": 1.0
+  },
+  "frequent_switching": {
+    "scenario": "frequent_switching",
+    "theta_fixed": 0.5,
+    "theta_adaptive": 0.7,
+    "W_AB_mean": 0.6333,
+    "W_AB_std": 0.3771,
+    "features_fixed": {
+      "onset_latency": 70.0,
+      "rise_time": 5.0,
+      "peak_amplitude": 0.988,
+      "recovery_time": null,
+      "dwell_time": 28.33,
+      "switching_rate": 2.09,
+      "mean_synchrony": 0.6608,
+      "synchrony_entropy": 2.119
+    },
+    "features_lagged_fixed": {
+      "lagged_dwell": 30.0,
+      "lagged_switching": 1.09,
+      "lagged_peak": 0.988,
+      "lag_consistency": 11.898,
+      "lag_direction": 4.857,
+      "overlap_ratio": 0.4545
+    },
+    "features_adaptive": {
+      "dwell_time": 37.5,
+      "switching_rate": 1.04
+    },
+    "multiscale": {
+      "consistency_2scale": 1.0,
+      "consistency_3scale": 0.6667
+    },
+    "ground_truth_checks": {
+      "peak_as_expected": true,
+      "switching_as_expected": true,
+      "lagged_detected": false
+    },
+    "elapsed_sec": 0.3
+  },
+  "leader_follower": {
+    "scenario": "leader_follower",
+    "theta_fixed": 0.5,
+    "theta_adaptive": 0.3,
+    "W_AB_mean": 0.85,
+    "W_AB_std": 0.0,
+    "features_fixed": {
+      "onset_latency": null,
+      "rise_time": null,
+      "peak_amplitude": -0.149,
+      "recovery_time": null,
+      "dwell_time": NaN,
+      "switching_rate": 0.0,
+      "mean_synchrony": -0.2494,
+      "synchrony_entropy": 1.52
+    },
+    "features_lagged_fixed": {
+      "lagged_dwell": 110.0,
+      "lagged_switching": 0.0,
+      "lagged_peak": 0.988,
+      "lag_consistency": 0.0,
+      "lag_direction": 20.0,
+      "overlap_ratio": 0.0
+    },
+    "features_adaptive": {
+      "dwell_time": NaN,
+      "switching_rate": 0.0
+    },
+    "multiscale": {
+      "consistency_2scale": 0.5,
+      "consistency_3scale": 0.3333
+    },
+    "ground_truth_checks": {
+      "peak_as_expected": true,
+      "switching_as_expected": false,
+      "lagged_detected": true
+    },
+    "elapsed_sec": 0.4
+  },
+  "gradual_emergence": {
+    "scenario": "gradual_emergence",
+    "theta_fixed": 0.5,
+    "theta_adaptive": 0.7,
+    "W_AB_mean": 0.5,
+    "W_AB_std": 0.2889,
+    "features_fixed": {
+      "onset_latency": 35.0,
+      "rise_time": 30.0,
+      "peak_amplitude": 0.973,
+      "recovery_time": null,
+      "dwell_time": 80.0,
+      "switching_rate": 0.52,
+      "mean_synchrony": 0.6327,
+      "synchrony_entropy": 2.839
+    },
+    "features_lagged_fixed": {
+      "lagged_dwell": 50.0,
+      "lagged_switching": 0.55,
+      "lagged_peak": 0.954,
+      "lag_consistency": 17.592,
+      "lag_direction": 13.625,
+      "overlap_ratio": 0.5
+    },
+    "features_adaptive": {
+      "dwell_time": 60.0,
+      "switching_rate": 0.52
+    },
+    "multiscale": {
+      "consistency_2scale": 0.0,
+      "consistency_3scale": 0.0
+    },
+    "ground_truth_checks": {
+      "peak_as_expected": true,
+      "switching_as_expected": false,
+      "lagged_detected": false
+    },
+    "elapsed_sec": 0.3
+  },
+  "isc_confound": {
+    "scenario": "isc_confound",
+    "theta_fixed": 0.5,
+    "theta_adaptive": 0.7,
+    "W_AB_mean": 0.0,
+    "W_AB_std": 0.0,
+    "features_fixed": {
+      "onset_latency": null,
+      "rise_time": 5.0,
+      "peak_amplitude": 0.976,
+      "recovery_time": null,
+      "dwell_time": 115.0,
+      "switching_rate": 0.0,
+      "mean_synchrony": 0.972,
+      "synchrony_entropy": NaN
+    },
+    "features_lagged_fixed": {
+      "lagged_dwell": 30.0,
+      "lagged_switching": 2.18,
+      "lagged_peak": 0.974,
+      "lag_consistency": 19.294,
+      "lag_direction": -9.091,
+      "overlap_ratio": 1.0
+    },
+    "features_adaptive": {
+      "dwell_time": 115.0,
+      "switching_rate": 0.0
+    },
+    "multiscale": {
+      "consistency_2scale": 1.0,
+      "consistency_3scale": 1.0
+    },
+    "ground_truth_checks": {
+      "peak_as_expected": true,
+      "switching_as_expected": true,
+      "lagged_detected": false
+    },
+    "elapsed_sec": 0.4
+  }
+}

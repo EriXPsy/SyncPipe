@@ -1,0 +1,269 @@
+{
+  "ECG": {
+    "modality": "ECG",
+    "n_samples": 54,
+    "n_pos": 27,
+    "n_neg": 27,
+    "skipped_features": [
+      "bimodality_coefficient (0% non-NaN < 30%)"
+    ],
+    "incremental_auc": [
+      {
+        "label": "baseline (mean_sync)",
+        "n_features": 1,
+        "features": "mean_synchrony",
+        "auc_mean": 0.6787,
+        "auc_std": 0.0968
+      },
+      {
+        "label": "+peak_amplitude",
+        "n_features": 2,
+        "features": "mean_synchrony + peak_amplitude",
+        "auc_mean": 0.9853,
+        "auc_std": 0.0181
+      },
+      {
+        "label": "+dwell_time",
+        "n_features": 3,
+        "features": "mean_synchrony + peak_amplitude + dwell_time",
+        "auc_mean": 0.9853,
+        "auc_std": 0.0181
+      },
+      {
+        "label": "+switching_rate",
+        "n_features": 4,
+        "features": "mean_synchrony + peak_amplitude + dwell_time + switching_rate",
+        "auc_mean": 0.972,
+        "auc_std": 0.0392
+      }
+    ],
+    "raw_fold_aucs": [
+      {
+        "label": "baseline (mean_sync)",
+        "n_features": 1,
+        "fold_aucs": [
+          0.5,
+          0.6667,
+          0.7,
+          0.7667,
+          0.76
+        ],
+        "auc_mean": 0.6787
+      },
+      {
+        "label": "+peak_amplitude",
+        "n_features": 2,
+        "fold_aucs": [
+          1.0,
+          1.0,
+          0.9667,
+          1.0,
+          0.96
+        ],
+        "auc_mean": 0.9853
+      },
+      {
+        "label": "+dwell_time",
+        "n_features": 3,
+        "fold_aucs": [
+          1.0,
+          1.0,
+          0.9667,
+          1.0,
+          0.96
+        ],
+        "auc_mean": 0.9853
+      },
+      {
+        "label": "+switching_rate",
+        "n_features": 4,
+        "fold_aucs": [
+          1.0,
+          1.0,
+          0.9,
+          1.0,
+          0.96
+        ],
+        "auc_mean": 0.972
+      }
+    ]
+  },
+  "EDA": {
+    "modality": "EDA",
+    "n_samples": 60,
+    "n_pos": 30,
+    "n_neg": 30,
+    "skipped_features": [
+      "bimodality_coefficient (0% non-NaN < 30%)"
+    ],
+    "incremental_auc": [
+      {
+        "label": "baseline (mean_sync)",
+        "n_features": 1,
+        "features": "mean_synchrony",
+        "auc_mean": 0.7167,
+        "auc_std": 0.2155
+      },
+      {
+        "label": "+peak_amplitude",
+        "n_features": 2,
+        "features": "mean_synchrony + peak_amplitude",
+        "auc_mean": 0.9722,
+        "auc_std": 0.043
+      },
+      {
+        "label": "+dwell_time",
+        "n_features": 3,
+        "features": "mean_synchrony + peak_amplitude + dwell_time",
+        "auc_mean": 0.9389,
+        "auc_std": 0.0754
+      },
+      {
+        "label": "+switching_rate",
+        "n_features": 4,
+        "features": "mean_synchrony + peak_amplitude + dwell_time + switching_rate",
+        "auc_mean": 0.9389,
+        "auc_std": 0.0754
+      }
+    ],
+    "raw_fold_aucs": [
+      {
+        "label": "baseline (mean_sync)",
+        "n_features": 1,
+        "fold_aucs": [
+          0.75,
+          0.4444,
+          1.0,
+          0.8889,
+          0.5
+        ],
+        "auc_mean": 0.7167
+      },
+      {
+        "label": "+peak_amplitude",
+        "n_features": 2,
+        "fold_aucs": [
+          0.9722,
+          1.0,
+          1.0,
+          1.0,
+          0.8889
+        ],
+        "auc_mean": 0.9722
+      },
+      {
+        "label": "+dwell_time",
+        "n_features": 3,
+        "fold_aucs": [
+          0.8333,
+          1.0,
+          1.0,
+          1.0,
+          0.8611
+        ],
+        "auc_mean": 0.9389
+      },
+      {
+        "label": "+switching_rate",
+        "n_features": 4,
+        "fold_aucs": [
+          0.8333,
+          1.0,
+          1.0,
+          1.0,
+          0.8611
+        ],
+        "auc_mean": 0.9389
+      }
+    ]
+  },
+  "RESP": {
+    "modality": "RESP",
+    "n_samples": 62,
+    "n_pos": 31,
+    "n_neg": 31,
+    "skipped_features": [
+      "bimodality_coefficient (0% non-NaN < 30%)"
+    ],
+    "incremental_auc": [
+      {
+        "label": "baseline (mean_sync)",
+        "n_features": 1,
+        "features": "mean_synchrony",
+        "auc_mean": 0.3817,
+        "auc_std": 0.1182
+      },
+      {
+        "label": "+peak_amplitude",
+        "n_features": 2,
+        "features": "mean_synchrony + peak_amplitude",
+        "auc_mean": 0.796,
+        "auc_std": 0.0725
+      },
+      {
+        "label": "+dwell_time",
+        "n_features": 3,
+        "features": "mean_synchrony + peak_amplitude + dwell_time",
+        "auc_mean": 0.8524,
+        "auc_std": 0.0649
+      },
+      {
+        "label": "+switching_rate",
+        "n_features": 4,
+        "features": "mean_synchrony + peak_amplitude + dwell_time + switching_rate",
+        "auc_mean": 0.8778,
+        "auc_std": 0.0731
+      }
+    ],
+    "raw_fold_aucs": [
+      {
+        "label": "baseline (mean_sync)",
+        "n_features": 1,
+        "fold_aucs": [
+          0.2857,
+          0.4286,
+          0.5833,
+          0.25,
+          0.3611
+        ],
+        "auc_mean": 0.3817
+      },
+      {
+        "label": "+peak_amplitude",
+        "n_features": 2,
+        "fold_aucs": [
+          0.7143,
+          0.7381,
+          0.9167,
+          0.7778,
+          0.8333
+        ],
+        "auc_mean": 0.796
+      },
+      {
+        "label": "+dwell_time",
+        "n_features": 3,
+        "fold_aucs": [
+          0.8095,
+          0.7857,
+          0.9722,
+          0.8333,
+          0.8611
+        ],
+        "auc_mean": 0.8524
+      },
+      {
+        "label": "+switching_rate",
+        "n_features": 4,
+        "fold_aucs": [
+          0.8571,
+          0.8095,
+          1.0,
+          0.8056,
+          0.9167
+        ],
+        "auc_mean": 0.8778
+      }
+    ]
+  }
+}

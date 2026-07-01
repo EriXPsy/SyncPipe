@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=77.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "syncpipe"
+version = "1.0.0"
+description = "A narrow, validated Python toolkit for extracting episode-based dynamic features from pre-computed synchrony time series"
+readme = "docs/USER_MANUAL.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pandas>=2.0",
+    "scikit-learn>=1.2",
+    "neurokit2>=0.2.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+web = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.23",
+    "python-multipart>=0.0.6",
+]
+
+[project.scripts]
+multisync = "multisync.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["multisync*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "fast: quick unit/smoke tests suitable for pre-commit checks",
+    "slow: long-running validation or integration tests",
+]

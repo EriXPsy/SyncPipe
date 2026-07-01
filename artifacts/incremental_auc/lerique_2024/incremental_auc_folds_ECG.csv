@@ -1,0 +1,5 @@
+label,n_features,fold_aucs,auc_mean
+baseline (mean_sync),1,"[0.5, 0.6667, 0.7, 0.7667, 0.76]",0.6787
++peak_amplitude,2,"[1.0, 1.0, 0.9667, 1.0, 0.96]",0.9853
++dwell_time,3,"[1.0, 1.0, 0.9667, 1.0, 0.96]",0.9853
++switching_rate,4,"[1.0, 1.0, 0.9, 1.0, 0.96]",0.972

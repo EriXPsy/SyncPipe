@@ -1,0 +1,76 @@
+{
+  "schema_version": "0.3.0",
+  "dyad_id": "dyad_01",
+  "dynamic_features": {
+    "neural_val__behavior_val": {
+      "peak_amplitude": 0.5021011927609778,
+      "dwell_time": null,
+      "switching_rate": 0.0,
+      "mean_synchrony": -0.1227987477937452,
+      "onset_latency": 10.0,
+      "rise_time": 10.0,
+      "recovery_time": 10.0,
+      "synchrony_entropy": 3.9539881813038202,
+      "bimodality_coefficient": 0.4621779560067973,
+      "fraction_above_threshold": 0.01098901098901099,
+      "inter_peak_cv": null,
+      "first_peak_time": 21.0,
+      "onset_defined": 0,
+      "rise_defined": 0,
+      "recovery_defined": 0,
+      "_params": {
+        "threshold": 0.5514996339451745,
+        "hz": 1.0,
+        "wcc_window_sec": 10.0
+      }
+    }
+  },
+  "dynamic_features_segmented": {},
+  "threshold_meta": {
+    "neural_val__behavior_val": {
+      "threshold": 0.5514996339451745,
+      "mode": "surrogate",
+      "is_surrogate_derived": true,
+      "surrogate_n": 200,
+      "surrogate_percentile": 95.0
+    }
+  },
+  "prediction": {
+    "neural_val__behavior_val": {
+      "modality_a": "neural",
+      "modality_b": "behavior",
+      "mode": "intra",
+      "mean_dynamic_auc": 0.5,
+      "mean_baseline_auc": 0.5,
+      "mean_delta_auc": 0.0,
+      "feature_importance": {},
+      "warning": "class_imbalance",
+      "n_features_used": 5,
+      "folds": []
+    }
+  },
+  "score_view": [],
+  "diagnostics": [
+    {
+      "stage": "prediction",
+      "pair": "neural_val__behavior_val",
+      "reason": "class_imbalance",
+      "detail": {
+        "n_folds": 0
+      }
+    }
+  ],
+  "parameters": {
+    "window_size": 10,
+    "surrogate_n": 10,
+    "max_lag_sec": 20.0,
+    "alpha": 0.05,
+    "seed": 42,
+    "onset_threshold": null,
+    "onset_threshold_mode": "surrogate",
+    "prediction_window": 10,
+    "prediction_horizon": 5,
+    "prediction_gap": 5,
+    "hz": 1.0
+  }
+}

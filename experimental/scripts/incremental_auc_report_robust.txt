@@ -1,0 +1,64 @@
+======================================================================
+MultiSync Leave-One-In Incremental AUC Report
+Date: 2026-06-10
+N trajectories/morphology: 250
+======================================================================
+
+GREY-BOX — KURAMOTO (Gray-Box, trajectory-robust (MAD)):
+  Step                           Avg AUC  Avg ΔAUC
+  ----------------------------  --------  --------
+  Mean WCC                         0.850     0.850
+  + Peak Amplitude                 0.931     0.081
+  + Dwell Time                     0.987     0.057
+  + Switching Rate                 0.994     0.006
+  + Onset Latency                  0.997     0.003
+  + Recovery Time                  0.997    -0.000
+  + Rise Time                      0.997    -0.000
+  + Entropy                        0.997     0.000
+
+WHITE-BOX — Parametric WCC (mean-matched, strict test):
+  Step                           Avg AUC  Avg ΔAUC
+  ----------------------------  --------  --------
+  Mean WCC                         0.500     0.500
+  + Peak Amplitude                 0.913     0.413
+  + Dwell Time                     0.962     0.050
+  + Switching Rate                 0.982     0.020
+  + Onset Latency                  1.000     0.017
+  + Recovery Time                  1.000     0.000
+  + Rise Time                      1.000    -0.000
+  + Entropy                        1.000    -0.000
+
+INTERPRETATION
+----------------------------------------
+Grey-Box: Kuramoto emergent r(t), per-trajectory robust (MAD) BEFORE
+  feature extraction. This removes mean(WCC) differences (baseline
+  AUC ≈ 0.500) while preserving temporal structure. The incremental
+  ΔAUC reveals whether features capture COORDINATION DYNAMICS — not
+  just baseline synchrony level.
+
+  THRESHOLD COMPENSATION: ONSET_THRESHOLD=0.5 is anchored in r-metric
+  (Cohen 1988 large effect). After robust (MAD), the effective
+  threshold is (0.5 − μ) / σ (z-score) or (0.5 − median) / MAD
+  (robust), preserving the same relative position.  This prevents
+  onset/dwell/switching-rate definitions from drifting across
+  trajectories with different raw means.
+
+White-Box: Parametric WCC with means matched at generation time.
+  Baseline AUC ≈ 0.500 by construction. Features that increase AUC
+  are capturing morphological shape, not level.
+
+KEY COMPARISON: If both generators produce similar ΔAUC patterns,
+  it proves features capture temporal structure regardless of whether
+  the WCC trace came from hand-crafted formulas (White-Box) or emergent
+  nonlinear dynamics (Grey-Box / Kuramoto).
+
+ANTI-INTUITIVE PATTERN — oscillatory_vs_asymmetric_decay:
+  This pair is our strongest INTENSITY ≠ STRUCTURE demonstration.
+  Both morphologies have periodic-like variation, so peak_amplitude
+  often DECREASES AUC (negative ΔAUC) — peak detection under a single-
+  peak assumption injects noise rather than signal.  Followed by a
+  large positive ΔAUC from dwell_time (+0.297 in white-box), which
+  captures the structural difference (stable switching vs gradual decay).
+  This is the canonical example that peak-centric features fail when
+  multiple oscillation modes are present.  See DIMENSIONAL_MODEL.md
+  §INTENSITY ≠ STRUCTURE for full argument.

@@ -1,0 +1,13 @@
+modality,label,n_features,features,auc_mean,auc_std
+ECG,baseline (mean_sync),1,mean_synchrony,0.6787,0.0968
+ECG,+peak_amplitude,2,mean_synchrony + peak_amplitude,0.9853,0.0181
+ECG,+dwell_time,3,mean_synchrony + peak_amplitude + dwell_time,0.9853,0.0181
+ECG,+switching_rate,4,mean_synchrony + peak_amplitude + dwell_time + switching_rate,0.972,0.0392
+EDA,baseline (mean_sync),1,mean_synchrony,0.7167,0.2155
+EDA,+peak_amplitude,2,mean_synchrony + peak_amplitude,0.9722,0.043
+EDA,+dwell_time,3,mean_synchrony + peak_amplitude + dwell_time,0.9389,0.0754
+EDA,+switching_rate,4,mean_synchrony + peak_amplitude + dwell_time + switching_rate,0.9389,0.0754
+RESP,baseline (mean_sync),1,mean_synchrony,0.3817,0.1182
+RESP,+peak_amplitude,2,mean_synchrony + peak_amplitude,0.796,0.0725
+RESP,+dwell_time,3,mean_synchrony + peak_amplitude + dwell_time,0.8524,0.0649
+RESP,+switching_rate,4,mean_synchrony + peak_amplitude + dwell_time + switching_rate,0.8778,0.0731

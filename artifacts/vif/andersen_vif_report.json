@@ -1,0 +1,75 @@
+{
+  "dataset": "andersen",
+  "n_rows": 300,
+  "features": [
+    "mean_synchrony",
+    "peak_amplitude",
+    "dwell_time",
+    "switching_rate",
+    "bimodality_coefficient",
+    "onset_latency",
+    "rise_time",
+    "recovery_time",
+    "synchrony_entropy"
+  ],
+  "vif": {
+    "mean_synchrony": 35.26542050728305,
+    "peak_amplitude": 1.356957409837935,
+    "dwell_time": 50.88297546697728,
+    "switching_rate": 17.978608270770106,
+    "bimodality_coefficient": 4.773459384773155,
+    "onset_latency": 1.0404745958898718,
+    "rise_time": 1.06948889526494,
+    "recovery_time": 1.1493085781510808,
+    "synchrony_entropy": 4.881401207104908
+  },
+  "vif_concern": [],
+  "vif_severe": [
+    "dwell_time",
+    "mean_synchrony",
+    "switching_rate"
+  ],
+  "top_correlated_pairs": [
+    {
+      "pair": "mean_synchrony ~ synchrony_entropy",
+      "rho": -0.9312019022433583
+    },
+    {
+      "pair": "dwell_time ~ synchrony_entropy",
+      "rho": -0.8837029506909032
+    },
+    {
+      "pair": "mean_synchrony ~ dwell_time",
+      "rho": 0.8140436780750855
+    },
+    {
+      "pair": "bimodality_coefficient ~ synchrony_entropy",
+      "rho": -0.804512939032656
+    },
+    {
+      "pair": "dwell_time ~ bimodality_coefficient",
+      "rho": 0.7368356490462725
+    },
+    {
+      "pair": "mean_synchrony ~ bimodality_coefficient",
+      "rho": 0.7227911421238014
+    },
+    {
+      "pair": "peak_amplitude ~ synchrony_entropy",
+      "rho": -0.3916785742063801
+    },
+    {
+      "pair": "peak_amplitude ~ dwell_time",
+      "rho": 0.3728428771320964
+    },
+    {
+      "pair": "mean_synchrony ~ peak_amplitude",
+      "rho": 0.3682116467960755
+    },
+    {
+      "pair": "peak_amplitude ~ bimodality_coefficient",
+      "rho": 0.35570884120934676
+    }
+  ],
+  "interpretation": "3 feature(s) with severe VIF (>=10.0), 0 concerning (>=5.0). High-VIF features should not be treated as independent tests in an FDR family."
+}

@@ -1,0 +1,50 @@
+======================================================================
+MultiSync Leave-One-In AUC + GT-4/5 FDR Calibration Report (FIXED)
+Date: 2026-06-10
+======================================================================
+
+PART A — LEAVE-ONE-IN INCREMENTAL AUC
+----------------------------------------
+KURAMOTO (Grey-Box, means naturally differ):
+  Step                           Avg AUC  Avg ΔAUC
+  ----------------------------  --------  --------
+  Mean WCC                         0.948     0.948
+  + Peak Amplitude                 0.960     0.012
+  + Dwell Time                     0.993     0.033
+  + Switching Rate                 0.994     0.002
+  + Onset Latency                  0.998     0.003
+  + Recovery Time                  0.998    -0.000
+  + Rise Time                      0.998     0.000
+  + Entropy                        0.998     0.000
+
+WHITE-BOX (Mean-Matched, strict test):
+  Step                           Avg AUC  Avg ΔAUC
+  ----------------------------  --------  --------
+  Mean WCC                         0.500     0.500
+  + Peak Amplitude                 0.913     0.413
+  + Dwell Time                     0.962     0.050
+  + Switching Rate                 0.982     0.020
+  + Onset Latency                  1.000     0.017
+  + Recovery Time                  1.000     0.000
+  + Rise Time                      1.000    -0.000
+  + Entropy                        1.000    -0.000
+
+PART B (FIXED) — GT-4/5 FDR CALIBRATION
+----------------------------------------
+Family-wise FPR per morphology (target ≤ 0.05):
+  sustained           : 0.000  ✅ PASS
+  single_peak         : 0.000  ✅ PASS
+  oscillatory         : 0.000  ✅ PASS
+  asymmetric_decay    : 0.000  ✅ PASS
+
+INTERPRETATION
+----------------------------------------
+KURAMOTO (grey-box): AUC starts high (means naturally differ).
+  Use for REALISM test — features work on emergent dynamics.
+
+WHITE-BOX (mean-matched): AUC starts low (means matched).
+  Use for STRICT test — features ≠ mean_synchrony proxy.
+
+FDR (FIXED): Now uses TRUE null (independent-phase, no beating).
+  FPR should be near 0.05. If FPR >> 0.05, features may be
+  over-sensitive to noise structure in WCC traces.

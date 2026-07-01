@@ -1,0 +1,97 @@
+pair,step,auc,delta_auc,generator
+sustained_vs_single_peak,Mean WCC,0.54496,0.54496,kuramoto
+sustained_vs_single_peak,+ Peak Amplitude,0.94872,0.40376,kuramoto
+sustained_vs_single_peak,+ Dwell Time,1.0,0.05127999999999999,kuramoto
+sustained_vs_single_peak,+ Switching Rate,1.0,0.0,kuramoto
+sustained_vs_single_peak,+ Onset Latency,1.0,0.0,kuramoto
+sustained_vs_single_peak,+ Recovery Time,1.0,0.0,kuramoto
+sustained_vs_single_peak,+ Rise Time,1.0,0.0,kuramoto
+sustained_vs_single_peak,+ Entropy,1.0,0.0,kuramoto
+sustained_vs_oscillatory,Mean WCC,0.49312000000000006,0.49312000000000006,kuramoto
+sustained_vs_oscillatory,+ Peak Amplitude,1.0,0.50688,kuramoto
+sustained_vs_oscillatory,+ Dwell Time,1.0,0.0,kuramoto
+sustained_vs_oscillatory,+ Switching Rate,1.0,0.0,kuramoto
+sustained_vs_oscillatory,+ Onset Latency,1.0,0.0,kuramoto
+sustained_vs_oscillatory,+ Recovery Time,1.0,0.0,kuramoto
+sustained_vs_oscillatory,+ Rise Time,1.0,0.0,kuramoto
+sustained_vs_oscillatory,+ Entropy,1.0,0.0,kuramoto
+sustained_vs_asymmetric_decay,Mean WCC,0.54776,0.54776,kuramoto
+sustained_vs_asymmetric_decay,+ Peak Amplitude,0.86032,0.31255999999999995,kuramoto
+sustained_vs_asymmetric_decay,+ Dwell Time,1.0,0.13968000000000003,kuramoto
+sustained_vs_asymmetric_decay,+ Switching Rate,1.0,0.0,kuramoto
+sustained_vs_asymmetric_decay,+ Onset Latency,1.0,0.0,kuramoto
+sustained_vs_asymmetric_decay,+ Recovery Time,1.0,0.0,kuramoto
+sustained_vs_asymmetric_decay,+ Rise Time,1.0,0.0,kuramoto
+sustained_vs_asymmetric_decay,+ Entropy,1.0,0.0,kuramoto
+single_peak_vs_oscillatory,Mean WCC,0.51936,0.51936,kuramoto
+single_peak_vs_oscillatory,+ Peak Amplitude,1.0,0.48063999999999996,kuramoto
+single_peak_vs_oscillatory,+ Dwell Time,1.0,0.0,kuramoto
+single_peak_vs_oscillatory,+ Switching Rate,1.0,0.0,kuramoto
+single_peak_vs_oscillatory,+ Onset Latency,1.0,0.0,kuramoto
+single_peak_vs_oscillatory,+ Recovery Time,1.0,0.0,kuramoto
+single_peak_vs_oscillatory,+ Rise Time,1.0,0.0,kuramoto
+single_peak_vs_oscillatory,+ Entropy,1.0,0.0,kuramoto
+single_peak_vs_asymmetric_decay,Mean WCC,0.48267999999999994,0.48267999999999994,kuramoto
+single_peak_vs_asymmetric_decay,+ Peak Amplitude,0.7547200000000001,0.2720400000000001,kuramoto
+single_peak_vs_asymmetric_decay,+ Dwell Time,0.9198400000000001,0.16512000000000004,kuramoto
+single_peak_vs_asymmetric_decay,+ Switching Rate,0.9468,0.026959999999999873,kuramoto
+single_peak_vs_asymmetric_decay,+ Onset Latency,0.9732,0.02639999999999998,kuramoto
+single_peak_vs_asymmetric_decay,+ Recovery Time,0.9732799999999999,7.999999999996898e-05,kuramoto
+single_peak_vs_asymmetric_decay,+ Rise Time,0.97464,0.0013600000000000279,kuramoto
+single_peak_vs_asymmetric_decay,+ Entropy,0.97568,0.001040000000000041,kuramoto
+oscillatory_vs_asymmetric_decay,Mean WCC,0.48864,0.48864,kuramoto
+oscillatory_vs_asymmetric_decay,+ Peak Amplitude,1.0,0.51136,kuramoto
+oscillatory_vs_asymmetric_decay,+ Dwell Time,1.0,0.0,kuramoto
+oscillatory_vs_asymmetric_decay,+ Switching Rate,1.0,0.0,kuramoto
+oscillatory_vs_asymmetric_decay,+ Onset Latency,1.0,0.0,kuramoto
+oscillatory_vs_asymmetric_decay,+ Recovery Time,1.0,0.0,kuramoto
+oscillatory_vs_asymmetric_decay,+ Rise Time,1.0,0.0,kuramoto
+oscillatory_vs_asymmetric_decay,+ Entropy,1.0,0.0,kuramoto
+sustained_vs_single_peak,Mean WCC,0.5,0.5,whitebox
+sustained_vs_single_peak,+ Peak Amplitude,1.0,0.5,whitebox
+sustained_vs_single_peak,+ Dwell Time,1.0,0.0,whitebox
+sustained_vs_single_peak,+ Switching Rate,1.0,0.0,whitebox
+sustained_vs_single_peak,+ Onset Latency,1.0,0.0,whitebox
+sustained_vs_single_peak,+ Recovery Time,1.0,0.0,whitebox
+sustained_vs_single_peak,+ Rise Time,1.0,0.0,whitebox
+sustained_vs_single_peak,+ Entropy,1.0,0.0,whitebox
+sustained_vs_oscillatory,Mean WCC,0.5,0.5,whitebox
+sustained_vs_oscillatory,+ Peak Amplitude,1.0,0.5,whitebox
+sustained_vs_oscillatory,+ Dwell Time,1.0,0.0,whitebox
+sustained_vs_oscillatory,+ Switching Rate,1.0,0.0,whitebox
+sustained_vs_oscillatory,+ Onset Latency,1.0,0.0,whitebox
+sustained_vs_oscillatory,+ Recovery Time,1.0,0.0,whitebox
+sustained_vs_oscillatory,+ Rise Time,1.0,0.0,whitebox
+sustained_vs_oscillatory,+ Entropy,1.0,0.0,whitebox
+sustained_vs_asymmetric_decay,Mean WCC,0.5,0.5,whitebox
+sustained_vs_asymmetric_decay,+ Peak Amplitude,1.0,0.5,whitebox
+sustained_vs_asymmetric_decay,+ Dwell Time,1.0,0.0,whitebox
+sustained_vs_asymmetric_decay,+ Switching Rate,1.0,0.0,whitebox
+sustained_vs_asymmetric_decay,+ Onset Latency,1.0,0.0,whitebox
+sustained_vs_asymmetric_decay,+ Recovery Time,1.0,0.0,whitebox
+sustained_vs_asymmetric_decay,+ Rise Time,1.0,0.0,whitebox
+sustained_vs_asymmetric_decay,+ Entropy,1.0,0.0,whitebox
+single_peak_vs_oscillatory,Mean WCC,0.5,0.5,whitebox
+single_peak_vs_oscillatory,+ Peak Amplitude,0.9987199999999999,0.49871999999999994,whitebox
+single_peak_vs_oscillatory,+ Dwell Time,1.0,0.0012800000000000589,whitebox
+single_peak_vs_oscillatory,+ Switching Rate,1.0,0.0,whitebox
+single_peak_vs_oscillatory,+ Onset Latency,1.0,0.0,whitebox
+single_peak_vs_oscillatory,+ Recovery Time,1.0,0.0,whitebox
+single_peak_vs_oscillatory,+ Rise Time,1.0,0.0,whitebox
+single_peak_vs_oscillatory,+ Entropy,1.0,0.0,whitebox
+single_peak_vs_asymmetric_decay,Mean WCC,0.5,0.5,whitebox
+single_peak_vs_asymmetric_decay,+ Peak Amplitude,0.99992,0.49992000000000003,whitebox
+single_peak_vs_asymmetric_decay,+ Dwell Time,1.0,7.999999999996898e-05,whitebox
+single_peak_vs_asymmetric_decay,+ Switching Rate,1.0,0.0,whitebox
+single_peak_vs_asymmetric_decay,+ Onset Latency,1.0,0.0,whitebox
+single_peak_vs_asymmetric_decay,+ Recovery Time,1.0,0.0,whitebox
+single_peak_vs_asymmetric_decay,+ Rise Time,1.0,0.0,whitebox
+single_peak_vs_asymmetric_decay,+ Entropy,1.0,0.0,whitebox
+oscillatory_vs_asymmetric_decay,Mean WCC,0.5,0.5,whitebox
+oscillatory_vs_asymmetric_decay,+ Peak Amplitude,0.4772,-0.022799999999999987,whitebox
+oscillatory_vs_asymmetric_decay,+ Dwell Time,0.7738400000000001,0.29664000000000007,whitebox
+oscillatory_vs_asymmetric_decay,+ Switching Rate,0.8948799999999999,0.12103999999999981,whitebox
+oscillatory_vs_asymmetric_decay,+ Onset Latency,0.9972,0.10232000000000008,whitebox
+oscillatory_vs_asymmetric_decay,+ Recovery Time,0.9977599999999999,0.0005599999999998939,whitebox
+oscillatory_vs_asymmetric_decay,+ Rise Time,0.9973600000000001,-0.0003999999999997339,whitebox
+oscillatory_vs_asymmetric_decay,+ Entropy,0.9972799999999999,-8.000000000019103e-05,whitebox

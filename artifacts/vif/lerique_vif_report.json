@@ -1,0 +1,46 @@
+{
+  "dataset": "lerique",
+  "n_rows": 264,
+  "features": [
+    "mean_synchrony",
+    "peak_amplitude",
+    "dwell_time",
+    "switching_rate",
+    "bimodality_coefficient"
+  ],
+  "vif": {
+    "mean_synchrony": 2.6296495819507233,
+    "peak_amplitude": 2.6192131178786418,
+    "dwell_time": 3.055456143573299,
+    "switching_rate": 2.4757269008929637
+  },
+  "vif_concern": [],
+  "vif_severe": [],
+  "top_correlated_pairs": [
+    {
+      "pair": "peak_amplitude ~ switching_rate",
+      "rho": 0.819629070652001
+    },
+    {
+      "pair": "peak_amplitude ~ dwell_time",
+      "rho": 0.8088168236692012
+    },
+    {
+      "pair": "mean_synchrony ~ switching_rate",
+      "rho": 0.6150785031930767
+    },
+    {
+      "pair": "mean_synchrony ~ peak_amplitude",
+      "rho": 0.5647992225867253
+    },
+    {
+      "pair": "mean_synchrony ~ dwell_time",
+      "rho": 0.5498311277313147
+    },
+    {
+      "pair": "dwell_time ~ switching_rate",
+      "rho": 0.3090480073073806
+    }
+  ],
+  "interpretation": "0 feature(s) with severe VIF (>=10.0), 0 concerning (>=5.0). High-VIF features should not be treated as independent tests in an FDR family."
+}
