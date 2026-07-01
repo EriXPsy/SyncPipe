@@ -1,529 +1,277 @@
-# SyncPipe Method Log
+# SyncPipe Decision Log
+---
 
-> Records the current measurement architecture used by the README, demo
-> outputs, and manuscript Table 1.
+## Reversal Protocol
+
+DECISION-xx reversal requires: (1) log proposal, (2) evidence (Tier 1: synthetic+2 real datasets), (3) impact assessment, (4) co-sign by ≥1 external reviewer, (5) archive old artifacts.
 
 ---
 
-## 1. Core repositioning
+## 2026-05-31 · DECISION-14b — HSMM segmenter
 
-SyncPipe v1 is positioned as **measurement infrastructure for interpersonal synchrony**, not merely as a synchrony feature profile or a collection of three pipelines.
-
-The unit of contribution is the standardized measurement procedure:
-
-1. aligned dyadic signals;
-2. WCC trace construction;
-3. WCC-derived descriptor table;
-4. synchrony-existence audit;
-5. design-control audit;
-6. group condition inference;
-7. reproducible exports and governance.
-
-This repositioning is intended to make SyncPipe useful even when a feature result is negative or confounded.  A tool that shows a result is likely shared-stimulus-driven is doing scientific work.
+**Decision**: Add HSMM epoch segmenter for paradigm-matched extraction (GT-3c/GT-3d). NOT universal WCC replacement.
+**Rationale**: WCC = paradigm-free episodes; HSMM = paradigm-structured segments. Complementary.
+**Evidence**: GT-3c (event): WCC ρ=0.83 vs HSMM ρ=0.56 → WCC better for event paradigms. GT-3d (continuous): HSMM ρ=0.76 vs WCC ρ=0.56 → HSMM better for continuous multi-regime.
+**Impact**: Paradigm-matched routing: timing family → WCC/PLV; switching/entropy → HSMM.
 
 ---
 
-## 2. SSoT boundary update
+## 2026-05-31 · DECISION-14 — Timing family validity
 
-SyncPipe now uses two explicit SSoT layers.
-
-### 2.1 Mathematical SSoT
-
-File:
-
-```text
-multisync/feature_definitions.py
-```
-
-Purpose:
-
-- implement WCC-derived feature mathematics;
-- provide dataclass serialization;
-- define internal constants and helper functions;
-- prevent duplicate feature math across modules.
-
-This layer may retain internal mathematical invariance labels where useful for implementation and null-model selection.
-
-### 2.2 Communication SSoT
-
-File:
-
-```text
-multisync/feature_status.py
-```
-
-Purpose:
-
-- provide the external-facing v1 feature status table;
-- support README, demo artifacts, and manuscript Table 1;
-- state source level, incremental information, paradigm restrictions, recommended tests, status, and risks.
-
-This layer intentionally avoids making external readers interpret the older Core/Conditional/L0/L1/L2 labeling scheme.
+**Decision**: Timing family (onset/recovery) valid under parameterized GT (GT-3b: ρ=0.86/0.85). GT-2 "timing failure" reclassified as GT design ceiling (no onset/rise GT knobs).
+**Rationale**: GT-2 generator hardcodes rise slope; no GT-parameterizable timing → ρ≈0 is mathematical necessity, not feature failure.
+**Evidence**: GT-3b convolutional GT with onset_delay/tau_rise/tau_decay: onset_latency ρ=0.86, recovery_time ρ=0.85.
+**Impact**: Timing family retains confirmatory status. GT-3b replaces GT-2 for timing validation.
 
 ---
 
-## 3. Evidence chain replaces feature-label hierarchy as external inference story
+## 2026-05-30 · DECISION-13 — synchrony_entropy diagnostic exclusion
 
-Older internal language used L0/L1/L2 labels for mathematical invariance and/or inferential levels.  This created ambiguity because "L2" was used both for event-locked morphology and between-condition inference.
-
-The external v1 inference story is therefore:
-
-### Step 1 — Synchrony-existence audit
-
-Question:
-
-> Do aligned signals show WCC features exceeding independently autocorrelated surrogate signals?
-
-Default implementation:
-
-```python
-InferencePipeline.run_synchrony_existence_audit
-```
-
-Default null:
-
-- signal-level IAAFT.
-
-Interpretation:
-
-- necessary but not sufficient evidence for a synchrony-like phenomenon;
-- does not rule out shared stimulus, co-presence, task rhythm, or other common-driver confounds.
-
-### Step 2 — Design-control audit
-
-Question:
-
-> Does the result survive controls targeting partner identity, temporal alignment, and shared stimulus structure?
-
-Default implementation:
-
-```python
-InferencePipeline.run_design_control_audit
-InferencePipeline.run_across_stimulus_shuffle_audit
-```
-
-Controls:
-
-- pseudo-pair: real partner vs mismatched partner;
-- time-shift: original alignment vs within-dyad shifted alignment;
-- across-stimulus shuffle: original segment order vs independently permuted stimulus segments.
-
-Interpretation:
-
-- these controls do not solve all common-driver problems;
-- they make nuisance explanations empirically visible and reportable.
-
-### Step 3 — Group condition inference
-
-Question:
-
-> Do descriptors differentiate conditions, groups, or theoretically meaningful predictors?
-
-Default implementation:
-
-```python
-InferencePipeline.run_group_condition_inference
-```
-
-Default test:
-
-- dyad-paired permutation + BH-FDR.
+**Decision**: synchrony_entropy stays diagnostic (not confirmatory). Exclusion rationale: cross-pair surrogate produces Type I+II error pattern (Bizzego: entropy H=44 false-positive, mean_synchrony NS false-negative).
+**Rationale**: Entropy passed benchmarks (p=0.0008) but surrogate diagnosis reveals cross-pair alone insufficient for multi-feature frameworks.
+**Impact**: Documents entropy exclusion rationale for reviewers. Methodological contribution: surrogate-diagnosis detects framework limitations.
 
 ---
 
-## 4. Feature status stance
+## 2026-05-30 · DECISION-12 — Feature family taxonomy (4 orthogonal)
 
-The v1 feature table is a measurement map, not a promotion list.
-
-Current stance:
-
-- `peak_amplitude` is the primary workhorse for synchrony-existence detection.
-- `mean_synchrony` remains a reference comparator, not a sufficient construct definition.
-- `dwell_time` and `switching_rate` are exploratory-secondary structure descriptors because thresholding, WCC overlap, and jitter affect their interpretation.
-- `onset_latency`, `rise_time`, and `recovery_time` are event-mode exploratory descriptors, not general synchrony descriptors.
-- `bimodality_coefficient` and `synchrony_entropy` are distribution-shape diagnostics with construct-validity caveats.
-- `fraction_above_threshold` is implemented in the mathematical SSoT as an exploratory-secondary occupancy descriptor, but is not included in the primary FDR family in v1.
-- `first_peak_time` and `inter_peak_cv` are morphology-agnostic exploratory descriptors and require definedness-rate reporting.
+**Decision**: 8 features → 4 orthogonal families via PCA (Bizzego N=193, 75% variance).
+**Families**: (1) Intensity (peak_amp, mean_sync, switching_rate); (2) Amplitude-variability (peak_amp, dwell_time, entropy); (3) Temporal-dynamics (onset, rise); (4) State-richness (entropy, switching, dwell).
+**Implication**: Onset/rise load on PC3 (temporal) → low power on coupling-strength axis expected. Need σ/τ probe in GT to validate temporal family.
+**Impact**: Paper narrative: 6 features → 4 operationalized dimensions.
 
 ---
 
-## 5. Null-model stance
+## 2026-05-30 · DECISION-11 — WCLC alternative metric
 
-### Signal-level IAAFT
-
-Use for synchrony-existence auditing of distributional WCC descriptors.  It preserves single-signal spectra and amplitude distributions while disrupting cross-signal alignment.
-
-Claim it supports:
-
-> WCC-derived synchrony descriptors exceed an independent autocorrelated-signal null.
-
-Claim it does not support alone:
-
-> The observed synchrony is dyad-specific interpersonal coupling.
-
-### WCC-level order nulls
-
-Use cautiously for exploratory structure descriptors.  WCC traces are overlapping-window summaries; their autocorrelation partly reflects measurement construction.  Therefore WCC-level IAAFT or block permutation should not be oversold as a mature confirmatory test of psychological temporal structure in v1.
-
-### Pseudo-pair and time-shift
-
-Use as design-control audits.  They are not generic replacements for experimental design, but they directly address partner-identity and temporal-alignment alternatives.
-
-### Across-stimulus shuffle
-
-Use only when meaningful stimulus/trial segments exist.  It is inappropriate for unsegmented free interaction.
+**Decision**: Add WCLC synchrony() as alternative metric (metrics.py). WCC remains default.
+**Rationale**: BM2 showed WCC=0% detection for switching_rate under linear coupling; WCLC=100%. WCLC captures cross-lagged leader-follower dynamics that 0-lag Pearson r misses.
+**Evidence**: BM2: WCLC switching_rate detection=100% vs WCC=0% (linear coupling); WCLC also detects switching at 47% (lagged), 67% (nonlinear). WCC outperforms WCLC on intensity features (peak_amp: 100% vs 33%).
+**Impact**: WCLC recommended for switching_rate in structured leader-follower paradigms. PLV recommended for phase-dominated signals.
 
 ---
 
-## 6. Demo and artifacts
+## 2026-05-24 · DECISION-10 — Prediction feature baseline + leakage threshold
 
-The v1 demo now exports:
-
-```text
-viewer_results.json
-feature_table.csv
-feature_status_table.csv
-synchrony_existence_audit.json
-design_control_audit.json
-DEMO_REPORT.md
-```
-
-These artifacts are intended to support reproducible inspection rather than black-box analysis.
+**Decision**: prediction.py main features = 6 epoch (CONFIRMATORY_FEATURES). mean_synchrony = AR baseline (external channel). LEAKAGE_DELTA_AUC_THRESHOLD = 0.30 (SSoT).
+**Rationale**: Old 10-feature schema leaked (mean_synchrony in main matrix). New 6-epoch schema + AR baseline eliminates trivial leakage. 0.30 threshold calibrated vs sine-wave ceiling (0.366) and white-noise floor (≈0).
+**Sub-decisions**:
+- 10X1: Cross-modal ablation = Granger-style (drop source AR only, keep target AR).
+- 10T1: Keep T1 (drop source AR only) — preserves Granger asymmetry.
+**Impact**: prediction.py SSoT-compliant. Leakage audit: sine delta_AUC=0.366 > 0.30 threshold → flag.
 
 ---
 
-## 7. 2026-06-29 update: fraction_above_threshold SSoT integration
+## 2026-05-24 · DECISION-09 — Confirmatory vs Diagnostic Partition
 
-Decision:
-
-- Implement `fraction_above_threshold` in the mathematical SSoT.
-- Define it as the fraction of finite WCC samples satisfying $\mathrm{WCC}[t] \geq \theta_{sync}$.
-- Classify it externally as an exploratory-secondary occupancy descriptor.
-- Exclude it from the primary FDR family in v1.
-
-Rationale:
-
-- It is transparent and easily interpretable as above-threshold synchrony coverage.
-- It adds an occupancy dimension distinct from episode duration (`dwell_time`) and transition frequency (`switching_rate`).
-- It is permutation-invariant and therefore does not measure temporal organization by itself.
-- Initial artifact-level audits showed likely redundancy with mean/peak synchrony in some datasets, so confirmatory promotion is premature.
-
-Implementation:
-
-- `compute_fraction_above_threshold()` in `feature_definitions.py`.
-- `DynamicFeatures.fraction_above_threshold` field and `to_dict()` export.
-- Included in `feature_status.py`, `feature_pipeline.py`, `scripts/build_feature_table.py`, demo `feature_table.csv`, and design-control default audit features.
-
-## 7b. 2026-06-29 update: timing-descriptor wiring + BRM full-text migration
-
-Two changes were made in one pass at the author's request.
-
-### 7b.1 Wiring of two morphology-agnostic timing descriptors
-
-`compute_inter_peak_cv()` and `compute_first_peak_time()` already existed
-in `feature_definitions.py` but were never called by `extract_features`,
-had no `DynamicFeatures` fields, and were absent from `to_dict()` and the
-status/tier tables — i.e. they were isolated (un-wired) code.
-
-Before wiring, an artifact-level redundancy audit was run
-(`scripts/audit_timing_features.py`, output
-`artifacts/timing_feature_audit.csv`) on the existing Andersen, Gordon,
-and Lerique WCC traces. Findings:
-
-- Pooled maximum |Pearson r| against mean/peak/fraction-above-threshold:
-  - `first_peak_time`: 0.24 (lowest redundancy)
-  - `inter_peak_cv`: 0.42
-  - (for comparison, `fraction_above_threshold` reached |r| up to 0.97
-    against mean synchrony in the earlier audit — strong redundancy.)
-- Definedness (fraction of traces with a finite value):
-  - `inter_peak_cv`: Andersen 1.00, Gordon 0.05, Lerique 0.53
-  - `first_peak_time`: Andersen 1.00, Gordon 0.39, Lerique 0.66
-
-Conclusion: both descriptors carry information beyond the magnitude
-descriptors (they are NOT redundant with mean/peak — unlike
-fraction_above_threshold), but their definedness is strongly
-paradigm/length-dependent. `baseline_fraction` (also un-wired) was NOT
-wired in, because it overlaps in semantics with `first_peak_time` and is
-more redundant (pooled |r| = 0.51).
-
-Implementation:
-
-- `extract_features` now computes both and passes them to
-  `DynamicFeatures`; new fields `inter_peak_cv`, `first_peak_time`
-  (default NaN) added; both exported in `to_dict()` and accepted in
-  `from_dict()`.
-- Registered as `conditional` in `FEATURE_TIER`, `L2` in
-  `MATHEMATICAL_TIER` (they depend on the ordering/spacing of
-  threshold-crossing peaks and are NOT permutation-invariant), and added
-  to `TEMPORAL_FEATURES`.
-- Status set to `exploratory-secondary` in `feature_status.py` (was
-  `exploratory-proposed`); both have `enters_primary_fdr = False`.
-- Annotated in `scripts/build_feature_table.py`; `FEATURE_TABLE.{md,csv}`
-  now list 12 features, still 5 in the FDR family.
-- Tests added (`test_timing_descriptors_are_wired_and_non_fdr`,
-  `test_timing_descriptors_are_nan_when_undefined`).
-
-These descriptors require definedness-rate reporting and are NOT in the
-primary FDR family. They are NOT claimed as validated psychological
-constructs; the BRM Future Directions section states the upgrade
-standard (real-data incremental value under design controls).
-
-### 7b.2 BRM_draft.md full-text narrative migration
-
-The legacy feature-tier vocabulary that remained in Methods §2.3–§2.4 and
-the Discussion (Core / Conditional / Reference features, prose L0/L1/L2
-labels, "two-level inference", "Intensity-governed (L1) contrast",
-"Intensity-layer prediction", "GT-1 through GT-5", "promoted to the Core
-tier", "feature profile/framework") was migrated to the
-measurement-infrastructure / descriptor-table / audited-evidence-chain
-vocabulary already used in the Introduction and Methods §2.1–§2.2. All
-empirical numbers, dataset descriptions, citations, and effect sizes were
-left unchanged; only framing language was rewritten. Conceptual dimension
-terms (synchrony intensity / structure / temporal dynamics) were retained
-where they denote dimensions of synchrony rather than feature-tier codes.
-
-## 7c. 2026-06-29 update: primary-FDR SSoT consolidation + timing-descriptor validation
-
-### 7c.1 Primary group-condition FDR family consolidated to 3 features (Option B)
-
-Three sources of truth previously disagreed about the confirmatory FDR
-family. Code `FDR_FEATURES` listed 5 members
-({mean_synchrony, peak_amplitude, bimodality_coefficient, dwell_time,
-switching_rate}); the external `feature_status.py` marked only
-`peak_amplitude` with `enters_primary_fdr=True`; and
-`build_feature_table.py` annotations partially disagreed. Because the FDR
-family size directly determines the Benjamini-Hochberg threshold, this is
-not a labelling nicety — it changes which results are reported as
-significant.
-
-An impact analysis (`scripts/fdr_family_impact.py`) re-applied BH-FDR to
-the existing Lerique 2024 main-contrast p-values under the candidate
-definitions. `peak_amplitude` was significant under every definition;
-`dwell_time`/`switching_rate` were significant in ECG/EDA only when kept
-in the family; `mean_synchrony` was the only feature whose inclusion was
-internally contradictory (tiered "reference" yet consuming family budget).
-
-DECISION (Option B): the primary confirmatory FDR family is now exactly
-**{peak_amplitude (L0), dwell_time (L1), switching_rate (L1)}**.
-- `mean_synchrony` is a reported reference comparator (not corrected). It
-  remains an L0 feature for the synchrony-existence audit and is still
-  reported with a surrogate p-value (REFERENCE_TAILS in pgt1_intensity).
-- `bimodality_coefficient` is removed from the confirmatory family
-  (its membership was explicitly "provisional"). It remains a permutation-
-  invariant L0 distribution-shape descriptor for the existence audit and
-  is still computed and serialized.
-
-The synchrony-existence audit null grouping (`_NULL_MODEL_L0`/
-`_NULL_MODEL_L1` in `dynamic_features.py`) was deliberately NOT changed:
-confirmatory FDR membership (Axis C) and existence-null grouping (Axis D)
-are separate axes. Files updated for consistency: `feature_definitions.py`
-(FDR_FAMILIES/FDR_FEATURES), `feature_status.py` (dwell/switching ->
-enters_primary_fdr=True, status primary-structure), `feature_pipeline.py`
-(mean/BC fdr_member=False), `scripts/build_feature_table.py` (BC
-annotation), `validation/pgt1_intensity.py` (FEATURE_TAILS=3,
-REFERENCE_TAILS={mean_synchrony}), `validation/recovery.py`
-(FEATURE_COLUMNS = FDR + reference), plus the dependent tests.
-`to_dict()`/`from_dict()` were updated so `bimodality_coefficient` is
-still serialized despite leaving FDR (it was previously emitted only via
-FDR_KEYS).
-
-### 7c.2 Validation of inter_peak_cv and first_peak_time
-
-`scripts/validate_timing_descriptors.py` ran two analyses.
-
-**Part 1 — Peak-timing existence null.**
-
-*Round-3 attempt (FALSIFIED, archived).* The first attempt used an L2
-circular time-shift null on the Kuramoto EGT synchrony traces. It was
-found to have essentially no power: circular shifting preserves the
-trace's amplitude distribution and autocorrelation, which largely
-*determine* first-peak and inter-peak statistics, so the null is close to
-trivially satisfied (sustained quasi-null rejected at 0.08-0.12, i.e.
-above alpha, while true-peak conditions rejected at ~0.00). It is NOT a
-valid existence test and was retired. The script is archived for
-reproducibility under
-`experimental/scripts/circular_shift_timing_null_FALSIFIED.py`.
-
-*Round-4 attempt (current): cyclic block-bootstrap null.* The trace is cut
-into equal-length blocks (5 s = 25 samples at 5 Hz on EGT; `round(5 s × hz)`
-on real traces) and the BLOCK ORDER is randomly permuted before
-re-concatenation. This preserves within-block short-range autocorrelation /
-local peak shape AND the global marginal distribution, while destroying the
-long-range temporal anchoring of peaks. A two-tailed Phipson-Smyth p-value
-is computed per trace (499 permutations). Success criteria fixed in advance:
-true-peak conditions should reject WELL above alpha; the no-localized-peak
-`sustained` quasi-null should reject NEAR alpha (=0.05).
-
-*1a — Kuramoto EGT (faithful substrate-level null), rejection rates at α=0.05:*
-
-| condition | first_peak_time | inter_peak_cv |
-|---|---|---|
-| single_peak (true localized peak) | 0.000 | 0.000 |
-| delayed_peak (true localized peak) | 0.000 | 0.017 |
-| sustained (no localized peak; quasi-null) | 0.083 | 0.050 |
-
-The null is **methodologically clean** — unlike the circular-shift null, the
-`sustained` quasi-null rejects at ~alpha (no spurious power). But the
-true-peak conditions also reject at ~0, i.e. the null has **no power on the
-EGT morphologies**. The reason is substantive, not a null defect: Kuramoto
-EGT traces are "a single Gaussian peak on a flat noisy baseline." Permuting
-block order merely relocates that single peak; the trace is still "one peak +
-baseline," so a single peak's *position* (first_peak_time) and the
-near-degenerate inter-peak statistic carry no falsifiable *temporal structure*
-to detect. A single peak has no temporal organisation to scramble. The EGT
-test bed is therefore the wrong substrate for these descriptors' existence
-test — the negative result is correct and interpretable, not a null failure.
-
-*1b — Real WCC traces (TRACE-LEVEL null; weaker interpretation).* Applied to
-the synchrony traces themselves (no raw signals are available), this asks
-whether observed peak timing exceeds what block-reordering of the *trace*
-would produce — not a raw-signal surrogate. Rejection rates (on the testable,
-i.e. defined, subset):
-
-| dataset / condition | first_peak_time | inter_peak_cv | definedness (fpt / cv) |
-|---|---|---|---|
-| lerique / trials_concat | 0.342 | 0.890 | 0.90 / 0.83 |
-| lerique / rest1 | 0.189 | 0.429 | 0.42 / 0.24 |
-| gordon / exp1 | 0.000 | 0.000 | 0.39 / 0.04 |
-| gordon / exp4 | 0.000 | (no testable) | 0.36 / 0.00 |
-
-On real data the null DOES show power, and in the expected direction (task
-> rest for Lerique inter_peak_cv: 0.89 vs 0.43), indicating that real
-synchrony traces contain multi-peak temporal structure that block-reordering
-cannot reproduce. Gordon traces are largely undefined (cv definedness ~0) and
-uninterpretable.
-
-DECISION (conservative): this is treated as a **negative / inconclusive**
-result for existence-test purposes, and existence-test status is **deferred
-to v2**. Rationale: (i) the EGT substrate cannot test these descriptors
-(no structure to scramble); (ii) the real-data signal is confounded by
-strong definedness selection (rest1 cv definedness only 0.24, so the 0.43
-rejection is computed on a self-selected ~quarter of traces) and is a
-trace-level rather than signal-level null. The cyclic block-bootstrap null
-is methodologically sound (sustained does not over-reject) and the real-data
-result is promising, but it is not sufficient to claim an existence test in
-v1. A v2 signal-level validation (block/IAAFT surrogates on raw signals,
-reported alongside definedness) is required before any promotion.
-
-**Part 2 — Incremental AUC (baseline = mean_synchrony, then +timing).**
-
-| dataset | +inter_peak_cv ΔAUC | +first_peak_time ΔAUC |
-|---|---|---|
-| EGT-2 temporal (early vs late peak, mean-matched) | +0.125 | +0.137 |
-| Lerique pooled (rest vs task) | +0.142 | +0.083 |
-| Lerique EDA | +0.206 | +0.033 |
-| Lerique RESP | +0.194 | +0.176 |
-| EGT-1 structure (N=14 matched; high variance) | +0.000 | +0.200 |
-| Gordon exp1 vs exp4 (illustrative; labels unmapped) | -0.001 | +0.030 |
-
-The strongest evidence is EGT-2: under exact mean-matching the baseline
-mean_synchrony AUC was 0.47 (at chance, confirming the match), and adding
-the two timing descriptors raised AUC to 0.74. This demonstrates
-incremental information beyond mean synchrony when mean is uninformative —
-i.e. these descriptors are NOT magnitude proxies. Lerique EDA/RESP agree.
-Caveats retained: EGT-1 had only 14 matched pairs with large fold variance
-(its +0.200 is unreliable), and Gordon showed near-zero increment (and its
-condition semantics were not mapped, so it is illustrative only).
-
-DECISION: both descriptors remain **exploratory-secondary, not in the
-primary FDR family**. The incremental-AUC evidence is positive and
-strengthens their descriptive value, but they lack a *validated* existence
-null (the block-bootstrap null is methodologically sound but its
-existence-test status is deferred to v2; see Part 1), so they are not
-promoted to confirmatory status in v1.
-
-Artifacts: `artifacts/timing_validation/timing_validation_summary.json`,
-`artifacts/timing_validation/block_permute_null_egt.csv`,
-`artifacts/timing_validation/block_permute_null_real.csv`. The falsified
-round-3 circular-shift script is archived at
-`experimental/scripts/circular_shift_timing_null_FALSIFIED.py`.
-
-## 7d. 2026-06-29 update: block-bootstrap null lineage + v1.0 final code audit
-
-### 7d.1 Theoretical lineage of the cyclic block-bootstrap peak-timing null
-
-The cyclic block-bootstrap null introduced in §7c.2 (round 4) is not an ad-hoc
-invention; it sits on two documented lineages, mirroring how the existing WCC
-nulls are positioned relative to SUSY / multiSyncPy.
-
-- **Statistical-methodology lineage.** Künsch (1989) introduced the Moving Block
-  Bootstrap (resample fixed-length blocks to preserve within-block dependence);
-  Politis & Romano (1992) introduced the Circular Block Bootstrap, which wraps
-  the series end-to-start so that tail observations left over when the length is
-  not divisible by the block length are still resampled — exactly the tail
-  handling used in `scripts/validate_timing_descriptors.py`. These are the
-  standard `arch.CircularBlockBootstrap` / `MovingBlockBootstrap` methods.
-
-- **Synchrony / physiological-time-series lineage.** Ramseyer & Tschacher (2011, J. Consulting and Clinical Psychology, 79, 284–295)
-  used *segment shuffling* (cut a series into segments and re-append them in
-  random order) as a WCC/motion-energy surrogate in the rMEA tradition; it is
-  catalogued as one of the standard WCC surrogate methods alongside data
-  shuffling and participant shuffling. Moriano et al. (2024, PLOS Biology) list
-  the stationary block bootstrap alongside IAAFT, twin, and cyclic-permutation
-  surrogates for physiological-time-series correlation testing, using 499
-  surrogates as we do.
-
-Positioning, consistent with the existing null vocabulary:
-- WCC + surrogate (data/participant) shuffling → SUSY / multiSyncPy lineage;
-- WCC + IAAFT → a small refinement on that lineage;
-- **WCC + cyclic block permutation → a cross of the Künsch / Politis–Romano
-  block-bootstrap family with Ramseyer–Tschacher segment shuffling.**
-
-**Documented weakness (why existence status is still deferred to v2).** Schwartz
-et al. (eLife, 2025) show that block-bootstrap nulls scramble data in time and
-therefore distort autocorrelation, producing unacceptable false-positive rates
-for *some* correlation statistics — i.e. the null's validity is statistic-
-dependent. Our own EGT results are consistent with this caution: the null is
-clean on a structureless quasi-null (no over-rejection) but underpowered on
-single-peak morphologies. We therefore do NOT claim it is a validated existence
-test for `inter_peak_cv` / `first_peak_time` in v1; a signal-level validation is
-required in v2 before any promotion.
-
-### 7d.2 v1.0 final code audit (read-then-fix, all changes traceable)
-
-A full read-only audit (`docs/AUDIT_V1_REPORT.md`) was run before v1.0 release.
-Resolved this round:
-
-- **Version SSoT.** Package version is `1.0.0` in `__about__.py`, `pyproject.toml`,
-  and `__init__.py`. Added `multisync --version` (reads `__about__.__version__`).
-  `core.py`'s `schema_version "0.2.0"` is annotated as the JSON *output-structure*
-  version, deliberately independent of the package version. (BRM_draft.md keeps
-  its own manuscript revision number; it is not a software version.)
-- **Docstring↔decision consistency.** Removed stale "circular time-shift null
-  pending" / "EXCLUDED pending null-model implementation" language from
-  `feature_definitions.py` (FDR_FEATURES, FDR_FAMILIES) and the three event-only
-  rows in `feature_status.py`, replacing it with the block-bootstrap / v2-deferral
-  wording. The `bimodality_coefficient` docstring no longer says "provisional
-  pending a dated DECISION_LOG entry" (that decision was made on 2026-06-29,
-  Option B); it now states BC is removed from the confirmatory FDR family but
-  retained as an L0 existence-audit descriptor. Its tier remains CONDITIONAL,
-  which matches `FEATURE_TIER` (verified).
-- **Script trunk separation.** `scripts/` now holds only main-trunk result
-  generators (see `docs/SCRIPT_MAP.md`, which maps each script to the BRM trunk
-  result it supports). Three one-off diagnostic/"fixed" scripts
-  (`analyze_pgt2_fixed.py`, `diagnose_pgt2_drift.py`,
-  `diagnose_h2_switching_entropy.py`) and the falsified circular-shift null were
-  moved to `experimental/scripts/` (v2 staging).
-
-## 8. Open methodological limitations
-
-1. ISC/shared-stimulus/co-presence confounds are audited, not solved.
-2. WCC remains the default substrate for transparency, not because it is universally optimal.
-3. Several descriptors remain exploratory and should not be described as independently validated psychological constructs.
-4. The feature status table should evolve through explicit method-log entries and tests, not silent edits.
-5. Future work should benchmark alternative substrates such as WCLC, PLV, CRQA, MI, and recurrence methods with substrate-specific null models.
+**Decision**: FDR family = 6 confirmatory (onset_latency, rise_time, peak_amplitude, recovery_time, dwell_time, switching_rate). Diagnostics = 2 (mean_synchrony, synchrony_entropy), NOT in BH-FDR.
+**Rationale**: DECISION-06 removed entropy/synchrony from main set; family partition was implicit in code. SSoT formalization prevents AI silently expanding family size.
+**Impact**: SSoT constants: FEATURE_FAMILY, CONFIRMATORY_FEATURES, DIAGNOSTIC_FEATURES in feature_definitions.py. All FDR-aware code must import from SSoT.
 
 ---
 
-## 9. Minimal reporting language
+## 2026-05-23 · v0.x.0 Methodology Lock-In
 
-Recommended manuscript wording:
+**Decisions**:
+- DECISION-01: ONSET_THRESHOLD = 0.5 (Cohen's d large). Reject MAD-driven adaptive thresholding (violates measurement invariance).
+- DECISION-02: onset_latency = first sustained crossing (baseline → elevated K samples). Reject "first ≥ threshold" version.
+- DECISION-03: rise_time = 25%–75% quartile (Boucsein 2012). Reject "onset → peak" version (confounds with threshold).
+- DECISION-04: peak_amplitude = 3-point boxcar smoothed max. Reject bare max (single-sample spike vulnerability).
+- DECISION-05: recovery_time = half-recovery (Boucsein 2012). Reject "full recovery to baseline" (systematic NaN in high-coupling).
+- DECISION-06: Replace {synchrony_entropy, mean_synchrony} with {dwell_time, switching_rate}. Dwell+switching > Shannon entropy (2D interpretability, no information loss).
+- DECISION-07: Primary surrogate = IAAFT. FT surrogate = robustness check.
+- DECISION-08: Dominant peak index shared across rise/recovery/peak. Onset decoupled.
 
-> We treated synchrony measurement as an audited evidence chain.  First, signal-level IAAFT tested whether WCC-derived descriptors exceeded independent autocorrelated-signal nulls.  Second, pseudo-pair, time-shift, and where applicable across-stimulus shuffle controls evaluated partner-identity, temporal-alignment, and shared-stimulus alternatives.  Third, dyad-paired permutation tests evaluated whether audited descriptors differentiated experimental conditions.  Feature descriptors were reported with explicit source level, incremental information, paradigm restrictions, and risk notes.
+**Impact**: 6 confirmatory + 2 diagnostic locked. SSoT in feature_definitions.py.
 
-Avoid:
+---
 
-- "IAAFT proves interpersonal coupling";
-- "L1/L2 features are confirmatory";
-- "onset/rise/recovery are general synchrony features";
-- "more synchrony is always better".
+## 2026-05-27 · R4-LERIQUE-CLOSURE
+
+**Decision**: Run Lerique 2024 (3 modalities × 2 conditions) with IAAFT surrogate.
+**Rationale**: Complete 4-dataset cross-protocol validation (Han/Andersen/Gordon/Lerique).
+**Key result**: 4/48 cells significant (FT surrogate ∩ IAAFT = 100% concordance). Cross-dataset FT-IAAFT agreement = 98/100 = 98.0%.
+**Impact**: Lerique = Pattern B (stim-locked). Boundary-aware WCC masking implemented (NaN-ratio guard = 0.6).
+
+---
+
+## 2026-05-27 · FT-SURROGATE-COMPLETE
+
+**Decision**: FT surrogate补跑 completed (Andersen 12' + Gordon 5' + Han 7').
+**Key result**: Sig-agreement = 50/52 = 96.2%. FT surrogate stricter on switching_rate (2/52 cells).
+**Impact**: DECISION-07 lock-in empirically supported. FT surrogate as robustness check validated.
+
+---
+
+## 2026-05-27 · R4-IAAFT-Andersen-Gordon
+
+**Decision**: IAAFT surrogate for Andersen + Gordon completed.
+**Key result**:
+- Andersen: 5/6 confirmatory survive IAAFT (switching_rate reverse-direction finding: real > surrogate, opposite to Pattern A prediction).
+- Gordon angular: anti-phase Pattern A' confirmed (real mean_sync=-0.21 vs surrogate≈0).
+- Gordon radial: upgraded from Pattern B to "A-weak" (weak coupling + strong stim).
+**Impact**: Pattern A (Andersen) survives 5-test battery. Pattern A' (Gordon angular) confirmed. Switching_rate reverse direction = publishable mechanistic refinement ("intermittent coupling").
+
+---
+
+## 2026-05-27 · R4-IAAFT-Han
+
+**Decision**: Han IAAFT completed. Han reclassified from Pattern C to "C + A-hidden".
+**Rationale**: Cross-pair surrogate preserves trace shape AND partner identity → cannot detect true coupling component. IAAFT preserves only cross-spectral coherence → exposes hidden true coupling.
+**Key result**: 4/6 confirmatory + 2/2 diagnostic passed. rise_time/switching_rate fail due to 1Hz measurement resolution floor (not Pattern A refutation).
+**Impact**: Han has true coupling component (magnitude ~0.15) invisible to cross-pair surrogate.
+
+---
+
+## 2026-05-26 · Andersen-dose-response + group-mixed-effects + event-locked
+
+**Decision**: Three independent falsification tests for Andersen Pattern A.
+**Key result**:
+- Dose-response: 10/52 hits (close_count/arousal drive sync features, direction matches Pattern A).
+- Group mixed-effects: 5/6 features survive Group random intercept (attenuation ≤11%,多数 negative = effect strengthens after group control).
+- Event-locked proxy (HR-derived): 8/8 features significant (p < 1e-46).
+**Impact**: Pattern A survives three independent falsification tests. Andersen = most validated cell in 4-pattern taxonomy.
+
+---
+
+## 2026-05-26 · Gordon-cross-protocol-diagnosis
+
+**Decision**: Gordon angular = Pattern A' (anti-phase). Gordon radial = Pattern B (stim-locked).
+**Rationale**: Angular velocity WCC shows anti-phase dyad-specific coupling (real mean_sync=-0.21 vs surrogate≈0). Radial distance WCC shows stim-locked (real ≈ cross_dyad).
+**Key result**: Per-lag pattern: angular = sharp step at lag=0 (anti-phase), radial = smooth tent (stim-locked).
+**Impact**: Pattern A upgraded to A ∪ A' (positive-sign + anti-phase). Taxonomy: A (Andersen + Gordon angular), B (Lerique + Gordon radial), C (Han), D (pending).
+
+---
+
+## 2026-05-26 · Andersen-cross-protocol-diagnosis
+
+**Decision**: Andersen = Pattern A (true dyad-specific coupling).
+**Key result**: cross_group_pseudo NS rejected (p<1e-17 for 4/6 features). Time-shift NS rejected (p<1e-26). Per-lag: smooth + flat.
+**Impact**: 4-pattern taxonomy closed (A=Andersen, B=Lerique, C=Han, D=pending). Taxonomy has empirical exemplars for 3/4 cells.
+
+---
+
+## 2026-05-25 · Han-cross-protocol-diagnosis
+
+**Decision**: Han = Pattern C (trace-shape autonomous similarity).
+**Key result**: cross-dyad surrogate NS at all 3 levels. Time-shift: only peak_amplitude+dwell_time significant (partial). Per-lag: monotonic decay (no sawtooth).
+**Impact**: Taxonomy雏形: A (Andersen), B (Lerique), C (Han), D (ARMA-noise theoretical position). Surrogate framework discriminates 4 synchrony sources.
+
+---
+
+## 2026-05-25 · Lerique-surrogate-controls
+
+**Decision**: Cross-dyad pseudo-pair + within-dyad time-shift surrogate for Lerique.
+**Key result**: Pseudo-pair: 0/4 significant. Time-shift: 4/4 significant. Per-lag: sawtooth dip at ±60s (trial period).
+**Interpretation**: Lerique trial > rest elevation explained by stim-locked shared driver (trial-onset evokes shared physiological response), not dyad-specific coupling.
+**Impact**: Pattern B (stim-locked) validated. Surrogate diagnosis framework established.
+
+---
+
+## 2026-05-25 · DynamicAnalyzer-enable-prediction-flag
+
+**Decision**: Add enable_prediction flag (default=True, backward compatible).
+**Rationale**: Surrogate/dose-response/trial-level scripts don't need prediction CV (wastes ~50-80% runtime).
+**Impact**: Scripts opt-in enable_prediction=False for descriptive-only analysis.
+
+---
+
+## 2026-05-25 · Lerique-dose-response-followup
+
+**Decision**: Rest2/3/4 pooling validated (slope p > 0.25, pairwise p > 0.05).
+**Rationale**: Carry-over reaches steady state by first post-block rest (R2), does not accumulate further. Pooling strategy valid.
+**Impact**: Pre-reg pooling strategy post-hoc validated. EDA peak_amplitude stable across session (possible "trait" interpretation, needs surrogate validation).
+
+---
+
+## 2026-05-25 · Hackathon-MiraclePlus-2026-submission
+
+**Decision**: Scope lock for hackathon submission (external communication, NOT method change).
+**Key constraints**: Partial results NOT confirmatory; no "Earth to Moon" deployment claims; no core SSoT modification.
+**Impact**: External communication scope bounded. Lerique full run remains critical path.
+
+---
+
+## 2026-05-25 · Lerique-interim-N10-observation
+
+**Decision**: Interim partial results (N=10) observed, NOT final. Full run (N≈28) mandatory before declaring Level A.
+**Key result**: 3/18 main contrasts significant (direction: Trial > Rest). Consistent with pre-reg.
+**Caveat**: Sample not random (dictionary-order prefix). N=10 small. Full run may regress.
+**Impact**: Prioritize full run. Partial results鼓舞但不构成 confirmatory finding.
+
+---
+
+## 2026-05-25 · Lerique-batch-pipeline-ready
+
+**Decision**: Batch pipeline + FDR scope locked. Main contrast = rest1 → trials_concat (18 tests, BH-FDR within 3 modalities). Sensitivity/reference = raw p only (NOT in FDR).
+**Impact**: SSoT (CONFIRMATORY_FEATURES) → DyadResult → batch CSV column names aligned. FDR family = 18 tests (3 modalities × 6 features).
+
+---
+
+## 2026-05-25 · Lerique-preproc-smoke-pass
+
+**Decision**: Lerique preprocessing smoke test 6/6 PASS. Three modalities implemented (ECG IBI, EDA, RESP).
+**Rationale**: Preproc protocol locked (§1.4). ECG: Butterworth 5-20Hz + neurokit2 ecg_peaks. EDA: 0.05-5Hz. RESP: 0.1-1Hz.
+**Known quirk**: EDA/RESP resample length = +1 sample vs ECG (scipy resample_poly ceiling). Does not affect current pipeline (each modality independent). Future cross-modal operation needs off-by-one fix.
+**Impact**: Lerique batch analyze gate OPEN.
+
+---
+
+## 2026-05-25 · Lerique-rest1-length-heterogeneity
+
+**Decision**: MIN_DURATION_SEC = 60s hard threshold (policy A+). Drop records with < 60s raw trace.
+**Rationale**: WCC window=10s/step=5s → 60s segment produces ≥11 windows. 4 windows hard floor → 30s. 60s leaves ≥2× safety margin.
+**Impact**: pce09 (159s) and pce26 (170s) both retained ( > 60s). Pre-reg §1.3 updated with three-policy comparison table.
+
+---
+
+## 2026-05-24 · Lerique-meta-correction
+
+**Decision**: Lerique metadata correction (Fs / segment duration / Rest heterogeneity / three-condition-units).
+**Cor corrections**: Fs=1000Hz (not 600Hz). Rest=180s (not 300s). Trial=60s (not 100s). Rest1 ≠ Rest2/3/4 (pre-task vs post-block).
+**Rationale**: Previously inferred from sample counts without reading PDF. Violated "facts before inference" discipline.
+**Impact**: Pre-reg §1.2/1.3/1.4 updated. Condition units: rest1 / rest_postblock / trials_concat (not binary Rest/Trial).
+
+---
+
+## 2026-05-24 · Synthetic-grid-no-extension
+
+**Decision**: NOT extend synthetic grid (c=0.4/0.5, noise=1.5/2.0). Resources → Lerique real data pilot.
+**Rationale**: c=0.3 → power=0%; c=0.6 → power=100% monotonic curve. Threshold bounded (0.3, 0.6). Adding tail noise (1.5/2.0) only paints floor. Lerique pilot higher information value.
+**Impact**: GT-1/GT-2 finalized. Grid extension deferred until Lerique+P3 both show no signal.
+
+---
+
+## 2026-05-24 · P2-pilot-launch
+
+**Decision**: Lerique-47n3p selected for P2 first. Bizzego deferred.
+**Rationale**: Lerique: 3 modalities complete, 27/31 dyads full data, dyadic-task confirmed. Bizzego: IBI 2Hz + 0.04Hz LP mismatches SyncPipe 1Hz + 30s WCC. Methodologically incompatible.
+**Impact**: P2 dataset = Lerique 2024. Bizzego retained as robustness dataset (post-Lerique).
+
+---
+
+## 2026-05-24 · GT-1 / GT-2 full run
+
+**Decision**: GT-1 (power curve) + GT-2 (null FWER audit) completed. Results archived.
+**Key result**:
+- GT-2: 56 cells, all pass (Wilson 95% CI lower bound ≤ q=0.05).
+- GT-1: peak_amplitude = strongest detector (c=0.6, noise=0.05 → 100%). dwell_time/recovery_time = secondary signal. onset/rise = no power (known caveat: sustained-elevated traces lack baseline phase).
+**Impact**: METHODLOGY_LOCK_IN.md updated with GT-1/GT-2 chapters. FWER control verified.
+
+---
+
+## 2026-05-24 · R-C — Summary schema long-table
+
+**Decision**: summarise_level1 output changed from wide to long format. Family partition explicit in schema.
+**Rationale**: Wide format invisibly mixed confirmatory/diagnostic columns. Long format adds "family" column (categorical: confirmatory/diagnostic).
+**Impact**: Old level1_summary.csv deprecated. New schema: (coupling, feature, family, mean, sd, n_seeds, onset_threshold). summarise_definedness() added.
+
+---
+
+## Pre-Lock-In Period (≤ 2026-05-22)
+
+All commits/code/artifacts prior to 2026-05-23 classified as *pre-lock-in draft period*. NOT eligible for external citation (papers/grants/preprints). Methodological iterations viewed as internal learning process.
+
+---
+
+*Refactored by Ponytail principles: decisions + brief rationale only. Trigger narrative, detailed implementation, verbose results, and "next steps" removed.*
