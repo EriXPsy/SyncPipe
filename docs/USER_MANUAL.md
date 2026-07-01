@@ -3,7 +3,7 @@
 > Measurement infrastructure for multimodal interpersonal synchrony.
 > This manual is for human users. For an agent-oriented capability sheet see
 > [`SKILL.md`](SKILL.md). For the intellectual lineage see
-> [`SYNCPIPE_FAMILY_TREE.html`](SYNCPIPE_FAMILY_TREE.html) and `METHOD_LOG.md`.
+> `SYNCPIPE_FAMILY_TREE.md` (when present) and `METHOD_LOG.md`.
 
 ---
 
@@ -24,7 +24,7 @@ single number.** What SyncPipe gives you is the audit, not a verdict.
 ## 2. Installation
 
 ```bash
-cd multisync-core
+cd SyncPipe
 python -m pip install -e .          # core
 python -m pip install -e ".[dev]"   # + test tools
 ```
@@ -35,17 +35,16 @@ multisync --version          # -> syncpipe 1.0.0
 
 ---
 
-## 3. One-click reproduction
+## 3. Reproduction smoke check
 
-From `multisync-core/`:
+From the repository root:
 ```bash
-bash reproduce.sh
+python -m pytest
+python -m multisync demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 --no-prediction -o artifacts/demo_v1
+python scripts/build_feature_table.py
 ```
-This runs, in order: (1) the test suite, (2) the synthetic demo with the full
-three-step audited evidence chain, (3) the authoritative feature table from the
-single source of truth, (4) the timing-descriptor validation (block-bootstrap
-null + incremental AUC). Outputs land in `artifacts/repro_demo/`,
-`docs/FEATURE_TABLE.*`, and `artifacts/timing_validation/`.
+This runs the test suite, the synthetic demo with the audited evidence chain,
+and the authoritative feature table from the single source of truth.
 
 > The full Gordon / Lerique / Andersen real-data pipelines need raw datasets
 > that are not shipped in the repo; `docs/SCRIPT_MAP.md` lists the per-dataset
@@ -209,4 +208,3 @@ confirmatory"; "more synchrony is always better".
 | `scripts/` | main-trunk result generators (see `docs/SCRIPT_MAP.md`) |
 | `experimental/` | v2 staging: unintegrated / falsified / one-off code |
 | `docs/METHOD_LOG.md` | dated methodological decisions |
-| `docs/AUDIT_V1_REPORT.md` | v1.0 pre-release code audit |
