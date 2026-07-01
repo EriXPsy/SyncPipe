@@ -25,6 +25,7 @@ from .inference_pipeline import InferencePipeline
 # Feature/status governance
 from .feature_definitions import FDR_FEATURES, ONSET_THRESHOLD, REFERENCE_FEATURE
 from .feature_status import FEATURE_STATUS_ROWS, feature_status_latex, feature_status_table
+from .feature_pipeline import explain_feature
 
 # Quality-control and audit layer
 from .qc import (
@@ -67,6 +68,7 @@ __all__ = [
     "FEATURE_STATUS_ROWS",
     "feature_status_table",
     "feature_status_latex",
+    "explain_feature",
     # QC and audits
     "run_quality_check",
     "format_qc_report",
