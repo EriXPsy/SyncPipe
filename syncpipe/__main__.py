@@ -1,4 +1,6 @@
-"""Run the SyncPipe CLI."""
-from multisync.__main__ import main
+"""Run the SyncPipe CLI via ``python -m syncpipe``."""
 
-main()
+from multisync.cli import main
+
+if __name__ == "__main__":
+    main()
