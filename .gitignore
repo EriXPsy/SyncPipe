@@ -26,7 +26,11 @@ results.json
 synchrony_existence_audit.json
 SYNCPIPE_FAMILY_TREE.html
 TABLE1_FEATURE_STATUS.tex
-artifacts/
 *_output.txt
 *_summary.txt
 *_full.txt
+
+# Demo-generated artifacts (paper snapshots under artifacts/ remain tracked)
+artifacts/demo_v1/
+artifacts/ci_demo/
+artifacts/gt5_results.csv
