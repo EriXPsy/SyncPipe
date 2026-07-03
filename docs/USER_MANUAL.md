@@ -3,7 +3,7 @@
 > Measurement infrastructure for multimodal interpersonal synchrony.
 > This manual is for human users. For an agent-oriented capability sheet see
 > [`SKILL.md`](SKILL.md). For the intellectual lineage see
-> `SYNCPIPE_FAMILY_TREE.md` (when present) and `METHOD_LOG.md`.
+> `SYNCPIPE_FAMILY_TREE.html` (repo root) and `METHOD_LOG.md`.
 
 ---
 

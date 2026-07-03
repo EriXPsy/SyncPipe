@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import warnings
 from pathlib import Path
 from typing import Any, List
 
@@ -61,11 +62,17 @@ def cmd_analyze(args: argparse.Namespace) -> None:
                     score=float(parts[3]) if len(parts) > 3 else 0.0,
                 )
 
-    dyad.align(target_hz=hz)
+    # ponytail: capture align() warnings so they appear as controlled Notes
+    # after QC, not as raw Python warnings on stderr before QC says PASS.
+    with warnings.catch_warnings(record=True) as _align_warnings:
+        warnings.simplefilter("always")
+        dyad.align(target_hz=hz)
     dyad.zscore()
 
     qc_report = run_quality_check(dyad, raise_on_fail=False)
     print(format_qc_report(qc_report))
+    for w in _align_warnings:
+        print(f"  Note: {w.message}", file=sys.stderr)
     if not qc_report.passed:
         print("Analysis stopped because QC failed. Fix the issues above or use the Python API with qc_raise_on_fail=False for exploratory inspection.", file=sys.stderr)
         sys.exit(2)
@@ -166,7 +173,11 @@ def cmd_demo(args: argparse.Namespace) -> None:
         seed=42,
     )
 
-    ds.align(target_hz=1.0)
+    # ponytail: synthetic demo data is always co-started; suppress the
+    # relative-timestamp warning that would scare first-time users.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        ds.align(target_hz=1.0)
     ds.zscore()
 
     ds.add_context(start=0, end=150, label="PreTask")

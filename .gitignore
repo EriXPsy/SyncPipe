@@ -33,4 +33,3 @@ TABLE1_FEATURE_STATUS.tex
 # Demo-generated artifacts (paper snapshots under artifacts/ remain tracked)
 artifacts/demo_v1/
 artifacts/ci_demo/
-artifacts/gt5_results.csv

@@ -14,7 +14,7 @@ The output CSV matches what a re-run of run_lerique_pilot.py with the
 fixed feature_definitions.py would produce.
 
 Usage:
-    python scripts/migrate_lerique_defined_flags.py [--wcc-window-sec 30]
+    python experimental/scripts/migrate_lerique_defined_flags.py [--wcc-window-sec 30]
 """
 
 from __future__ import annotations

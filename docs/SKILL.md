@@ -98,5 +98,5 @@ sp.explain_feature("dwell_time")
 ## Pointers
 - Decisions & lineage: `docs/METHOD_LOG.md` (esp. §3 evidence chain, §7d lineage).
 - Script → trunk-result mapping: `docs/SCRIPT_MAP.md`.
-- Visual overview: `docs/SYNCPIPE_FAMILY_TREE.md` (if present).
+- Visual overview: `SYNCPIPE_FAMILY_TREE.html` (repo root).
 - v2 staging (do not treat as v1 API): `experimental/`.
