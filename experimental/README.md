@@ -19,10 +19,13 @@ They are NOT part of the v1.0 SyncPipe public API and are NOT required to reprod
 All scripts except the 6 BRM-paper core scripts:
 - `run_lerique_pilot.py` (kept in `scripts/`)
 - `run_lerique_incremental_auc.py` (kept)
-- `run_lerique_shuffle.py` (kept)
 - `run_kuramoto_l23_taxonomy.py` (kept)
 - `run_gordon_case_study.py` (kept)
 - `surrogate_controls.py` (kept)
+
+### Dataset-local scripts moved out of v1 trunk
+
+- `run_lerique_shuffle.py` is archived under `experimental/scripts/`. It is a Lerique-local robustness/shuffle analysis that depends on local derived data and legacy migration utilities, so it is not required for v1 public reproduction.
 
 The archived scripts include: validation runners (level1/2/3), GT-series, Kuramoto benchmarks, Treur validations, plotting scripts, exploration scripts, and data migration scripts. They may be useful for v2.0 development but are not needed for BRM v1.0.
 

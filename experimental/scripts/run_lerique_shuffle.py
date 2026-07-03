@@ -10,12 +10,12 @@ addition order to answer:
 Output: ``artifacts/incremental_auc/lerique_2024/incremental_auc_shuffle.json``
 
 Usage:
-    python scripts/run_lerique_shuffle.py [--n-shuffles 100]
+    python experimental/scripts/run_lerique_shuffle.py [--n-shuffles 100]
 
 Requires
 --------
 - per_record_features.csv must be migrated first:
-    python scripts/migrate_lerique_defined_flags.py
+    python experimental/scripts/migrate_lerique_defined_flags.py
 """
 
 from __future__ import annotations
@@ -126,7 +126,7 @@ def main() -> None:
     for flag_col in ["onset_defined", "rise_defined", "recovery_defined"]:
         if flag_col not in df.columns:
             logger.error(
-                "Column '%s' missing! Run migrate_lerique_defined_flags.py first.",
+                "Column '%s' missing! Run experimental/scripts/migrate_lerique_defined_flags.py first.",
                 flag_col,
             )
             raise SystemExit(1)

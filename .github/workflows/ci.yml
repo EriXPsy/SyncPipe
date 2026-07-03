@@ -29,4 +29,4 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -e ".[dev]"
-      - run: python -m multisync demo --surrogates 20 --audit-surrogates 99 --demo-dyads 4 --no-prediction
+      - run: python -m syncpipe demo --surrogates 20 --audit-surrogates 99 --demo-dyads 4 --no-prediction
