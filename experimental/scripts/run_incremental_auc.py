@@ -545,7 +545,7 @@ def main():
         description="SyncPipe Incremental AUC — White-Box + Grey-Box")
     parser.add_argument(
         "--project-root", type=str, default=None,
-        help="Path to multisync-core/ (auto-detect if omitted)",
+        help="Path to repo root (auto-detect if omitted)",
     )
     parser.add_argument(
         "--no-standardize-greybox",

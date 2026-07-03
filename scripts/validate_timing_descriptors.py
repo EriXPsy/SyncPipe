@@ -34,7 +34,7 @@ TRACE-LEVEL (not signal-level) null whose interpretation is weaker — it
 asks whether the observed peak timing exceeds what block-reordering of the
 *synchrony trace itself* would produce, not what raw-signal surrogates would.
 
-Run from multisync-core/:
+Run from repo root:
     python scripts/validate_timing_descriptors.py
 """
 from __future__ import annotations

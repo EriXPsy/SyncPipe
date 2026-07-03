@@ -25,9 +25,9 @@ from pathlib import Path
 import pandas as pd
 
 # ---------------------------------------------------------------------------
-# HACK: allow running from multisync-core/ without installing
+# HACK: allow running from repo root without installing
 # ---------------------------------------------------------------------------
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from multisync.validation import (
     Level3Config,

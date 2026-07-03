@@ -31,7 +31,7 @@ plt.rcParams.update({
 })
 
 import sys
-sys.path.insert(0, str(HERE.parent))
+sys.path.insert(0, str(HERE.parents[2]))
 from multisync.simulation.treur_dyad_v2 import scenario_emergent_sync
 from multisync.dynamic_features import sliding_window_wcc
 from multisync.transition_detection import detect_transitions

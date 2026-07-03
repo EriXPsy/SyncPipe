@@ -6,7 +6,7 @@ Saves results to artifacts/pgt2_grid_results.csv.
 import sys
 import os
 
-# Add multisync-core to path
+# Add repo root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from multisync.validation.pgt2_structure import run_pgt2_grid, PGT2Config

@@ -7,7 +7,7 @@ Coverage:
   - pce09 : Rest1 = 159 s anomaly (should PASS 60 s floor)
   - pce26 : Rest1 = 170 s + ECG P2 missing (EDA/RESP complete, ECG incomplete)
 
-Run from multisync-core root:
+Run from repo root:
 
   python scripts/smoke_lerique_preproc.py
 """

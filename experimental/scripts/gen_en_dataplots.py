@@ -15,7 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 
-ART = Path(__file__).resolve().parents[1] / "artifacts"
+ART = Path(__file__).resolve().parents[2] / "artifacts"
 OUT = ART / "en_figs"
 OUT.mkdir(parents=True, exist_ok=True)
 

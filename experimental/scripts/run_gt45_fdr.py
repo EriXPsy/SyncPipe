@@ -323,7 +323,7 @@ def main():
         description="SyncPipe GT-4/5 FDR Calibration — TRUE Null")
     parser.add_argument(
         "--project-root", type=str, default=None,
-        help="Path to multisync-core/ (auto-detect if omitted)",
+        help="Path to repo root (auto-detect if omitted)",
     )
     parser.add_argument(
         "--dry-run",

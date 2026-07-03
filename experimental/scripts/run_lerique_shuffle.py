@@ -38,7 +38,7 @@ logger = logging.getLogger("lerique_shuffle")
 # ---------------------------------------------------------------------------
 # Resolve project root and paths
 # ---------------------------------------------------------------------------
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 FEATURES_CSV = REPO_ROOT / "artifacts" / "realtest" / "lerique_2024" / "per_record_features.csv"
 OUT_DIR = REPO_ROOT / "artifacts" / "incremental_auc" / "lerique_2024"
 OUT_DIR.mkdir(parents=True, exist_ok=True)

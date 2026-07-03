@@ -22,7 +22,7 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from multisync.simulation.treur_dyad_v2 import scenario_emergent_sync
 from multisync.epoch_detection import dual_stream_epoch_analysis

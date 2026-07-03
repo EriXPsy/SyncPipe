@@ -72,7 +72,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     qc_report = run_quality_check(dyad, raise_on_fail=False)
     print(format_qc_report(qc_report))
     for w in _align_warnings:
-        print(f"  Note: {w.message}", file=sys.stderr)
+        print(f"  Note: {w.message}")
     if not qc_report.passed:
         print("Analysis stopped because QC failed. Fix the issues above or use the Python API with qc_raise_on_fail=False for exploratory inspection.", file=sys.stderr)
         sys.exit(2)

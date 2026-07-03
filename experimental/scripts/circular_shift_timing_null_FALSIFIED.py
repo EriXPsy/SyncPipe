@@ -35,7 +35,7 @@ through WCC), so a trace-level circular shift is the faithful L2 null here.
 For the real datasets only WCC traces are available (no raw signals), so we
 report incremental AUC only and do NOT run a raw-signal L2 null on them.
 
-Run from multisync-core/:
+Run from repo root:
     python scripts/validate_timing_descriptors.py
 """
 from __future__ import annotations
@@ -52,7 +52,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from multisync.feature_definitions import (  # noqa: E402

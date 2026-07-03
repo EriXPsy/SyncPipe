@@ -121,7 +121,7 @@ def main():
                             })
 
     df = pd.DataFrame(rows)
-    out = Path(__file__).resolve().parents[1] / "artifacts" / "plv_bandpass_control.csv"
+    out = Path(__file__).resolve().parents[2] / "artifacts" / "plv_bandpass_control.csv"
     out.parent.mkdir(exist_ok=True)
     df.to_csv(out, index=False)
 

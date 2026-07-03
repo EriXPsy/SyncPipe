@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(r"<REPO_ROOT>")
-OUT = ROOT / "multisync-core" / "artifacts" / "extracted_figs"
+OUT = ROOT / "artifacts" / "extracted_figs"
 OUT.mkdir(parents=True, exist_ok=True)
 
 PAT = re.compile(r'data:image/png;base64,([A-Za-z0-9+/=]+)')

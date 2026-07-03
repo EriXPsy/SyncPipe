@@ -10,7 +10,7 @@ Reads .mat files directly (scipy.io.loadmat) and prints:
      P1 and P2 files both exist and have identical sample counts
   4. Summary table: how many dyads are "complete" per modality
 
-Run from multisync-core root:
+Run from repo root:
 
   python scripts/inspect_lerique.py
 

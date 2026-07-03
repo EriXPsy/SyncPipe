@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 
 # Ensure multisync is importable
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from multisync.simulation.treur_dyad import (
     TreurDyadSimulator,
     scenario_constant_high_sync,

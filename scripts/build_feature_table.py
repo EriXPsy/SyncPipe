@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 # Allow direct execution as `python scripts/build_feature_table.py` from the
-# multisync-core directory without requiring editable installation first.
+# repo root without requiring editable installation first.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from multisync.feature_definitions import (
@@ -242,7 +242,7 @@ def write_md(rows, path: Path):
 
 
 def main(argv=None):
-    repo_root = Path(__file__).resolve().parents[1]  # multisync-core/
+    repo_root = Path(__file__).resolve().parents[1]  # repo root
     docs = repo_root / "docs"
     rows = build_rows()
     write_csv(rows, docs / "FEATURE_TABLE.csv")

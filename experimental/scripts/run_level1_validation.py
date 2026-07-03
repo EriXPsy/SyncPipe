@@ -1,5 +1,5 @@
 """
-CLI entry: python multisync-core/scripts/run_level1_validation.py
+CLI entry: python experimental/scripts/run_level1_validation.py
 
 Outputs
 -------

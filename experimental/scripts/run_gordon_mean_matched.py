@@ -28,7 +28,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import StandardScaler
 
 # ── Paths ──────────────────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts" / "realtest" / "gordon_2025"
 OUTPUT_DIR = ARTIFACTS_DIR / "mean_matched"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

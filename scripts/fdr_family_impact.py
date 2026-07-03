@@ -15,7 +15,7 @@ family definitions, and reports significance flips.
 For reference we also show the status quo recorded in the artifact, whose
 FDR family was {mean_synchrony, peak_amplitude, dwell_time, switching_rate}.
 
-Run from multisync-core/:
+Run from repo root:
     python scripts/fdr_family_impact.py
 """
 from __future__ import annotations

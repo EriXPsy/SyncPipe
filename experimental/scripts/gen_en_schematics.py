@@ -13,7 +13,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch, Polygon
 
-OUT = Path(__file__).resolve().parents[1] / "artifacts" / "en_figs"
+OUT = Path(__file__).resolve().parents[2] / "artifacts" / "en_figs"
 OUT.mkdir(parents=True, exist_ok=True)
 
 SAGE = "#7a8b6f"

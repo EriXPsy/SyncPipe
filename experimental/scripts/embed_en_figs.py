@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 HTML = Path(r"<REPO_ROOT>\Intro-en.html")
-FIGS = Path(__file__).resolve().parents[1] / "artifacts" / "en_figs"
+FIGS = Path(__file__).resolve().parents[2] / "artifacts" / "en_figs"
 
 ORDER = [
     "en_fig1_gt_axes.png",

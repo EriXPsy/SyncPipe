@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 CSV_IN = REPO_ROOT / "artifacts" / "realtest" / "lerique_2024" / "per_record_features.csv"
 CSV_OUT = CSV_IN  # overwrite in-place by default
 # Backup will be saved as per_record_features_pre_migration.csv

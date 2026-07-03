@@ -146,7 +146,7 @@ def main():
         sys.exit(1)
 
     res = pd.DataFrame(rows)
-    out = Path(__file__).resolve().parents[1] / "artifacts" / "gordon_wclc_lag_diagnosis.csv"
+    out = Path(__file__).resolve().parents[2] / "artifacts" / "gordon_wclc_lag_diagnosis.csv"
     out.parent.mkdir(exist_ok=True)
     res.to_csv(out, index=False)
 

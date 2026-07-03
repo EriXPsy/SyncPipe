@@ -11,7 +11,7 @@ pipeline, whether these descriptors carry information beyond the
 magnitude features (i.e. whether they are non-redundant) and whether they
 are defined often enough to be reportable.
 
-Run from multisync-core/:
+Run from repo root:
     python scripts/audit_timing_features.py
 """
 from __future__ import annotations

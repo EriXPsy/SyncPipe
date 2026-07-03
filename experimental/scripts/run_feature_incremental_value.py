@@ -32,9 +32,9 @@ Outputs:
 import sys
 from pathlib import Path
 
-# Ensure multisync-core is importable
+# Ensure repo root is importable
 SCRIPT_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = SCRIPT_DIR.parent  # scripts/ → multisync-core/
+PROJECT_ROOT = SCRIPT_DIR.parents[2]  # experimental/scripts/ → repo root
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import numpy as np
