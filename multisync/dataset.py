@@ -438,6 +438,7 @@ class SynchronyDataset:
                 mask = np.isfinite(vals)
                 if mask.sum() < 2:
                     continue
+                # Detrend only finite parts
                 detrended = vals.copy()
                 detrended[mask] = sp_signal.detrend(vals[mask], type=method)
                 df[col] = detrended
@@ -745,6 +746,7 @@ class SynchronyDataset:
         outlier_factor: float = 3.0,
         outlier_method: str = "iqr",
         median_kernel: Optional[int] = None,
+        detrend_method: Optional[str] = None,
         zscore_method: str = "standard",
         clip_sigma: Optional[float] = None,
     ) -> Tuple["SynchronyDataset", Dict]:
@@ -757,6 +759,8 @@ class SynchronyDataset:
                 ↓
             [optional] median_filter(kernel_size)
                 ↓
+            [optional] detrend(method)
+                ↓
             zscore(method, clip_sigma)
 
         Rationale
@@ -765,10 +769,11 @@ class SynchronyDataset:
           sneeze spike) from inflating ``std``, which would compress all
           normal fluctuations after z-scoring.
         * **median_filter second** (optional) — removes short-duration pulse
-          noise without phase distortion; must run before z-score so the
-          filter acts on raw-unit signal.
-        * **zscore last** — only after outliers are contained can the mean/std
-          reliably represent the "typical" baseline.
+          noise without phase distortion.
+        * **detrend third** (optional) — removes slow tonic drift before
+          scaling; ensures synchrony captures dynamic coupling.
+        * **zscore last** — only after outliers and drift are contained can
+          the mean/std reliably represent the "typical" baseline.
 
         Parameters
         ----------
@@ -778,18 +783,18 @@ class SynchronyDataset:
         outlier_method : str
             'iqr' (default) or 'mad' (more robust to outlier clustering).
         median_kernel : int or None
-            If set, apply a median filter with this kernel size (samples)
-            after outlier clipping.  Must be odd; auto-incremented if even.
-            ``None`` skips this step.
+            Median filter kernel size (samples). ``None`` skips.
+        detrend_method : str or None
+            'linear' or 'constant'. ``None`` skips.
         zscore_method : str
-            'standard' (mean/std, default) or 'robust' (median/IQR).
+            'standard' (mean/std, default) or 'robust'.
         clip_sigma : float or None
-            Post-z-score output cap (Winsorization).  ``None`` skips.
+            Post-z-score output cap.  ``None`` skips.
 
         Returns
         -------
         self : SynchronyDataset
-            In-place mutation, returned for chaining.
+            In-place mutation.
         report : dict
             Keys: 'outliers', 'median_filter' (if applied), 'zscore_stats'.
         """
@@ -804,7 +809,12 @@ class SynchronyDataset:
             _, mf_report = self.median_filter(kernel_size=median_kernel)
             report["median_filter"] = mf_report
 
-        # Step 3: z-score
+        # Step 3: optional detrend
+        if detrend_method is not None:
+            self.detrend(method=detrend_method)
+            report["detrend"] = {"method": detrend_method}
+
+        # Step 4: z-score
         _, zscore_stats = self.zscore(method=zscore_method, clip_sigma=clip_sigma)
         report["zscore_stats"] = zscore_stats
 

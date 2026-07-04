@@ -621,11 +621,16 @@ class InferencePipeline:
             lines.append(f"\nL2 (between-condition + BH-FDR): {n_sig}/{n_total} significant")
             lines.append("  Method: dyad-paired permutation + BH-FDR correction")
             lines.append("  Significant features:")
-            for feat in self._l2_results.get("features", []):
-                if feat.get("significant_05"):
+            for feat in self._l2_results.get("per_feature", []):
+                if feat.significant_05:
                     lines.append(
-                        f"    {feat['feature']}: p_raw={feat['p_raw']:.4f}, "
-                        f"p_fdr={feat['p_fdr']:.4f}"
+                        f"    {feat.feature}: p_raw={feat.p_raw:.4f}, "
+                        f"p_fdr={feat.p_fdr:.4f}, d={feat.cohens_d:.2f}"
+                    )
+                if feat.p_definedness < 0.05:
+                    lines.append(
+                        f"    [WARN] {feat.feature} definedness diff: "
+                        f"{feat.defined_a} vs {feat.defined_b} (p={feat.p_definedness:.4f})"
                     )
 
         lines.append("")
