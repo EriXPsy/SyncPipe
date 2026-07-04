@@ -29,7 +29,7 @@ from .design_controls import (
     synchrony_existence_audit,
 )
 from .dynamic_features import sliding_window_wcc, wcc_surrogate_test
-from .feature_definitions import FDR_FEATURES, extract_features
+from .feature_definitions import FDR_FEATURES, ONSET_THRESHOLD, extract_features
 from .validation.across_stim_shuffle import across_stim_shuffle_test
 from .validation.l2_between_condition import (
     between_condition_fdr,
@@ -359,15 +359,17 @@ class InferencePipeline:
         self,
         wcc: np.ndarray,
         label: str = "",
+        null_model: str = "state_shuffle",
+        threshold: Optional[float] = None,
     ) -> Dict[str, Any]:
-        """Run L1 WCC-level IAAFT surrogate test.
+        """Run L1 WCC-level surrogate test.
 
-        H0: The WCC series has no temporal structure beyond its amplitude
-        distribution. Any dwell/switching patterns are random.
+        H0: The WCC series has no temporal structure beyond its local
+        autocorrelation and amplitude distribution.
 
-        This test preserves the mean and variance of the WCC (so L0 must
-        pass first) but destroys temporal ordering. It asks: given that
-        this level of synchrony exists, is its temporal organization real?
+        Defaults to 'state_shuffle' in v1.0 (revised from 'iaaft')
+        to better preserve the exact dwell-time distribution while
+        testing temporal organization.
 
         Parameters
         ----------
@@ -375,6 +377,10 @@ class InferencePipeline:
             Observed WCC series.
         label : str
             Optional label for results tracking.
+        null_model : {"state_shuffle", "block_permutation", "iaaft"}
+            L1 null model.
+        threshold : float or None
+            Threshold for state binarization. Defaults to ONSET_THRESHOLD.
 
         Returns
         -------
@@ -387,6 +393,8 @@ class InferencePipeline:
             seed=self.seed,
             raw_signals=None,
             wcc_window_sec=self.wcc_window_sec,
+            null_model=null_model,
+            threshold=threshold if threshold is not None else ONSET_THRESHOLD,
         )
         result["label"] = label
         self._l1_results[label] = result

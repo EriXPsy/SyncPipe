@@ -111,6 +111,114 @@ def block_permutation_surrogate(
     return shuffled[:n]
 
 
+def state_transition_shuffle_surrogate(
+    wcc: np.ndarray,
+    threshold: float,
+    rng: np.random.Generator,
+    hysteresis_delta: float = 0.0,
+) -> np.ndarray:
+    """Generate a state-transition shuffle surrogate.
+
+    This null model binarizes the WCC trace into elevated (above threshold)
+    and baseline segments, then shuffles the ORDER of these segments.
+    It preserves the exact distribution of dwell times and baseline times,
+    but destroys any long-range temporal organization or event-locked structure.
+
+    Parameters
+    ----------
+    wcc : np.ndarray
+        Observed WCC series.
+    threshold : float
+        Binarization threshold.
+    rng : np.random.Generator
+        Random number generator.
+    hysteresis_delta : float
+        Hysteresis for binarization (Schmitt trigger).
+
+    Returns
+    -------
+    np.ndarray
+        Shuffled WCC series.
+    """
+    from .feature_definitions import _binarize_with_hysteresis
+
+    n = len(wcc)
+    above = _binarize_with_hysteresis(wcc, threshold, hysteresis_delta)
+
+    # Degenerate case: no transitions — entire trace is baseline or elevated.
+    # Just permute the time points as a fallback.
+    if not above.any() or above.all():
+        return rng.permutation(wcc)
+
+    # Run-length encode with guarded indexing
+    padded = np.concatenate(([not above[0]], above, [not above[-1]]))
+    diffs = np.diff(padded.astype(np.int8))
+    starts = np.where(diffs == 1)[0]
+    ends = np.where(diffs == -1)[0]
+
+    # Guard: clamp ends to [0, n] and ensure starts/ends are matched
+    starts = np.asarray(starts, dtype=int)
+    ends = np.asarray(ends, dtype=int)
+    if len(starts) == 0 or len(ends) == 0:
+        return rng.permutation(wcc)
+    # Match starts and ends (diff may produce mismatched counts at boundaries)
+    n_pairs = min(len(starts), len(ends))
+    starts = starts[:n_pairs]
+    ends = ends[:n_pairs]
+    ends = np.clip(ends, 0, n)
+
+    # Extract segments with safe slicing
+    segments = []
+    if not above[0] and starts[0] > 0:
+        segments.append(wcc[:starts[0]])
+
+    for i in range(len(starts)):
+        si = int(starts[i])
+        ei = int(ends[i])
+        if ei > si:
+            segments.append(wcc[si:ei])
+        if i < len(starts) - 1:
+            ni = int(starts[i + 1])
+            if ei < ni:
+                segments.append(wcc[ei:ni])
+        elif ei < n:
+            segments.append(wcc[ei:])
+
+    if not segments:
+        return rng.permutation(wcc)
+
+    # Separate into elevated and baseline pools, skip empty segments
+    elevated_pool = [seg for seg in segments
+                     if len(seg) > 0 and np.nanmean(seg) >= threshold - hysteresis_delta]
+    baseline_pool = [seg for seg in segments
+                     if len(seg) > 0 and np.nanmean(seg) < threshold - hysteresis_delta]
+
+    if not elevated_pool or not baseline_pool:
+        return rng.permutation(wcc)
+
+    rng.shuffle(elevated_pool)
+    rng.shuffle(baseline_pool)
+
+    # Re-assemble with alternating elevated-baseline order
+    shuffled_segments = []
+    is_elevated = above[0]
+    e_idx = 0
+    b_idx = 0
+    for _ in range(len(segments)):
+        if is_elevated:
+            if e_idx < len(elevated_pool):
+                shuffled_segments.append(elevated_pool[e_idx])
+                e_idx += 1
+        else:
+            if b_idx < len(baseline_pool):
+                shuffled_segments.append(baseline_pool[b_idx])
+                b_idx += 1
+        is_elevated = not is_elevated
+
+    res = np.concatenate(shuffled_segments)
+    return res[:n]
+
+
 def iaaft_surrogate(
     x: np.ndarray,
     rng: np.random.Generator,

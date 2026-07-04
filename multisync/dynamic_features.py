@@ -499,19 +499,20 @@ def _wcc_level_surrogate_test(
     min_wcc_points: int = 30,
     null_model: str = "iaaft",
     block_size: Optional[int] = None,
+    threshold: float = ONSET_THRESHOLD,
 ) -> Dict[str, Any]:
     """WCC-level null for L1 features (dwell_time, switching_rate).
 
-    Two null models are supported:
+    Three null models are supported:
 
-    * ``null_model="iaaft"`` (default): IAAFT-shuffle the WCC series. This
-      preserves L0 moments (mean, peak, distribution shape) and destroys
-      run-length / autoregressive structure.
-    * ``null_model="block_permutation"``: Divide the WCC into blocks and
-      permute the blocks. This preserves local autocorrelation within each
-      block while destroying longer-run structure. It is a more conservative
-      null when the WCC has strong local autocorrelation and is the recommended
-      robustness check for L1 inference.
+    * ``null_model="iaaft"``: IAAFT-shuffle the WCC series. Preserves L0
+      moments and approximately preserves the power spectrum.
+    * ``null_model="block_permutation"``: Divide WCC into blocks and
+      permute. Preserves local autocorrelation within blocks.
+    * ``null_model="state_shuffle"``: Binarize the WCC into elevated/baseline
+      segments and shuffle the order of these segments. Preserves the exact
+      dwell-time distribution but destroys temporal structure (L1 structure
+      null).
 
     Parameters
     ----------
@@ -519,16 +520,16 @@ def _wcc_level_surrogate_test(
         Observed WCC time series.
     features : sequence of str, optional
         Which L1 features to extract from surrogates.
-        Default: ("dwell_time", "switching_rate"). Every requested feature
-        MUST be a member of ``_NULL_MODEL_L1``.
     wcc_window_sec : float, optional
         Duration of the WCC sliding window in seconds.
     min_wcc_points : int
-        Minimum number of finite WCC points required. Default 30.
-    null_model : {"iaaft", "block_permutation"}
+        Minimum number of finite WCC points required.
+    null_model : {"iaaft", "block_permutation", "state_shuffle"}
         L1 null model.
     block_size : int or None
-        Block size for block permutation. If None, ``max(2, int(sqrt(n)))``.
+        Block size for block permutation.
+    threshold : float
+        Threshold for 'state_shuffle'.
 
     Raises
     ------
@@ -574,10 +575,10 @@ def _wcc_level_surrogate_test(
             f"window-size mismatch confound"
         )
 
-    if null_model not in ("iaaft", "block_permutation"):
-        raise ValueError(f"null_model must be 'iaaft' or 'block_permutation', got {null_model!r}")
+    if null_model not in ("iaaft", "block_permutation", "state_shuffle"):
+        raise ValueError(f"null_model must be 'iaaft', 'block_permutation' or 'state_shuffle', got {null_model!r}")
 
-    obs_feats = extract_features(wcc_valid, hz=hz, wcc_window_sec=wcc_window_sec)
+    obs_feats = extract_features(wcc_valid, hz=hz, wcc_window_sec=wcc_window_sec, threshold=threshold)
     rng = np.random.default_rng(seed)
 
     # Collect null feature values
@@ -586,9 +587,12 @@ def _wcc_level_surrogate_test(
     for i in range(surrogate_n):
         if null_model == "block_permutation":
             wcc_s = block_permutation_surrogate(wcc_valid, rng=rng, block_size=block_size)
+        elif null_model == "state_shuffle":
+            from .surrogate import state_transition_shuffle_surrogate
+            wcc_s = state_transition_shuffle_surrogate(wcc_valid, threshold=threshold, rng=rng)
         else:
             wcc_s = iaaft_surrogate(wcc_valid, rng=rng)
-        feats_s = extract_features(wcc_s, hz=hz, wcc_window_sec=wcc_window_sec)
+        feats_s = extract_features(wcc_s, hz=hz, wcc_window_sec=wcc_window_sec, threshold=threshold)
         for f in features:
             v = getattr(feats_s, f, np.nan)
             if np.isfinite(v):
@@ -664,6 +668,7 @@ def wcc_surrogate_test(
     min_wcc_points: int = 30,
     null_model: str = "iaaft",
     block_size: Optional[int] = None,
+    threshold: float = ONSET_THRESHOLD,
 ) -> Dict[str, Any]:
     """
     Test significance of WCC features using surrogate data.
@@ -682,10 +687,9 @@ def wcc_surrogate_test(
         Random seed.
     method : str
         Surrogate method (currently only "iaaft").
-    null_model : {"iaaft", "block_permutation"}
+    null_model : {"iaaft", "block_permutation", "state_shuffle"}
         L1 WCC-level null model (used only when ``raw_signals`` is None).
-        Default "iaaft". Use "block_permutation" as a conservative robustness
-        check that preserves local autocorrelation.
+        Default "iaaft".
     block_size : int or None
         Block size for block-permutation L1 null. If None, derived from WCC
         length.
@@ -705,6 +709,8 @@ def wcc_surrogate_test(
     min_wcc_points : int
         Minimum number of finite WCC points required. Default 30.
         Only applies to WCC-level null (L1).
+    threshold : float
+        Threshold for 'state_shuffle'.
 
     Returns
     -------
@@ -733,9 +739,8 @@ def wcc_surrogate_test(
         # WCC-LEVEL null (correct for L1 features)
         logger.debug(
             "wcc_surrogate_test called without raw_signals — "
-            "using WCC-level IAAFT null for L1 features "
-            "(dwell_time, switching_rate). "
-            "This is the correct call pattern for L1 null inference."
+            "using WCC-level null for L1 features "
+            "(dwell_time, switching_rate)."
         )
         return _wcc_level_surrogate_test(
             wcc=wcc,
@@ -748,6 +753,7 @@ def wcc_surrogate_test(
             min_wcc_points=min_wcc_points,
             null_model=null_model,
             block_size=block_size,
+            threshold=threshold,
         )
 
 

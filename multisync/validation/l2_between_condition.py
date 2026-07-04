@@ -111,7 +111,13 @@ class L2Result:
     cohens_d : float
         Effect size: observed_diff / null_sd.
     n_dyads : int
-        Number of dyads with data in both conditions.
+        Number of dyads with data in both conditions (paired).
+    defined_a : int
+        Number of dyads where this feature is defined in condition_a.
+    defined_b : int
+        Number of dyads where this feature is defined in condition_b.
+    p_definedness : float
+        P-value for the difference in definedness rates between conditions.
     """
     feature: str
     condition_a: str
@@ -124,6 +130,9 @@ class L2Result:
     significant_05: bool
     cohens_d: float
     n_dyads: int = 0
+    defined_a: int = 0
+    defined_b: int = 0
+    p_definedness: float = 1.0
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -253,8 +262,25 @@ def between_condition_fdr(
         vals_a = df_a[feat].to_numpy(dtype=float)
         vals_b = df_b[feat].to_numpy(dtype=float)
 
-        # Remove dyads where either condition has NaN
-        valid = np.isfinite(vals_a) & np.isfinite(vals_b)
+        # --- Scheme 1: Definedness Audit ---
+        is_def_a = np.isfinite(vals_a)
+        is_def_b = np.isfinite(vals_b)
+        def_a_count = int(np.sum(is_def_a))
+        def_b_count = int(np.sum(is_def_b))
+
+        # Definedness p-value via permutation (H0: definedness is independent of condition)
+        def_diff_obs = def_a_count - def_b_count
+        def_null_diffs = np.empty(n_permutations)
+        stacked_def = np.stack([is_def_a, is_def_b], axis=1)  # (n, 2)
+        for i in range(n_permutations):
+            flip = rng.choice([0, 1], size=n_dyads)
+            p_a = np.where(flip == 0, stacked_def[:, 0], stacked_def[:, 1])
+            p_b = np.where(flip == 0, stacked_def[:, 1], stacked_def[:, 0])
+            def_null_diffs[i] = np.sum(p_a) - np.sum(p_b)
+        p_def = _phipson_smyth_p(def_diff_obs, def_null_diffs)
+
+        # --- Scheme 3: Continue with valid pairs only ---
+        valid = is_def_a & is_def_b
         if valid.sum() < 4:
             results.append(L2Result(
                 feature=feat,
@@ -268,6 +294,9 @@ def between_condition_fdr(
                 significant_05=False,
                 cohens_d=np.nan,
                 n_dyads=int(valid.sum()),
+                defined_a=def_a_count,
+                defined_b=def_b_count,
+                p_definedness=p_def,
             ))
             continue
 
@@ -302,6 +331,9 @@ def between_condition_fdr(
             significant_05=False,  # filled after BH-FDR
             cohens_d=cohens_d,
             n_dyads=int(valid.sum()),
+            defined_a=def_a_count,
+            defined_b=def_b_count,
+            p_definedness=p_def,
         ))
 
     # ── BH-FDR across features ─────────────────────────────────────────
@@ -326,6 +358,9 @@ def between_condition_fdr(
             "significant_05": r.significant_05,
             "cohens_d": r.cohens_d,
             "n_dyads": r.n_dyads,
+            "defined_a": r.defined_a,
+            "defined_b": r.defined_b,
+            "p_definedness": r.p_definedness,
         }
         for r in results
     ])

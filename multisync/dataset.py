@@ -411,6 +411,39 @@ class SynchronyDataset:
 
         return self
 
+    def detrend(self, method: str = "linear") -> "SynchronyDataset":
+        """
+        Remove linear or constant trends from all modality features.
+
+        Detrending is recommended before WCC for physiological signals
+        (e.g., EDA, HRV) that exhibit slow tonic drift, which can
+        otherwise create false-positive low-frequency synchrony.
+
+        This acts as a high-level "backend" adjustment to ensure
+        synchrony features capture phasic coupling rather than tonic drift.
+
+        Parameters
+        ----------
+        method : str
+            'linear' — least-squares linear fit removal (default).
+            'constant' — mean removal only (demeaning).
+        """
+        from scipy import signal as sp_signal
+        feat_cols = self.feature_columns
+
+        for name in self.modality_names:
+            df = self.modalities[name]
+            for col in feat_cols[name]:
+                vals = df[col].values.astype(float)
+                mask = np.isfinite(vals)
+                if mask.sum() < 2:
+                    continue
+                detrended = vals.copy()
+                detrended[mask] = sp_signal.detrend(vals[mask], type=method)
+                df[col] = detrended
+            self.modalities[name] = df
+        return self
+
     # ------------------------------------------------------------------
     # Within-dyad Z-score normalization
     # ------------------------------------------------------------------
