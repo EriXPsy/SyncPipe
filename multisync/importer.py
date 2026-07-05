@@ -71,7 +71,7 @@ class DataImporter:
     def __init__(
         self,
         default_hz: float = 1.0,
-        force_zero_start: bool = True,
+        force_zero_start: bool = False,
     ) -> None:
         self.default_hz = default_hz
         self.force_zero_start = force_zero_start

@@ -408,10 +408,15 @@ def _cohens_d(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def _rank_biserial_r(u_stat: float, n_a: int, n_b: int) -> float:
-    """Rank-biserial correlation from Mann-Whitney U."""
+    """Rank-biserial correlation from Mann-Whitney U.
+
+    Sign convention: positive r means group A has larger values than group B
+    (aligned with Cohen's d intuition). Uses the formula
+    r = 2*U / (n_a * n_b) - 1, where U is the Mann-Whitney U for group A.
+    """
     if n_a == 0 or n_b == 0:
         return float("nan")
-    return float(1.0 - (2.0 * u_stat) / (n_a * n_b))
+    return float((2.0 * u_stat) / (n_a * n_b) - 1.0)
 
 
 def _bh_fdr_correction(

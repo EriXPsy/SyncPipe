@@ -222,7 +222,8 @@ def windowed_cross_lagged_regression(
                 np.isfinite(y_lag_win).sum() < min_valid):
             continue
 
-        best_value = 0.0
+        best_abs_val = -1.0
+        final_val = np.nan
         best_lag_idx = 0
         for li, xl in enumerate(x_lagged):
             x_win = xl[start:end]
@@ -230,22 +231,24 @@ def windowed_cross_lagged_regression(
                 continue
 
             if metric == "beta":
-                X = np.column_stack([y_lag_win, x_win])
-                value = _standardized_beta(y_win, X, target_col=1)
-                if value is None or not np.isfinite(value):
+                X_reg = np.column_stack([y_lag_win, x_win])
+                val = _standardized_beta(y_win, X_reg, target_col=1)
+                if val is None or not np.isfinite(val):
                     continue
-                if absolute_beta:
-                    value = abs(value)
+                curr_abs = abs(val)
             else:  # metric == "r2"
-                value = _r2_increment(y_win, y_lag_win, x_win)
-                if value is None or not np.isfinite(value):
+                val = _r2_increment(y_win, y_lag_win, x_win)
+                if val is None or not np.isfinite(val):
                     continue
+                curr_abs = val  # R² ≥ 0
 
-            if value > best_value:
-                best_value = value
+            if curr_abs > best_abs_val:
+                best_abs_val = curr_abs
+                # Retain signed beta when direction matters, else abs
+                final_val = val if (metric == "beta" and not absolute_beta) else curr_abs
                 best_lag_idx = li
 
-        wclr_trace[i] = best_value
+        wclr_trace[i] = final_val
         lag_trace[i] = lags[best_lag_idx]
 
     return wclr_trace, lag_trace
