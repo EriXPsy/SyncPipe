@@ -416,11 +416,11 @@ class SynchronyDataset:
         Remove linear or constant trends from all modality features.
 
         Detrending is recommended before WCC for physiological signals
-        (e.g., EDA, HRV) that exhibit slow tonic drift, which can
-        otherwise create false-positive low-frequency synchrony.
+        (e.g., EDA, HRV) that exhibit slow tonic drift.
 
-        This acts as a high-level "backend" adjustment to ensure
-        synchrony features capture phasic coupling rather than tonic drift.
+        This implementation fits the trend against the REAL TIME AXIS,
+        correctly handling scattered NaN values (unlike standard index-based
+        detrending which would compress the time axis at NaN gaps).
 
         Parameters
         ----------
@@ -428,8 +428,8 @@ class SynchronyDataset:
             'linear' — least-squares linear fit removal (default).
             'constant' — mean removal only (demeaning).
         """
-        from scipy import signal as sp_signal
         feat_cols = self.feature_columns
+        t = self.time_vector()
 
         for name in self.modality_names:
             df = self.modalities[name]
@@ -438,9 +438,19 @@ class SynchronyDataset:
                 mask = np.isfinite(vals)
                 if mask.sum() < 2:
                     continue
-                # Detrend only finite parts
+
                 detrended = vals.copy()
-                detrended[mask] = sp_signal.detrend(vals[mask], type=method)
+                if method == "constant":
+                    detrended[mask] = vals[mask] - np.mean(vals[mask])
+                else:
+                    # Linear: fit against the REAL time axis, not compressed indices.
+                    # scipy.signal.detrend is index-based; for scattered NaN we must
+                    # fit slope against actual time values so gaps don't compress the axis.
+                    from scipy.stats import linregress
+                    slope, intercept, _, _, _ = linregress(t[mask], vals[mask])
+                    trend = slope * t[mask] + intercept
+                    detrended[mask] = vals[mask] - trend
+
                 df[col] = detrended
             self.modalities[name] = df
         return self

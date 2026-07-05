@@ -143,79 +143,62 @@ def state_transition_shuffle_surrogate(
     from .feature_definitions import _binarize_with_hysteresis
 
     n = len(wcc)
+    if n < 2:
+        return wcc.copy()
+
     above = _binarize_with_hysteresis(wcc, threshold, hysteresis_delta)
 
-    # Degenerate case: no transitions — entire trace is baseline or elevated.
-    # Just permute the time points as a fallback.
-    if not above.any() or above.all():
-        return rng.permutation(wcc)
-
-    # Run-length encode with guarded indexing
-    padded = np.concatenate(([not above[0]], above, [not above[-1]]))
+    # Run-length encode using fixed [False] sentinels (proven in feature_definitions.py).
+    # Using [not above[0]] / [not above[-1]] as sentinels is wrong: when the trace
+    # starts or ends in baseline state, not above[0] = True creates a phantom
+    # transition that the diff treats as a real elevated-segment start.
+    padded = np.concatenate(([False], above, [False]))
     diffs = np.diff(padded.astype(np.int8))
     starts = np.where(diffs == 1)[0]
     ends = np.where(diffs == -1)[0]
 
-    # Guard: clamp ends to [0, n] and ensure starts/ends are matched
-    starts = np.asarray(starts, dtype=int)
-    ends = np.asarray(ends, dtype=int)
-    if len(starts) == 0 or len(ends) == 0:
-        return rng.permutation(wcc)
-    # Match starts and ends (diff may produce mismatched counts at boundaries)
-    n_pairs = min(len(starts), len(ends))
-    starts = starts[:n_pairs]
-    ends = ends[:n_pairs]
-    ends = np.clip(ends, 0, n)
+    if len(starts) == 0:
+        return wcc.copy()  # All baseline
 
-    # Extract segments with safe slicing
-    segments = []
-    if not above[0] and starts[0] > 0:
-        segments.append(wcc[:starts[0]])
+    # Elevated segments: direct (start, end) pairs from the runs
+    elevated_segments = [wcc[s:e] for s, e in zip(starts, ends)]
 
-    for i in range(len(starts)):
-        si = int(starts[i])
-        ei = int(ends[i])
-        if ei > si:
-            segments.append(wcc[si:ei])
-        if i < len(starts) - 1:
-            ni = int(starts[i + 1])
-            if ei < ni:
-                segments.append(wcc[ei:ni])
-        elif ei < n:
-            segments.append(wcc[ei:])
+    # Baseline segments: gaps between ends and subsequent starts,
+    # plus leading/trailing baseline
+    baseline_indices = []
+    curr = 0
+    for s in starts:
+        if s > curr:
+            baseline_indices.append((curr, s))
+        next_end = np.where(ends >= s)[0]  # Find end matching this start
+        curr = ends[next_end[0]] if next_end.size > 0 else n
+    if curr < n:
+        baseline_indices.append((curr, n))
 
-    if not segments:
-        return rng.permutation(wcc)
+    baseline_segments = [wcc[s:e] for s, e in baseline_indices]
 
-    # Separate into elevated and baseline pools, skip empty segments
-    elevated_pool = [seg for seg in segments
-                     if len(seg) > 0 and np.nanmean(seg) >= threshold - hysteresis_delta]
-    baseline_pool = [seg for seg in segments
-                     if len(seg) > 0 and np.nanmean(seg) < threshold - hysteresis_delta]
+    # Shuffle pools while preserving segment-length distributions
+    rng.shuffle(elevated_segments)
+    rng.shuffle(baseline_segments)
 
-    if not elevated_pool or not baseline_pool:
-        return rng.permutation(wcc)
-
-    rng.shuffle(elevated_pool)
-    rng.shuffle(baseline_pool)
-
-    # Re-assemble with alternating elevated-baseline order
-    shuffled_segments = []
+    # Re-assemble maintaining elevated/baseline alternation
     is_elevated = above[0]
-    e_idx = 0
-    b_idx = 0
-    for _ in range(len(segments)):
+    res_segments = []
+    e_ptr = 0
+    b_ptr = 0
+
+    for _ in range(len(elevated_segments) + len(baseline_segments)):
         if is_elevated:
-            if e_idx < len(elevated_pool):
-                shuffled_segments.append(elevated_pool[e_idx])
-                e_idx += 1
+            if e_ptr < len(elevated_segments):
+                res_segments.append(elevated_segments[e_ptr])
+                e_ptr += 1
         else:
-            if b_idx < len(baseline_pool):
-                shuffled_segments.append(baseline_pool[b_idx])
-                b_idx += 1
+            if b_ptr < len(baseline_segments):
+                res_segments.append(baseline_segments[b_ptr])
+                b_ptr += 1
         is_elevated = not is_elevated
 
-    res = np.concatenate(shuffled_segments)
+    res = np.concatenate(res_segments)
     return res[:n]
 
 

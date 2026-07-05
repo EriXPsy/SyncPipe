@@ -170,6 +170,10 @@ def design_control_audit(
         ``dyad_id -> (person_a_signal, person_b_signal)``.  At least two dyads
         are required for pseudo-pair controls; one dyad is sufficient for
         time-shift controls.
+    n_pseudo_per_dyad : int
+        Number of pseudo-pair draws per real dyad.  Default 3 (suitable for
+        demos); **>= 10 recommended for publication** to obtain stable null
+        distributions for the p(real > pseudo) comparisons.
 
     Returns
     -------

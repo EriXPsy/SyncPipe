@@ -147,6 +147,8 @@ class InferencePipeline:
         partners.  Time-shift controls ask whether the effect depends on the
         original temporal alignment.  These are formal API methods, not just
         dataset-specific scripts.
+        For publication, increase ``n_pseudo_per_dyad`` to >= 10 for stable
+        null distributions; the default 3 is suitable for quick demos.
         """
         result = design_control_audit(
             signal_pairs,
