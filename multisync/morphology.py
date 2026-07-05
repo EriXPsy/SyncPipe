@@ -56,7 +56,10 @@ __all__ = [
 # Method 1: trace-level scale-free shape descriptors
 # ---------------------------------------------------------------------------
 
-def scalefree_descriptors(wcc: np.ndarray) -> Optional[Dict[str, float]]:
+def scalefree_descriptors(
+    wcc: np.ndarray,
+    prominence: float = 0.1,
+) -> Optional[Dict[str, float]]:
     """Return scale-free shape descriptors of a WCC trace.
 
     These descriptors intentionally avoid amplitude-dependent summaries so that
@@ -66,6 +69,8 @@ def scalefree_descriptors(wcc: np.ndarray) -> Optional[Dict[str, float]]:
     ----------
     wcc : np.ndarray
         WCC time series.
+    prominence : float
+        Prominence threshold for peak detection.
 
     Returns
     -------
@@ -77,7 +82,7 @@ def scalefree_descriptors(wcc: np.ndarray) -> Optional[Dict[str, float]]:
     w = w[np.isfinite(w)]
     if w.size < 10:
         return None
-    peaks, _ = find_peaks(w, prominence=0.1, distance=3)
+    peaks, _ = find_peaks(w, prominence=prominence, distance=3)
     ipc = float(np.std(np.diff(peaks)) / (np.mean(np.diff(peaks)) + 1e-12)) if len(peaks) > 1 else 0.0
     ac1 = float(np.corrcoef(w[:-1], w[1:])[0, 1]) if w.size > 2 else 0.0
     return {
@@ -94,6 +99,7 @@ def trace_shape_cluster(
     wcc_traces: List[np.ndarray],
     max_k: int = 5,
     seed: int = 42,
+    prominence: float = 0.1,
 ) -> Dict[str, object]:
     """Cluster WCC traces by scale-free shape descriptors (Method 1).
 
@@ -105,6 +111,8 @@ def trace_shape_cluster(
         Maximum number of clusters to try.
     seed : int
         RNG seed for KMeans stability checks.
+    prominence : float
+        Prominence for scalefree_descriptors.
 
     Returns
     -------
@@ -117,7 +125,7 @@ def trace_shape_cluster(
     """
     rows = []
     for w in wcc_traces:
-        d = scalefree_descriptors(w)
+        d = scalefree_descriptors(w, prominence=prominence)
         if d:
             rows.append(d)
     if not rows:
@@ -316,6 +324,7 @@ def morphology_feature_table(
     wcc_traces: List[np.ndarray],
     hz: float = 1.0,
     wcc_window_sec: Optional[float] = None,
+    prominence: float = 0.1,
 ) -> pd.DataFrame:
     """Return a DataFrame with shape descriptors + SyncPipe features per trace.
 
@@ -326,6 +335,8 @@ def morphology_feature_table(
         Sampling rate of WCC trace.
     wcc_window_sec : float or None
         WCC window duration in seconds; used for sustained-crossing scaling.
+    prominence : float
+        Prominence for scalefree_descriptors.
 
     Returns
     -------
@@ -335,7 +346,7 @@ def morphology_feature_table(
     """
     rows = []
     for w in wcc_traces:
-        sd = scalefree_descriptors(w)
+        sd = scalefree_descriptors(w, prominence=prominence)
         if sd is None:
             continue
         if wcc_window_sec is None:
@@ -556,9 +567,9 @@ class MorphologyAnalyzer:
         self._method1: Optional[Dict] = None
         self._method2: Optional[Dict] = None
 
-    def run_method1(self, max_k: int = 5, seed: int = 42) -> Dict[str, object]:
+    def run_method1(self, max_k: int = 5, seed: int = 42, prominence: float = 0.1) -> Dict[str, object]:
         """Run trace-level scale-free shape clustering."""
-        self._method1 = trace_shape_cluster(self.wcc_traces, max_k=max_k, seed=seed)
+        self._method1 = trace_shape_cluster(self.wcc_traces, max_k=max_k, seed=seed, prominence=prominence)
         return self._method1
 
     def run_method2(
@@ -582,9 +593,9 @@ class MorphologyAnalyzer:
         )
         return self._method2
 
-    def feature_table(self) -> pd.DataFrame:
+    def feature_table(self, prominence: float = 0.1) -> pd.DataFrame:
         """Return shape descriptors + SyncPipe features per trace."""
-        return morphology_feature_table(self.wcc_traces, hz=self.hz)
+        return morphology_feature_table(self.wcc_traces, hz=self.hz, prominence=prominence)
 
     def diagnostics(self, feature_cols: Optional[List[str]] = None) -> Dict[str, object]:
         """Collinearity, incremental value, and matched-mean contrast.

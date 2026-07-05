@@ -312,7 +312,11 @@ def build_feature_matrix(
 
     for i, s in enumerate(starts):
         wcc_window = wcc[s : s + window_size]
-        feat = _ssot_extract(wcc_window, hz=hz, wcc_window_sec=1.0, threshold=onset_threshold)
+        # wcc_window_sec must be derived from window_size and hz so that
+        # time-dependent features (onset_latency, rise, recovery) carry
+        # real physical units rather than an arbitrary constant.
+        window_sec = window_size / hz if hz > 0 else float(window_size)
+        feat = _ssot_extract(wcc_window, hz=hz, wcc_window_sec=window_sec, threshold=onset_threshold)
         # DECISION-10: joint feature matrix uses the v1 dynamic descriptor
         # features.  mean_synchrony is intentionally absent here; it is
         # extracted separately by ``_extract_mean_synchrony_per_window``
@@ -360,7 +364,11 @@ def _extract_mean_synchrony_per_window(
     out = np.full(len(starts), np.nan)
     for i, s in enumerate(starts):
         wcc_window = wcc[s : s + window_size]
-        feat = _ssot_extract(wcc_window, hz=hz, wcc_window_sec=1.0, threshold=onset_threshold)
+        # wcc_window_sec must be derived from window_size and hz so that
+        # time-dependent features (onset_latency, rise, recovery) carry
+        # real physical units rather than an arbitrary constant.
+        window_sec = window_size / hz if hz > 0 else float(window_size)
+        feat = _ssot_extract(wcc_window, hz=hz, wcc_window_sec=window_sec, threshold=onset_threshold)
         out[i] = float(feat.mean_synchrony)
     return out
 

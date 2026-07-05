@@ -143,6 +143,7 @@ def windowed_cross_lagged_regression(
     step_samples: int = 1,
     min_valid_ratio: float = 0.5,
     metric: str = "beta",
+    absolute_beta: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Compute WCLR time series between ``x`` and ``y``.
 
@@ -165,6 +166,9 @@ def windowed_cross_lagged_regression(
     metric : {"beta", "r2"}
         "beta" returns the standardized partial regression coefficient.
         "r2" returns the R² increment (literature standard, bounded [0,1]).
+    absolute_beta : bool
+        If True (default), take the absolute value of the beta coefficient.
+        Set to False to preserve directionality (anti-phase vs in-phase).
 
     Returns
     -------
@@ -230,7 +234,8 @@ def windowed_cross_lagged_regression(
                 value = _standardized_beta(y_win, X, target_col=1)
                 if value is None or not np.isfinite(value):
                     continue
-                value = abs(value)
+                if absolute_beta:
+                    value = abs(value)
             else:  # metric == "r2"
                 value = _r2_increment(y_win, y_lag_win, x_win)
                 if value is None or not np.isfinite(value):
@@ -255,6 +260,7 @@ def wclr_coupling_trace(
     step_samples: int = 1,
     min_valid_ratio: float = 0.5,
     metric: str = "beta",
+    absolute_beta: bool = True,
 ) -> np.ndarray:
     """Convenience wrapper returning only the WCLR coupling trace.
 
@@ -262,8 +268,10 @@ def wclr_coupling_trace(
     ----------
     metric : {"beta", "r2"}
         See :func:`windowed_cross_lagged_regression`.
+    absolute_beta : bool
+        See :func:`windowed_cross_lagged_regression`.
     """
     trace, _ = windowed_cross_lagged_regression(
-        sig_a, sig_b, window_size, hz, max_lag_samples, step_samples, min_valid_ratio, metric
+        sig_a, sig_b, window_size, hz, max_lag_samples, step_samples, min_valid_ratio, metric, absolute_beta
     )
     return trace
