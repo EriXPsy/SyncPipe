@@ -508,26 +508,28 @@ class DynamicAnalyzer:
         # 5. Score view (context-based synchrony summaries)
         if dataset.context_labels:
             t_vec = dataset.time_vector()
+            # WCC[i] is the window covering signal samples [i, i+window_size);
+            # its time centre is approximately t_vec[i] + wcc_offset.
             wcc_offset = (self.window_size - 1) / (2.0 * hz)
             for ctx in dataset.context_labels:
-                mask = (t_vec >= ctx.start_sec) & (t_vec < ctx.end_sec)
-                if not mask.any():
-                    continue
-                # Map the time-based mask to WCC indices.
-                wcc_indices = np.where(mask)[0]
+                # Shift context boundaries to align with WCC time centres
+                adjusted_start = ctx.start_sec - wcc_offset
+                adjusted_end = ctx.end_sec - wcc_offset
+                wcc_mask = (t_vec >= adjusted_start) & (t_vec < adjusted_end)
+                wcc_indices = np.where(wcc_mask)[0]
                 local_sync_vals = []
                 for key, wcc in wcc_cache.items():
-                    # Only use WCC indices that fall within valid WCC range
-                    valid_idx = wcc_indices[
-                        (wcc_indices >= 0) & (wcc_indices < len(wcc))
-                    ]
+                    valid_idx = wcc_indices[wcc_indices < len(wcc)]
                     if len(valid_idx) == 0:
                         continue
                     local_wcc = wcc[valid_idx]
                     local_mean = np.nanmean(local_wcc)
                     if not np.isnan(local_mean):
                         local_sync_vals.append(local_mean)
-                mean_sync = float(np.mean(local_sync_vals)) if local_sync_vals else 0.0
+                # Skip context only when ALL modalities produced no data
+                if not local_sync_vals:
+                    continue
+                mean_sync = float(np.mean(local_sync_vals))
                 results.score_view.append({
                     "start_sec": ctx.start_sec,
                     "end_sec": ctx.end_sec,

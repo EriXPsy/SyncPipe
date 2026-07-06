@@ -183,6 +183,15 @@ oscillatory traces straddling the threshold.  Default 0.05 in WCC units
 (r-metric); set to 0.0 to recover the legacy non-hysteresis behaviour.
 """
 
+DEFAULT_PROMINENCE_WINDOW_SEC: float = 50.0
+"""Default look-back / look-ahead window (seconds) for peak prominence.
+
+Used by morphology-agnostic timing features to locate local minima on
+either side of a candidate peak.  Converted to samples via
+``max(1, round(DEFAULT_PROMINENCE_WINDOW_SEC * hz))`` so that the
+physical window size is independent of the sampling rate.
+"""
+
 
 # re-export of LEAKAGE_DELTA_AUC_THRESHOLD (primary definition in prediction.py)
 def __getattr__(name: str):
@@ -1038,11 +1047,49 @@ def compute_bimodality_coefficient(wcc: np.ndarray) -> float:
 # ---------------------------------------------------------------------------
 
 
+def _find_prominent_peaks(
+    x: np.ndarray,
+    threshold: float,
+    min_prominence: float,
+    window_samples: int,
+) -> list:
+    """Return indices of prominent local maxima in ``x``.
+
+    A peak is a local maximum above ``threshold`` whose prominence
+    (height above the higher of its left and right neighbouring troughs,
+    searched within ``window_samples`` on each side) exceeds
+    ``min_prominence``.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        1-D array (NaN → -inf).
+    threshold : float
+        Minimum peak height.
+    min_prominence : float
+        Minimum prominence.
+    window_samples : int
+        Look-back / look-ahead window in samples.  Should be scaled by
+        the sampling rate so that the physical window is hz-independent.
+    """
+    n = len(x)
+    peaks = []
+    for i in range(1, n - 1):
+        if x[i] >= x[i - 1] and x[i] > x[i + 1] and x[i] >= threshold:
+            left_min = np.min(x[max(0, i - window_samples):i])
+            right_min = np.min(x[i + 1: min(n, i + 1 + window_samples)])
+            base = max(left_min, right_min)
+            if x[i] - base >= min_prominence:
+                peaks.append(i)
+    return peaks
+
+
 def compute_first_peak_time(
     wcc: np.ndarray,
     hz: float,
     threshold: float = ONSET_THRESHOLD,
     min_prominence: float = 0.15,
+    prominence_window_sec: float = DEFAULT_PROMINENCE_WINDOW_SEC,
 ) -> float:
     """Time of the first prominent peak above threshold (seconds).
 
@@ -1052,6 +1099,9 @@ def compute_first_peak_time(
     whose prominence (height above adjacent troughs) exceeds
     ``min_prominence``.
 
+    The trough-search window scales with hz so that the physical look-back /
+    look-ahead duration is independent of the sampling rate.
+
     Returns NaN if no prominent peak exists (subthreshold traces).
     """
     n = len(wcc)
@@ -1059,20 +1109,18 @@ def compute_first_peak_time(
     if not finite.any() or n < 3:
         return float("nan")
     x = np.where(finite, wcc, -np.inf)
-    for i in range(1, n - 1):
-        if x[i] >= x[i - 1] and x[i] > x[i + 1] and x[i] >= threshold:
-            left_min = np.min(x[max(0, i - 1)::-1][:50]) if i > 0 else x[i]
-            right_min = np.min(x[i + 1: i + 51]) if i + 1 < n else x[i]
-            base = max(left_min, right_min)
-            if x[i] - base >= min_prominence:
-                return float(i) / hz
-    return float("nan")
+    window_samples = max(1, round(prominence_window_sec * hz))
+    peaks = _find_prominent_peaks(x, threshold, min_prominence, window_samples)
+    if not peaks:
+        return float("nan")
+    return float(peaks[0]) / hz
 
 
 def compute_baseline_fraction(
     wcc: np.ndarray,
     threshold: float = ONSET_THRESHOLD,
     min_prominence: float = 0.15,
+    prominence_window_sec: float = DEFAULT_PROMINENCE_WINDOW_SEC,
 ) -> float:
     """Fraction of samples below threshold *before* the first prominent peak.
 
@@ -1081,6 +1129,10 @@ def compute_baseline_fraction(
     threshold (sustained).  Intermediate values indicate intermittent
     early crossings (oscillatory).
 
+    NOTE: This function is NOT called by ``extract_features()`` (the main
+    entry point).  It is available for external scripts that need the
+    pre-first-peak baseline fraction as a standalone descriptor.
+
     Returns NaN if no prominent peak exists.
     """
     n = len(wcc)
@@ -1088,15 +1140,11 @@ def compute_baseline_fraction(
     if not finite.any() or n < 3:
         return float("nan")
     x = np.where(finite, wcc, -np.inf)
-    first_peak_idx = -1
-    for i in range(1, n - 1):
-        if x[i] >= x[i - 1] and x[i] > x[i + 1] and x[i] >= threshold:
-            left_min = np.min(x[max(0, i - 1)::-1][:50]) if i > 0 else x[i]
-            right_min = np.min(x[i + 1: i + 51]) if i + 1 < n else x[i]
-            base = max(left_min, right_min)
-            if x[i] - base >= min_prominence:
-                first_peak_idx = i
-                break
+    window_samples = max(1, round(prominence_window_sec * 1.0))  # no hz; use 1 Hz default
+    peaks = _find_prominent_peaks(x, threshold, min_prominence, window_samples)
+    if not peaks:
+        return float("nan")
+    first_peak_idx = peaks[0]
     if first_peak_idx < 1:
         return float("nan")
     above = (wcc[:first_peak_idx] >= threshold) & finite[:first_peak_idx]
@@ -1112,6 +1160,7 @@ def compute_inter_peak_cv(
     threshold: float = ONSET_THRESHOLD,
     min_prominence: float = 0.15,
     min_peaks: int = 3,
+    prominence_window_sec: float = DEFAULT_PROMINENCE_WINDOW_SEC,
 ) -> float:
     """Coefficient of variation of inter-peak intervals (CV = std / mean).
 
@@ -1138,14 +1187,8 @@ def compute_inter_peak_cv(
     if not finite.any() or n < 3:
         return float("nan")
     x = np.where(finite, wcc, -np.inf)
-    all_peaks = []
-    for i in range(1, n - 1):
-        if x[i] >= x[i - 1] and x[i] > x[i + 1] and x[i] >= threshold:
-            left_min = np.min(x[max(0, i - 1)::-1][:50]) if i > 0 else x[i]
-            right_min = np.min(x[i + 1: i + 51]) if i + 1 < n else x[i]
-            base = max(left_min, right_min)
-            if x[i] - base >= min_prominence:
-                all_peaks.append(i)
+    window_samples = max(1, round(prominence_window_sec * hz))
+    all_peaks = _find_prominent_peaks(x, threshold, min_prominence, window_samples)
     if len(all_peaks) < max(min_peaks, 2):
         return float("nan")
     gaps = np.diff(all_peaks).astype(float) / hz

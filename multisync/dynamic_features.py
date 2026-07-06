@@ -53,6 +53,7 @@ from .feature_definitions import (
     compute_surrogate_threshold,
     ONSET_THRESHOLD,
     SURROGATE_THRESHOLD_PERCENTILE,
+    SWITCHING_HYSTERESIS_DELTA,
 )
 
 logger = logging.getLogger(__name__)
@@ -589,7 +590,9 @@ def _wcc_level_surrogate_test(
             wcc_s = block_permutation_surrogate(wcc_valid, rng=rng, block_size=block_size)
         elif null_model == "state_shuffle":
             from .surrogate import state_transition_shuffle_surrogate
-            wcc_s = state_transition_shuffle_surrogate(wcc_valid, threshold=threshold, rng=rng)
+            wcc_s = state_transition_shuffle_surrogate(
+                wcc_valid, threshold=threshold, rng=rng,
+                hysteresis_delta=SWITCHING_HYSTERESIS_DELTA)
         else:
             wcc_s = iaaft_surrogate(wcc_valid, rng=rng)
         feats_s = extract_features(wcc_s, hz=hz, wcc_window_sec=wcc_window_sec, threshold=threshold)
