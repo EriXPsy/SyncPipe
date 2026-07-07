@@ -131,9 +131,16 @@ def generate_signals(
     hz : float
         Sampling rate (Hz).
     noise_sigma : float
-        Standard deviation of the independent noise component.
+        Standard deviation of an always-on, independent MEASUREMENT-noise
+        term (``noise_sigma * ε``, with ε ~ N(0,1)). This is a separate
+        component from the coupling-dependent mixing term ``(1-c(t))*n``:
+        the latter vanishes as c(t)→1, but the measurement-noise term is
+        present at every coupling level — i.e. even at "full coupling" the
+        two observed signals are never identical, modelling sensor/measurement
+        noise that is independent of interpersonal coupling. This is an
+        intentional design choice, NOT a double-counting of noise.
         Scaled relative to the unit-variance shared rhythm, so
-        σ = 0.3 means noise is 30% of signal amplitude.
+        σ = 0.3 means measurement noise is 30% of signal amplitude.
     micro_lag_sec : float
         Tiny phase lag for Person B (seconds).  Non-zero values
         simulate physiological conduction delay without creating a
@@ -174,6 +181,13 @@ def generate_signals(
     if lag_samples > 0:
         s_b = np.zeros_like(s)
         s_b[lag_samples:] = s[:-lag_samples]
+        # INTENTIONAL no-wrap-around at the head: the first `lag_samples`
+        # points of person B reuse person A's *contemporaneous* values, i.e.
+        # zero delay rather than a wrapped tail. Because micro_lag_sec is
+        # designed to be tiny (a physiological conduction delay, NOT a
+        # meaningful lead-lag structure), this head transient is bounded by
+        # `lag_samples` samples and has negligible effect on any feature.
+        # It is documented here so the ground-truth generator is auditable.
         s_b[:lag_samples] = s[:lag_samples]  # no wrap-around; use same values
     else:
         s_b = s

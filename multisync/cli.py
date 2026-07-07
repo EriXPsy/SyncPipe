@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from .__about__ import __version__
+from .batch import _bh_fdr_correction  # verified-equivalent BH-FDR helper (no 4th impl)
 from .core import Dyad, DynamicAnalyzer
 from .dataset import SynchronyDataset
 from .design_controls import design_control_audit, synchrony_existence_audit
@@ -173,12 +174,17 @@ def cmd_demo(args: argparse.Namespace) -> None:
         seed=42,
     )
 
-    # ponytail: synthetic demo data is always co-started; suppress the
-    # relative-timestamp warning that would scare first-time users.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
+    # Surface alignment warnings as Notes (same policy as `analyze`) instead
+    # of blanket-suppressing them. The synthetic demo is co-started by
+    # construction, so this usually prints nothing — but if a future code path
+    # emits a "device not co-started" warning, first-time users will see it
+    # explained here rather than having it silently swallowed.
+    with warnings.catch_warnings(record=True) as _align_warnings:
+        warnings.simplefilter("always")
         ds.align(target_hz=1.0)
     ds.zscore()
+    for w in _align_warnings:
+        print(f"  Note: {w.message}")
 
     ds.add_context(start=0, end=150, label="PreTask")
     ds.add_context(start=150, end=300, label="Task")
@@ -197,11 +203,21 @@ def cmd_demo(args: argparse.Namespace) -> None:
     output_arg = args.output or "demo_results.json"
     output_path = Path(output_arg)
     output_is_dir = output_path.suffix.lower() != ".json"
-    demo_dir = output_path if output_is_dir else output_path.parent
-    demo_dir.mkdir(parents=True, exist_ok=True)
-    viewer_path = demo_dir / "viewer_results.json" if output_is_dir else output_path
+    if output_is_dir:
+        # A non-.json path is treated as a DIRECTORY for the whole demo bundle.
+        demo_dir = output_path
+        demo_dir.mkdir(parents=True, exist_ok=True)
+        viewer_path = demo_dir / "viewer_results.json"
+        print(f"  Output directory: {demo_dir}/  (all demo artifacts written here)")
+    else:
+        # A .json path is the single viewer JSON file; the other demo
+        # artifacts (feature table, audits, report) go alongside it.
+        demo_dir = output_path.parent
+        demo_dir.mkdir(parents=True, exist_ok=True)
+        viewer_path = output_path
+        print(f"  Viewer JSON: {viewer_path}")
+        print(f"  Other demo artifacts written to: {demo_dir}/")
     results.export_viewer_json(str(viewer_path))
-    print(f"  Viewer results exported to: {viewer_path}")
 
     feature_rows = []
     for pair, feats in results.dynamic_features.items():
@@ -239,7 +255,7 @@ def cmd_demo(args: argparse.Namespace) -> None:
         cohort,
         hz=1.0,
         window_size=10,
-        n_pseudo_per_dyad=2,
+        n_pseudo_per_dyad=3,  # documented demo minimum; publication-grade audits use >=10
         shift_lags_sec=(-60.0, -30.0, 30.0, 60.0),
         seed=42,
     )
@@ -271,6 +287,10 @@ def cmd_demo(args: argparse.Namespace) -> None:
         json.dumps(_json_ready(existence.get("p_values", {})), indent=2),
         "```",
         "",
+        "The p-values above are **raw (uncorrected)**. Because several features are "
+        "tested on the same pair, apply Benjamini-Hochberg FDR across them before "
+        "reporting significance. The terminal summary prints the FDR-corrected count.",
+        "",
         "## Feature status table",
         "`feature_status_table.csv` is the Table 1 draft: source level, incremental information, paradigm restriction, default audit/test, status, and risk. It separates descriptor usefulness from confirmatory status.",
         "",
@@ -301,8 +321,28 @@ def cmd_demo(args: argparse.Namespace) -> None:
     print(f"  Table 1 LaTeX exported to: {feature_status_tex_path}")
     print(f"  Audit report exported to: {report_path}")
 
-    n_sig = sum(1 for p in existence.get("p_values", {}).values() if isinstance(p, (int, float)) and p < 0.05)
-    print(f"\n  Synchrony-existence audit: {n_sig} feature(s) exceed the IAAFT null (p < 0.05).")
+    raw_p = [
+        v for v in existence.get("p_values", {}).values()
+        if isinstance(v, (int, float)) and np.isfinite(v)
+    ]
+    n_raw = int(sum(1 for p in raw_p if p < 0.05))
+    if raw_p:
+        # Apply BH-FDR across the tested features — the package's own stance
+        # is that uncorrected p<0.05 is not reportable. Lead with the corrected
+        # count; the raw count is shown only for transparency.
+        _, fdr_sig = _bh_fdr_correction(raw_p, alpha=0.05)
+        n_fdr = int(sum(fdr_sig))
+    else:
+        n_fdr = 0
+    print("\n  Synchrony-existence audit (signal-level IAAFT):")
+    print(
+        f"    {n_fdr} feature(s) significant after BH-FDR correction (α=0.05); "
+        f"{n_raw} raw p < 0.05 before correction."
+    )
+    if n_raw and not n_fdr:
+        print(
+            "    Note: uncorrected p<0.05 findings did not survive multiple-comparison correction."
+        )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -334,7 +374,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_demo = sub.add_parser("demo", help="Run complete synthetic demo + audit reports.")
     p_demo.add_argument(
         "-o", "--output", default="demo_results.json",
-        help="Output JSON path, or a directory for all demo artifacts.",
+        help="Output location. A path ending in '.json' is the single viewer JSON "
+             "file (other demo artifacts go alongside it). Any other path is treated "
+             "as a DIRECTORY that receives the whole demo bundle.",
     )
     p_demo.add_argument("--surrogates", type=int, default=500, help="Number of CCF surrogates.")
     p_demo.add_argument(

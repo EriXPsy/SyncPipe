@@ -106,7 +106,19 @@ def _plot_group_comparison(test_results: List[Any], label_a: str, label_b: str) 
         return "<p class='warning'>No test results — figure skipped.</p>"
 
     sig = [r for r in test_results if r.significant_fdr]
-    all_r = sig if sig else test_results[:8]
+    if sig:
+        all_r = sig
+        title_suffix = f"(significant metrics only, n={len(sig)})"
+    else:
+        cap = min(8, len(test_results))
+        all_r = test_results[:cap]
+        if len(test_results) > cap:
+            title_suffix = (
+                f"(no FDR-significant metrics; showing first {cap} of "
+                f"{len(test_results)} tested)"
+            )
+        else:
+            title_suffix = "(all metrics; none significant after FDR)"
 
     metrics = [r.metric.replace("_", " ").capitalize() for r in all_r]
     means_a = [r.mean_a for r in all_r]
@@ -125,8 +137,7 @@ def _plot_group_comparison(test_results: List[Any], label_a: str, label_b: str) 
     ax.set_xticklabels(metrics, rotation=30, ha="right", fontsize=9)
     ax.set_ylabel("Mean value", fontsize=10)
     ax.set_title(
-        f"Group comparison: {label_a} vs {label_b}\n"
-        + ("(significant metrics only)" if sig else "(all metrics)"),
+        f"Group comparison: {label_a} vs {label_b}\n{title_suffix}",
         fontsize=11,
     )
     ax.legend(fontsize=9)
@@ -237,12 +248,28 @@ class ReportGenerator:
             feat_rows = []
             for pair_key, pair_feats in feat.items():
                 for feat_name, val in pair_feats.items():
-                    if val is not None and not (isinstance(val, float) and np.isnan(val)):
-                        feat_rows.append({
-                            "Pair": pair_key,
-                            "Feature": feat_name.replace("_", " ").capitalize(),
-                            "Value": round(float(val), 4) if isinstance(val, (float, int)) else val,
-                        })
+                    # Keep EVERY feature so the reader can see which ones are
+                    # undefined (e.g. timing/morphology on a trace with no
+                    # above-threshold episode). Undefined values are rendered as
+                    # "—" by _html_table — hiding the row would mask the
+                    # definedness rate, which is core methodology evidence.
+                    if val is None or (isinstance(val, float) and np.isnan(val)):
+                        display_val = float("nan")
+                    elif isinstance(val, (int, float)):
+                        display_val = round(float(val), 4)
+                    else:
+                        display_val = val
+                    feat_rows.append({
+                        "Pair": pair_key,
+                        "Feature": feat_name.replace("_", " ").capitalize(),
+                        "Value": display_val,
+                    })
+            if len(feat_rows) > 40:
+                body += (
+                    f"<p class='warning'>Showing first 40 of {len(feat_rows)} "
+                    f"feature rows; remaining {len(feat_rows) - 40} omitted "
+                    f"(not truncated silently — see JSON export for all).</p>\n"
+                )
             body += _html_table(feat_rows[:40])
         else:
             body += "<p>No dynamic features computed.</p>\n"

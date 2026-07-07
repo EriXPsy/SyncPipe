@@ -18,6 +18,8 @@ interpretation, typical range, unit) that lives nowhere else.
 
 from typing import Dict, List, Optional
 
+import warnings
+
 from .feature_definitions import (
     FDR_FEATURES,
     REFERENCE_FEATURE,
@@ -205,18 +207,36 @@ def list_features(tier: Optional[str] = None, axis: Optional[str] = None) -> Lis
     ----------
     tier : str or None
         Filter by functional tier: "core", "conditional", "reference".
+        Matching is case-insensitive; an unrecognised value warns and returns [].
     axis : str or None
         Filter by informational axis: "intensity", "structure", "temporal".
+        Matching is case-insensitive; an unrecognised value warns and returns [].
 
     Returns
     -------
     List of FeatureInfo instances.
     """
     result = list(_FEATURE_CATALOG.values())
-    if tier:
-        result = [f for f in result if f.tier == tier]
-    if axis:
-        result = [f for f in result if f.axis == axis]
+    if tier is not None:
+        t = tier.lower()
+        valid_tiers = sorted({f.tier for f in result})
+        if t not in valid_tiers:
+            warnings.warn(
+                f"list_features: unknown tier {tier!r}. Valid tiers: {valid_tiers}. "
+                f"Returning empty list."
+            )
+            return []
+        result = [f for f in result if f.tier == t]
+    if axis is not None:
+        a = axis.lower()
+        valid_axes = sorted({f.axis for f in result})
+        if a not in valid_axes:
+            warnings.warn(
+                f"list_features: unknown axis {axis!r}. Valid axes: {valid_axes}. "
+                f"Returning empty list."
+            )
+            return []
+        result = [f for f in result if f.axis == a]
     return result
 
 
@@ -262,6 +282,8 @@ def recommend_features(research_question: str = "general") -> Dict[str, List[str
     ----------
     research_question : str
         One of: "general", "intensity", "dynamics", "structure", "full".
+        Matching is case-insensitive. An unrecognised value raises ValueError
+        with the list of valid options (no silent fallback to "general").
 
     Returns
     -------
@@ -293,9 +315,13 @@ def recommend_features(research_question: str = "general") -> Dict[str, List[str
             "supplementary": ["onset_latency", "rise_time", "recovery_time", "first_peak_time", "inter_peak_cv", "peak_amplitude"],
             "reference": ["mean_synchrony"],
             "rationale": (
-                "Timing/morphology descriptors are exploratory in v1. Report them "
-                "only with paradigm restrictions and definedness rates; they are not "
-                "primary confirmatory endpoints."
+                "Timing/morphology descriptors are exploratory in v1 (not yet "
+                "confirmatory), so there is no primary *timing* endpoint to recommend "
+                "yet. If your research question is really about dynamic *process* "
+                "structure — how long dyads stay coordinated and how often they switch "
+                "states — use the 'structure' preset: dwell_time and switching_rate are "
+                "the current FDR-family confirmatory descriptors. Report timing "
+                "descriptors only with paradigm restrictions and definedness rates."
             ),
         },
         "structure": {
@@ -319,7 +345,14 @@ def recommend_features(research_question: str = "general") -> Dict[str, List[str
             ),
         },
     }
-    return recommendations.get(research_question, recommendations["general"])
+    key = research_question.lower()
+    if key not in recommendations:
+        valid = sorted(recommendations.keys())
+        raise ValueError(
+            f"recommend_features: unknown research_question {research_question!r}. "
+            f"Valid options are: {valid}."
+        )
+    return recommendations[key]
 
 
 def print_feature_table():
