@@ -1,0 +1,1030 @@
+{
+  "dataset": "Han",
+  "status": "raw_adapter_heuristic",
+  "note": "Raw SCL/affect .xls -> composite (mean of 8 channels) at 1 Hz; cross-pair = consecutive participant IDs (documented heuristic); paired Stim_A/B.",
+  "hz": 1.0,
+  "window": 20,
+  "n_records": 24,
+  "l2_contrast": [
+    "Stim_A",
+    "Stim_B"
+  ],
+  "error": null,
+  "n_feature_rows": 24,
+  "modalities": [
+    "affect"
+  ],
+  "existence": {
+    "n_pairs_audited": 24,
+    "n_pairs_significant": 24,
+    "pass_rate": 1.0
+  },
+  "design_controls": {
+    "audit": "design_controls",
+    "features": [
+      "mean_synchrony",
+      "peak_amplitude",
+      "fraction_above_threshold",
+      "dwell_time",
+      "switching_rate"
+    ],
+    "n_dyads": 12,
+    "pseudo_pair": {
+      "enabled": true,
+      "n_pseudo_per_dyad": 3,
+      "interpretation": "If real pairs exceed pseudo-pairs, evidence is more dyad-specific. If real ≈ pseudo, shared context/stimulus/co-presence remains plausible."
+    },
+    "time_shift": {
+      "enabled": true,
+      "shift_lags_sec": [
+        -60.0,
+        -45.0,
+        -30.0,
+        30.0,
+        45.0,
+        60.0
+      ],
+      "interpretation": "If real pairs exceed time-shift controls, evidence depends on precise temporal alignment. If time-shift remains high, slow drifts or shared block structure remain plausible."
+    },
+    "feature_summary": {
+      "mean_synchrony": {
+        "real_median": 0.1326198473151427,
+        "pseudo_pair_median": 0.11920378242487584,
+        "time_shift_median": 0.0746880440154706,
+        "real_minus_pseudo_mean": -0.022946120302923343,
+        "real_minus_time_shift_mean": 0.029304425392034983,
+        "p_real_gt_pseudo": 0.7027092994874298,
+        "p_real_gt_time_shift": 0.1564559433731999,
+        "n_real": 12,
+        "n_pseudo_dyads": 12,
+        "n_time_shift_dyads": 12
+      },
+      "peak_amplitude": {
+        "real_median": 0.9996238592198844,
+        "pseudo_pair_median": 0.9996747841418097,
+        "time_shift_median": 0.9994370121952005,
+        "real_minus_pseudo_mean": -5.335453221733122e-05,
+        "real_minus_time_shift_mean": 0.00010709873895360193,
+        "p_real_gt_pseudo": 0.6431535269709544,
+        "p_real_gt_time_shift": 0.18965096412008786,
+        "n_real": 12,
+        "n_pseudo_dyads": 12,
+        "n_time_shift_dyads": 12
+      },
+      "fraction_above_threshold": {
+        "real_median": 0.5021901007446343,
+        "pseudo_pair_median": 0.48795444590451165,
+        "time_shift_median": 0.46647886226169694,
+        "real_minus_pseudo_mean": -0.015075193458899109,
+        "real_minus_time_shift_mean": 0.016135081216740472,
+        "p_real_gt_pseudo": 0.7205272150353917,
+        "p_real_gt_time_shift": 0.1442518916280205,
+        "n_real": 12,
+        "n_pseudo_dyads": 12,
+        "n_time_shift_dyads": 12
+      },
+      "dwell_time": {
+        "real_median": 30.732930298719772,
+        "pseudo_pair_median": 27.68864468864469,
+        "time_shift_median": 27.620693061482534,
+        "real_minus_pseudo_mean": -2.9660796107171206,
+        "real_minus_time_shift_mean": 0.8759600881628208,
+        "p_real_gt_pseudo": 0.6870881132536002,
+        "p_real_gt_time_shift": 0.170612643397608,
+        "n_real": 12,
+        "n_pseudo_dyads": 12,
+        "n_time_shift_dyads": 12
+      },
+      "switching_rate": {
+        "real_median": 1.971090670170828,
+        "pseudo_pair_median": 2.1419185282522997,
+        "time_shift_median": 2.0106344936396097,
+        "real_minus_pseudo_mean": 0.04818221638195356,
+        "real_minus_time_shift_mean": -0.007343894666240118,
+        "p_real_gt_pseudo": 0.2894801073956554,
+        "p_real_gt_time_shift": 0.5765194044422748,
+        "n_real": 12,
+        "n_pseudo_dyads": 12,
+        "n_time_shift_dyads": 12
+      }
+    }
+  },
+  "l2_pooled": {
+    "n_significant": 0,
+    "n_dyads": 12,
+    "condition_a": "Stim_A",
+    "condition_b": "Stim_B",
+    "per_feature": [
+      {
+        "feature": "peak_amplitude",
+        "p_raw": 0.6891554222888556,
+        "p_fdr": 0.6891554222888555,
+        "significant_05": false,
+        "cohens_d": -0.381754301518271,
+        "defined_a": 12,
+        "defined_b": 12,
+        "p_definedness": 1.0
+      },
+      {
+        "feature": "dwell_time",
+        "p_raw": 0.34132933533233384,
+        "p_fdr": 0.5119940029985007,
+        "significant_05": false,
+        "cohens_d": -1.2083624507692783,
+        "defined_a": 12,
+        "defined_b": 12,
+        "p_definedness": 1.0
+      },
+      {
+        "feature": "switching_rate",
+        "p_raw": 0.19540229885057472,
+        "p_fdr": 0.5119940029985007,
+        "significant_05": false,
+        "cohens_d": 1.3253481839036862,
+        "defined_a": 12,
+        "defined_b": 12,
+        "p_definedness": 1.0
+      }
+    ]
+  },
+  "l2_per_modality": {
+    "affect": {
+      "n_significant": 0,
+      "n_dyads": 12,
+      "condition_a": "Stim_A",
+      "condition_b": "Stim_B",
+      "per_feature": [
+        {
+          "feature": "peak_amplitude",
+          "p_raw": 0.6826586706646677,
+          "p_fdr": 0.6826586706646677,
+          "significant_05": false,
+          "cohens_d": -0.38302033077835523,
+          "defined_a": 12,
+          "defined_b": 12,
+          "p_definedness": 1.0
+        },
+        {
+          "feature": "dwell_time",
+          "p_raw": 0.34132933533233384,
+          "p_fdr": 0.6826586706646677,
+          "significant_05": false,
+          "cohens_d": -1.194389974981459,
+          "defined_a": 12,
+          "defined_b": 12,
+          "p_definedness": 1.0
+        },
+        {
+          "feature": "switching_rate",
+          "p_raw": 0.18640679660169915,
+          "p_fdr": 0.6826586706646677,
+          "significant_05": false,
+          "cohens_d": 1.3315634371163951,
+          "defined_a": 12,
+          "defined_b": 12,
+          "p_definedness": 1.0
+        },
+        {
+          "feature": "mean_synchrony",
+          "p_raw": 0.5502248875562219,
+          "p_fdr": 0.6826586706646677,
+          "significant_05": false,
+          "cohens_d": 0.8677222340652907,
+          "defined_a": 12,
+          "defined_b": 12,
+          "p_definedness": 1.0
+        }
+      ]
+    }
+  },
+  "morphology": {
+    "FO111": {
+      "n_traces": 2,
+      "k_best": null,
+      "silhouette_best": -1.0,
+      "subsample_ari": null,
+      "ari_vs_condition": null,
+      "feature_table": {
+        "shape_skewness": [
+          -0.6648357354832863,
+          -0.046446535474699006
+        ],
+        "shape_kurtosis": [
+          -1.4248405026701387,
+          -1.7210104356921747
+        ],
+        "shape_peak_density": [
+          0.012702584318878668,
+          0.030661410424879545
+        ],
+        "shape_inter_peak_cv": [
+          0.5504029695418331,
+          0.4179534159558012
+        ],
+        "shape_autocorr_lag1": [
+          0.9935882278913891,
+          0.9885336871818375
+        ],
+        "shape_frac_above_median": [
+          0.5002190100744635,
+          0.5002190100744635
+        ],
+        "mean_synchrony": [
+          0.3297869628513396,
+          0.031007754172768104
+        ],
+        "peak_amplitude": [
+          0.9998862088164905,
+          0.9996715088054283
+        ],
+        "dwell_time": [
+          59.0,
+          23.024390243902438
+        ],
+        "switching_rate": [
+          1.2352168199737188,
+          2.128777923784494
+        ],
+        "bimodality_coefficient": [
+          0.9154670099250433,
+          0.7835539152346084
+        ],
+        "synchrony_entropy": [
+          2.427631950809138,
+          3.686718323005538
+        ],
+        "onset_latency": [
+          381.0,
+          NaN
+        ],
+        "rise_time": [
+          2.0,
+          2.0
+        ],
+        "recovery_time": [
+          81.0,
+          23.0
+        ]
+      }
+    },
+    "FO113": {
+      "n_traces": 2,
+      "k_best": null,
+      "silhouette_best": -1.0,
+      "subsample_ari": null,
+      "ari_vs_condition": null,
+      "feature_table": {
+        "shape_skewness": [
+          -1.1463909716334926,
+          -0.3128567709337291
+        ],
+        "shape_kurtosis": [
+          -0.5247572043718529,
+          -1.6891730420504378
+        ],
+        "shape_peak_density": [
+          0.010950503723171266,
+          0.022777047744196234
+        ],
+        "shape_inter_peak_cv": [
+          0.6822250241017795,
+          0.4292807357424477
+        ],
+        "shape_autocorr_lag1": [
+          0.9934925663407264,
+          0.9898128874341051
+        ],
+        "shape_frac_above_median": [
+          0.5002190100744635,
+          0.5002190100744635
+        ],
+        "mean_synchrony": [
+          0.5080169932651125,
+          0.15935694269703254
+        ],
+        "peak_amplitude": [
+          0.9998883650538584,
+          0.9993344609159287
+        ],
+        "dwell_time": [
+          71.47826086956522,
+          28.925
+        ],
+        "switching_rate": [
+          1.1563731931668857,
+          2.102496714848883
+        ],
+        "bimodality_coefficient": [
+          0.9349435392480361,
+          0.8375471319543337
+        ],
+        "synchrony_entropy": [
+          2.1350111615122014,
+          3.303448304972567
+        ],
+        "onset_latency": [
+          363.0,
+          NaN
+        ],
+        "rise_time": [
+          15.0,
+          3.0
+        ],
+        "recovery_time": [
+          26.0,
+          16.0
+        ]
+      }
+    },
+    "FO114": {
+      "n_traces": 2,
+      "k_best": null,
+      "silhouette_best": -1.0,
+      "subsample_ari": null,
+      "ari_vs_condition": null,
+      "feature_table": {
+        "shape_skewness": [
+          -0.25315230343038175,
+          -0.4680655177971706
+        ],
+        "shape_kurtosis": [
+          -1.7629163477549725,
+          -1.5666262607252355
+        ],
+        "shape_peak_density": [
+          0.02058694699956198,
+          0.02058694699956198
+        ],
+        "shape_inter_peak_cv": [
+          0.43865136435095275,
+          0.43815819558559643
+        ],
+        "shape_autocorr_lag1": [
+          0.9910444981794397,
+          0.9911791000512162
+        ],
+        "shape_frac_above_median": [
+          0.5002190100744635,
+          0.5002190100744635
+        ],
+        "mean_synchrony": [
+          0.12776961120925875,
+          0.23042272150738471
+        ],
+        "peak_amplitude": [
+          0.9993687227738407,
+          0.9995745981859532
+        ],
+        "dwell_time": [
+          31.27027027027027,
+          35.74285714285714
+        ],
+        "switching_rate": [
+          1.944809461235217,
+          1.8134034165571618
+        ],
+        "bimodality_coefficient": [
+          0.8601569399135071,
+          0.8505006723281723
+        ],
+        "synchrony_entropy": [
+          3.0602804647963167,
+          3.141164181949014
+        ],
+        "onset_latency": [
+          NaN,
+          923.0
+        ],
+        "rise_time": [
+          5.0,
+          88.0
+        ],
+        "recovery_time": [
+          40.0,
+          43.0
+        ]
+      }
+    },
+    "FO115": {
+      "n_traces": 2,
+      "k_best": null,
+      "silhouette_best": -1.0,
+      "subsample_ari": null,
+      "ari_vs_condition": null,
+      "feature_table": {
+        "shape_skewness": [
+          -0.29377697622285337,
+          -0.25980636278414637
+        ],
+        "shape_kurtosis": [
+          -1.7315180418408334,
+          -1.7552236637123333
+        ],
+        "shape_peak_density": [
+          0.02058694699956198,
+          0.017520805957074025
+        ],
+        "shape_inter_peak_cv": [
+          0.40856911828772674,
+          0.6480035466600925
+        ],
+        "shape_autocorr_lag1": [
+          0.9906826964832081,
+          0.9926019282975063
+        ],
+        "shape_frac_above_median": [
+          0.5002190100744635,
+          0.5002190100744635
+        ],
+        "mean_synchrony": [
+          0.1402689846259828,
+          0.13113863070368154
+        ],
+        "peak_amplitude": [
+          0.9998793274756962,
+          0.9995550299530974
+        ],
+        "dwell_time": [
+          30.763157894736842,
+          37.03225806451613
+        ],
+        "switching_rate": [
+          1.997371879106439,
+          1.6031537450722735
+        ],
+        "bimodality_coefficient": [
+          0.8563818387571702,
+          0.8575832581512293
+        ],
+        "synchrony_entropy": [
+          3.1295861958991735,
+          3.032965673034085
+        ],
+        "onset_latency": [
+          3.0,
+          981.0
+        ],
+        "rise_time": [
+          4.0,
+          10.0
+        ],
+        "recovery_time": [
+          76.0,
+          69.0
+        ]
+      }
+    },
+    "FO116": {
+      "n_traces": 2,
+      "k_best": null,
+      "silhouette_best": -1.0,
+      "subsample_ari": null,
+      "ari_vs_condition": null,
+      "feature_table": {
+        "shape_skewness": [
+          -0.3956228451456287,
+          0.09794342106902053
+        ],
+        "shape_kurtosis": [
+          -1.6641052133648797,
+          -1.803172568479884
+        ],
+        "shape_peak_density": [
+          0.017958826106000875,
+          0.021901007446342532
+        ],
+        "shape_inter_peak_cv": [
+          0.49919410936031566,
+          0.43785072361018945
+        ],
+        "shape_autocorr_lag1": [
+          0.99200498078026,
+          0.9915617189099134
+        ],
+        "shape_frac_above_median": [
+          0.5002190100744635,
+          0.5002190100744635
+        ],
+        "mean_synchrony": [
+          0.20971675700556372,
+          -0.03287878076780518
+        ],
+        "peak_amplitude": [
+          0.9997917831309237,
+          0.9998504834357289
+        ],
+        "dwell_time": [
+          39.83870967741935,
+          29.1875
+        ],
+        "switching_rate": [
+          1.6031537450722735,
+          1.6819973718791066
+        ],
+        "bimodality_coefficient": [
+          0.865724941194046,
+          0.8435576317367642
+        ],
+        "synchrony_entropy": [
+          2.9555235624405443,
+          3.1825006426361457
+        ],
+        "onset_latency": [
+          961.0,
+          NaN
+        ],
+        "rise_time": [
+          2.0,
+          11.0
+        ],
+        "recovery_time": [
+          61.0,
+          13.0
+        ]
+      }
+    },
+    "FO117": {
+      "n_traces": 2,
+      "k_best": null,
+      "silhouette_best": -1.0,
+      "subsample_ari": null,
+      "ari_vs_condition": null,
+      "feature_table": {
+        "shape_skewness": [
+          -0.13137554060820691,
+          -0.40095329607906705
+        ],
+        "shape_kurtosis": [
+          -1.82535272601193,
+          -1.6833554691568473
+        ],
+        "shape_peak_density": [
+          0.018396846254927726,
+          0.017958826106000875
+        ],
+        "shape_inter_peak_cv": [
+          0.5297906506657708,
+          0.5592514086900111
+        ],
+        "shape_autocorr_lag1": [
+          0.9921753004700774,
+          0.9935303206367182
+        ],
+        "shape_frac_above_median": [
+          0.5002190100744635,
+          0.5002190100744635
+        ],
+        "mean_synchrony": [
+          0.08248968751997862,
+          0.19769777546573936
+        ],
+        "peak_amplitude": [
+          0.9989856665542274,
+          0.9997097665847421
+        ],
+        "dwell_time": [
+          34.15625,
+          48.34615384615385
+        ],
+        "switching_rate": [
+          1.6294349540078845,
+          1.3403416557161631
+        ],
+        "bimodality_coefficient": [
+          0.8660127641690931,
+          0.88160738790548
+        ],
+        "synchrony_entropy": [
+          2.968347289617236,
+          2.8116163382750403
+        ],
+        "onset_latency": [
+          387.0,
+          811.0
+        ],
+        "rise_time": [
+          4.0,
+          NaN
+        ],
+        "recovery_time": [
+          31.0,
+          93.0
+        ]
+      }
+    },
+    "FO118": {
+      "n_traces": 2,
+      "k_best": null,
+      "silhouette_best": -1.0,
+      "subsample_ari": null,
+      "ari_vs_condition": null,
+      "feature_table": {
+        "shape_skewness": [
+          -0.27052592593427305,
+          -0.6156739329405574
+        ],
+        "shape_kurtosis": [
+          -1.724946302676003,
+          -1.454039267150771
+        ],
+        "shape_peak_density": [
+          0.02058694699956198,
+          0.017082785808147174
+        ],
+        "shape_inter_peak_cv": [
+          0.5854314909490574,
+          0.49721716255232284
+        ],
+        "shape_autocorr_lag1": [
+          0.9913489939442122,
+          0.9925257556745222
+        ],
+        "shape_frac_above_median": [
+          0.5002190100744635,
+          0.5002190100744635
+        ],
+        "mean_synchrony": [
+          0.13747008342102662,
+          0.2964700279722809
+        ],
+        "peak_amplitude": [
+          0.999014260945212,
+          0.9999415551532553
+        ],
+        "dwell_time": [
+          30.7027027027027,
+          41.54545454545455
+        ],
+        "switching_rate": [
+          1.944809461235217,
+          1.6819973718791066
+        ],
+        "bimodality_coefficient": [
+          0.841677710401474,
+          0.8920371406593722
+        ],
+        "synchrony_entropy": [
+          3.1538926435211128,
+          2.7812594348598907
+        ],
+        "onset_latency": [
+          1769.0,
+          NaN
+        ],
+        "rise_time": [
+          1.0,
+          NaN
+        ],
+        "recovery_time": [
+          32.0,
+          77.0
+        ]
+      }
+    },
+    "FO119": {
+      "n_traces": 2,
+      "k_best": null,
+      "silhouette_best": -1.0,
+      "subsample_ari": null,
+      "ari_vs_condition": null,
+      "feature_table": {
+        "shape_skewness": [
+          -0.24434171083478923,
+          -0.14695538285831264
+        ],
+        "shape_kurtosis": [
+          -1.6171364807018693,
+          -1.7904516224133784
+        ],
+        "shape_peak_density": [
+          0.029347349978098992,
+          0.022339027595269383
+        ],
+        "shape_inter_peak_cv": [
+          0.47632507223553916,
+          0.4498393053648319
+        ],
+        "shape_autocorr_lag1": [
+          0.9870106308645952,
+          0.9908628353857839
+        ],
+        "shape_frac_above_median": [
+          0.5002190100744635,
+          0.5002190100744635
+        ],
+        "mean_synchrony": [
+          0.12628965559847144,
+          0.07361305684608631
+        ],
+        "peak_amplitude": [
+          0.9985747115789328,
+          0.9993917644823492
+        ],
+        "dwell_time": [
+          20.64,
+          28.945945945945947
+        ],
+        "switching_rate": [
+          2.6018396846254928,
+          1.9185282522996059
+        ],
+        "bimodality_coefficient": [
+          0.7663105265742506,
+          0.8446093628676477
+        ],
+        "synchrony_entropy": [
+          3.742690217912818,
+          3.1735785203197113
+        ],
+        "onset_latency": [
+          NaN,
+          NaN
+        ],
+        "rise_time": [
+          13.0,
+          NaN
+        ],
+        "recovery_time": [
+          41.0,
+          10.0
+        ]
+      }
+    },
+    "FO120": {
+      "n_traces": 2,
+      "k_best": null,
+      "silhouette_best": -1.0,
+      "subsample_ari": null,
+      "ari_vs_condition": null,
+      "feature_table": {
+        "shape_skewness": [
+          0.04474183365035528,
+          -0.18814573599356657
+        ],
+        "shape_kurtosis": [
+          -1.720440753513557,
+          -1.763472399032543
+        ],
+        "shape_peak_density": [
+          0.029347349978098992,
+          0.023215067893123085
+        ],
+        "shape_inter_peak_cv": [
+          0.40713907974588126,
+          0.4983132972616323
+        ],
+        "shape_autocorr_lag1": [
+          0.9885238105141574,
+          0.9905475595161072
+        ],
+        "shape_frac_above_median": [
+          0.5002190100744635,
+          0.5002190100744635
+        ],
+        "mean_synchrony": [
+          -0.01739317497141601,
+          0.10155320053199622
+        ],
+        "peak_amplitude": [
+          0.9996552908501031,
+          0.9996197112002371
+        ],
+        "dwell_time": [
+          20.697674418604652,
+          28.605263157894736
+        ],
+        "switching_rate": [
+          2.2339027595269383,
+          1.997371879106439
+        ],
+        "bimodality_coefficient": [
+          0.7830835769659005,
+          0.8373438790710912
+        ],
+        "synchrony_entropy": [
+          3.617124054375078,
+          3.287443395975645
+        ],
+        "onset_latency": [
+          NaN,
+          NaN
+        ],
+        "rise_time": [
+          1.0,
+          1.0
+        ],
+        "recovery_time": [
+          26.0,
+          40.0
+        ]
+      }
+    },
+    "FO121": {
+      "n_traces": 2,
+      "k_best": null,
+      "silhouette_best": -1.0,
+      "subsample_ari": null,
+      "ari_vs_condition": null,
+      "feature_table": {
+        "shape_skewness": [
+          -0.4705293743007878,
+          0.10704866477276984
+        ],
+        "shape_kurtosis": [
+          -1.499298770966385,
+          -1.7686799368912278
+        ],
+        "shape_peak_density": [
+          0.025405168637757335,
+          0.025405168637757335
+        ],
+        "shape_inter_peak_cv": [
+          0.39516599915815964,
+          0.6505568223383799
+        ],
+        "shape_autocorr_lag1": [
+          0.98795135069156,
+          0.9906976116952639
+        ],
+        "shape_frac_above_median": [
+          0.5002190100744635,
+          0.5002190100744635
+        ],
+        "mean_synchrony": [
+          0.2276752546369585,
+          -0.05347307978586894
+        ],
+        "peak_amplitude": [
+          0.9998611350717265,
+          0.999891947310313
+        ],
+        "dwell_time": [
+          25.70212765957447,
+          23.394736842105264
+        ],
+        "switching_rate": [
+          2.4441524310118266,
+          1.944809461235217
+        ],
+        "bimodality_coefficient": [
+          0.8138847816273309,
+          0.8214431380870652
+        ],
+        "synchrony_entropy": [
+          3.430812394504998,
+          3.4130964832766106
+        ],
+        "onset_latency": [
+          NaN,
+          NaN
+        ],
+        "rise_time": [
+          6.0,
+          NaN
+        ],
+        "recovery_time": [
+          12.0,
+          36.0
+        ]
+      }
+    },
+    "FO122": {
+      "n_traces": 2,
+      "k_best": null,
+      "silhouette_best": -1.0,
+      "subsample_ari": null,
+      "ari_vs_condition": null,
+      "feature_table": {
+        "shape_skewness": [
+          0.010198656929505102,
+          0.24326730226137222
+        ],
+        "shape_kurtosis": [
+          -1.6543712324420357,
+          -1.7374655264946917
+        ],
+        "shape_peak_density": [
+          0.03591765221200175,
+          0.025405168637757335
+        ],
+        "shape_inter_peak_cv": [
+          0.41940113598623996,
+          0.5236558031249846
+        ],
+        "shape_autocorr_lag1": [
+          0.9858309226825144,
+          0.9914215426572812
+        ],
+        "shape_frac_above_median": [
+          0.5002190100744635,
+          0.5002190100744635
+        ],
+        "mean_synchrony": [
+          -0.001516227754214837,
+          -0.11744912322950268
+        ],
+        "peak_amplitude": [
+          0.9995924275896657,
+          0.9997948825525831
+        ],
+        "dwell_time": [
+          18.58695652173913,
+          23.742857142857144
+        ],
+        "switching_rate": [
+          2.4178712220762155,
+          1.8396846254927728
+        ],
+        "bimodality_coefficient": [
+          0.7432243102368761,
+          0.8389307401712484
+        ],
+        "synchrony_entropy": [
+          3.9354378021166534,
+          3.3860777298536266
+        ],
+        "onset_latency": [
+          NaN,
+          NaN
+        ],
+        "rise_time": [
+          1.0,
+          2.0
+        ],
+        "recovery_time": [
+          21.0,
+          16.0
+        ]
+      }
+    },
+    "FO123": {
+      "n_traces": 2,
+      "k_best": null,
+      "silhouette_best": -1.0,
+      "subsample_ari": null,
+      "ari_vs_condition": null,
+      "feature_table": {
+        "shape_skewness": [
+          -0.16100090479242624,
+          -0.0018638327693703217
+        ],
+        "shape_kurtosis": [
+          -1.7074046411457808,
+          -1.6564991317569637
+        ],
+        "shape_peak_density": [
+          0.02890932982917214,
+          0.029785370127025843
+        ],
+        "shape_inter_peak_cv": [
+          0.3888757946188805,
+          0.49485416443768615
+        ],
+        "shape_autocorr_lag1": [
+          0.986349422926374,
+          0.9891206105769529
+        ],
+        "shape_frac_above_median": [
+          0.5002190100744635,
+          0.5002190100744635
+        ],
+        "mean_synchrony": [
+          0.07334694197574254,
+          0.0023883441633178854
+        ],
+        "peak_amplitude": [
+          0.9992255498397176,
+          0.9983791249484589
+        ],
+        "dwell_time": [
+          20.897959183673468,
+          22.358974358974358
+        ],
+        "switching_rate": [
+          2.5492772667542707,
+          2.049934296977661
+        ],
+        "bimodality_coefficient": [
+          0.7936909910100373,
+          0.7443266301571856
+        ],
+        "synchrony_entropy": [
+          3.6623631721970398,
+          3.897906665696652
+        ],
+        "onset_latency": [
+          NaN,
+          NaN
+        ],
+        "rise_time": [
+          NaN,
+          27.0
+        ],
+        "recovery_time": [
+          24.0,
+          24.0
+        ]
+      }
+    }
+  }
+}

@@ -33,3 +33,11 @@ TABLE1_FEATURE_STATUS.tex
 # Demo-generated artifacts (paper snapshots under artifacts/ remain tracked)
 artifacts/demo_v1/
 artifacts/ci_demo/
+
+# Temporary debug probes (hardcoded external OSF paths; not part of the package)
+scripts/_probe_loaders.py
+scripts/_timing_probe.py
+
+# Transient audit logs / test captures (kept out of version control)
+artifacts/reviewer_audit/pytest_*.txt
+artifacts/reviewer_audit/run_log.txt

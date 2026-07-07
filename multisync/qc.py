@@ -1,7 +1,8 @@
 """
-Data Quality Check — 3-stage pre-analysis gate.
+Data Quality Check — 4-stage pre-analysis gate.
 
-Stages: (1) temporal alignment, (2) NaN integrity, (3) sampling uniformity.
+Stages: (1) temporal alignment, (2) NaN integrity, (3) sampling uniformity,
+(4) signal integrity (zero-variance / flatline / physiological range).
 
 Mandatory: must pass before analysis. WARN → warning; FAIL → DataQualityError.
 
@@ -90,6 +91,23 @@ def _suggest_actions_for_detail(detail: Dict[str, Any]) -> List[str]:
         return ["Resample to a uniform grid before WCC/IAAFT analysis."]
     if dtype == "zero_mean_isi":
         return ["Fix the time column; timestamps must be strictly increasing."]
+    if dtype == "zero_variance":
+        return [
+            "Signal has ~zero variance — WCC denominator collapses to 0 "
+            "(NaN). Inspect for an electrode-dropout flatline; exclude or "
+            "re-acquire the channel.",
+        ]
+    if dtype == "flatline":
+        return [
+            "Constant run detected — likely sensor dropout / artifact.",
+            "Apply median_filter or clip_outliers before analysis, or "
+            "exclude the affected segment.",
+        ]
+    if dtype == "out_of_range":
+        return [
+            "Values fall outside the expected physiological range — verify "
+            "units/scaling (e.g. mV vs V) before analysis.",
+        ]
     return []
 
 
@@ -195,6 +213,11 @@ DEFAULT_CONFIG = {
     # Stage 3: Sampling Uniformity
     "max_isi_cv": 0.10,               # max coefficient of variation of inter-sample intervals
     "min_effective_samples": 50,       # minimum total samples after alignment
+    # Stage 4: Signal Integrity
+    "min_signal_std": 1e-9,           # absolute floor on signal std (below => zero variance)
+    "max_flatline_frac": 0.5,         # FAIL if a constant run exceeds this fraction of signal
+    "warn_flatline_frac": 0.2,        # WARN if a constant run exceeds this fraction
+    # "physio_ranges": {"eda": (0.0, 60.0)}  # optional per-modality (lo, hi)
 }
 
 
@@ -549,6 +572,158 @@ def format_qc_report(report: DataQualityReport) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Stage 4 — Signal Integrity (zero-variance / flatline / physiological range)
+# ---------------------------------------------------------------------------
+
+def _check_signal_integrity(dataset: Any, config: Dict[str, Any]) -> StageResult:
+    """Detect flatline / zero-variance / out-of-range signals.
+
+    A constant (flatline) or zero-variance signal passes the NaN and ISI
+    checks trivially, yet makes the WCC denominator zero (→ NaN) or produces
+    a degenerate, artifact-driven coupling estimate.  This stage catches the
+    electrode-dropout / constant-offset failures that a NaN-only gate misses.
+
+    Checks
+    ------
+    1. Zero / near-zero variance: ``std <= max(min_signal_std, 1e-12)`` OR
+       ``std / range < 1e-3`` → FAIL (WCC undefined).
+    2. Flatline: longest run of (near-)constant consecutive values as a
+       fraction of the signal.  FAIL if ``>= max_flatline_frac``, WARN if
+       ``>= warn_flatline_frac``.
+    3. Physiological range (optional): per-modality ``(lo, hi)`` passed via
+       ``config["physio_ranges"]``; values outside warn if > 10% out.
+    """
+    details: List[Dict[str, Any]] = []
+    failures: List[str] = []
+    warnings_list: List[str] = []
+
+    min_signal_std = config.get("min_signal_std", 1e-9)
+    max_flatline_frac = config.get("max_flatline_frac", 0.5)
+    warn_flatline_frac = config.get("warn_flatline_frac", 0.2)
+    physio_ranges = config.get("physio_ranges", None)
+
+    if not hasattr(dataset, "modalities") or not dataset.modalities:
+        return StageResult(
+            stage="signal_integrity",
+            verdict=StageVerdict.WARN,
+            message="No modalities to check.",
+        )
+
+    hz = getattr(dataset, "target_hz", 1.0) or 1.0
+    dt = 1.0 / hz if hz > 0 else 1.0
+
+    total_checked = 0
+    for name, df in dataset.modalities.items():
+        fc = dataset.feature_columns.get(name, [])
+        for col in fc:
+            if col not in df.columns:
+                continue
+            vals = df[col].values.astype(float)
+            finite = vals[np.isfinite(vals)]
+            if finite.size == 0:
+                continue
+            total_checked += 1
+            rng = float(finite.max() - finite.min())
+            std = float(np.std(finite, ddof=0))
+
+            # ---- 1. zero / near-zero variance ----
+            if std <= max(min_signal_std, 1e-12) or (rng > 0 and std / rng < 1e-3):
+                details.append({
+                    "type": "zero_variance",
+                    "modality": name,
+                    "feature": col,
+                    "std": std,
+                    "range": rng,
+                })
+                failures.append(
+                    f"{name}/{col}: zero/near-zero variance (std={std:.2e}, "
+                    f"range={rng:.2e}). WCC denominator=0 -> NaN; likely "
+                    f"flatline / constant signal."
+                )
+                continue
+
+            # ---- 2. flatline (longest constant run) ----
+            tol = max(1e-9, 1e-6 * max(abs(finite.min()), abs(finite.max()), 1.0))
+            change = np.abs(np.diff(finite)) > tol
+            run_ends = np.where(change)[0] + 1
+            run_lengths = np.diff(np.concatenate(([0], run_ends, [finite.size])))
+            if run_lengths.size:
+                longest_run = int(run_lengths.max())
+                longest_sec = longest_run * dt
+                flat_frac = longest_run / finite.size
+                if flat_frac >= max_flatline_frac:
+                    details.append({
+                        "type": "flatline",
+                        "modality": name,
+                        "feature": col,
+                        "longest_run": longest_run,
+                        "longest_sec": round(longest_sec, 1),
+                        "fraction": round(flat_frac, 3),
+                    })
+                    failures.append(
+                        f"{name}/{col}: flatline — {flat_frac*100:.0f}% of signal "
+                        f"constant for {longest_sec:.1f}s. Electrode dropout / "
+                        f"artifact suspected."
+                    )
+                elif flat_frac >= warn_flatline_frac:
+                    details.append({
+                        "type": "flatline",
+                        "modality": name,
+                        "feature": col,
+                        "longest_run": longest_run,
+                        "longest_sec": round(longest_sec, 1),
+                        "fraction": round(flat_frac, 3),
+                    })
+                    warnings_list.append(
+                        f"{name}/{col}: {flat_frac*100:.0f}% of signal constant "
+                        f"for {longest_sec:.1f}s — possible flatline / dropout."
+                    )
+
+            # ---- 3. physiological range (optional) ----
+            if physio_ranges and name in physio_ranges:
+                lo, hi = physio_ranges[name]
+                if np.any((finite < lo) | (finite > hi)):
+                    frac_out = float(np.mean((finite < lo) | (finite > hi)))
+                    details.append({
+                        "type": "out_of_range",
+                        "modality": name,
+                        "feature": col,
+                        "frac_out": round(frac_out, 3),
+                        "lo": lo,
+                        "hi": hi,
+                    })
+                    if frac_out > 0.1:
+                        warnings_list.append(
+                            f"{name}/{col}: {frac_out*100:.0f}% outside plausible "
+                            f"physiological range [{lo}, {hi}]."
+                        )
+
+    if total_checked == 0:
+        return StageResult(
+            stage="signal_integrity",
+            verdict=StageVerdict.WARN,
+            message="No numeric signals found.",
+        )
+
+    if failures:
+        verdict = StageVerdict.FAIL
+        message = f"{len(failures)} signal-integrity failure(s) (zero-variance/flatline)."
+    elif warnings_list:
+        verdict = StageVerdict.WARN
+        message = f"{len(warnings_list)} signal-integrity warning(s)."
+    else:
+        verdict = StageVerdict.PASS
+        message = f"Signal integrity OK across {total_checked} signal(s)."
+
+    return StageResult(
+        stage="signal_integrity",
+        verdict=verdict,
+        details=details,
+        message=message,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
 
@@ -602,6 +777,10 @@ def run_quality_check(
     # Stage 3
     st3 = _check_sampling_uniformity(dataset, cfg)
     stages.append(st3)
+
+    # Stage 4
+    st4 = _check_signal_integrity(dataset, cfg)
+    stages.append(st4)
 
     # Aggregate
     all_warnings: List[str] = []

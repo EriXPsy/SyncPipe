@@ -56,11 +56,13 @@ class ComputationPipeline:
         backend: str = "wcc",
         wclr_max_lag_samples: int = 2,
         wclr_metric: str = "beta",
+        window_type: str = "rect",
     ):
         self.hz = hz
         self.window_size = window_size
         self.onset_threshold = onset_threshold
         self.backend = backend.lower()
+        self.window_type = window_type.lower()
         self.wclr_max_lag_samples = wclr_max_lag_samples
         self.wclr_metric = wclr_metric
         if self.backend not in ("wcc", "wclr"):
@@ -173,7 +175,7 @@ class ComputationPipeline:
                 sig_a_n, sig_b_n = self._sig_a, self._sig_b
 
             self._wcc = _sliding_window_wcc_cumsum(
-                sig_a_n, sig_b_n, self.window_size
+                sig_a_n, sig_b_n, self.window_size, self.window_type
             )
         else:
             if normalize:
@@ -184,7 +186,8 @@ class ComputationPipeline:
             else:
                 sig_a_n, sig_b_n = self._sig_a, self._sig_b
             self._wcc = sliding_window_wcc(
-                sig_a_n, sig_b_n, self.window_size, hz=self.hz
+                sig_a_n, sig_b_n, self.window_size, hz=self.hz,
+                window_type=self.window_type,
             )
 
         return self._wcc

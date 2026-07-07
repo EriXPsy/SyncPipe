@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 
 import numpy as np
 from scipy.fft import fft, ifft
+from scipy.signal.windows import get_window
 import logging
 import warnings
 
@@ -63,6 +64,46 @@ logger = logging.getLogger(__name__)
 # Sliding-window WCC (Weighted Cross-Correlation)
 # ---------------------------------------------------------------------------
 
+def _make_window_kernel(window_type: str, window_size: int) -> np.ndarray:
+    """Build a taper kernel for the sliding-window WCC.
+
+    The kernel is normalised so its sum equals ``window_size`` (i.e. the
+    mean weight is 1), keeping the weighted variance/covariance on the same
+    absolute scale as the default rectangular window.  Supported names are
+    any ``scipy.signal.windows`` name (e.g. ``'hann'``, ``'hamming'``,
+    ``'triang'``, ``'gaussian'``); ``'rect'``/``'boxcar'`` returns uniform
+    weights (the legacy behaviour).
+
+    A tapered (e.g. Hann) window reduces the abrupt edge effects of a
+    rectangular window on the WCC time series — a standard practice in
+    psychophysiology where window boundaries otherwise introduce spurious
+    jumps in coupling estimates.
+    """
+    if window_size <= 1:
+        return np.ones(window_size)
+    wt = (window_type or "rect").lower()
+    if wt in ("rect", "boxcar", "rectangular"):
+        kern = np.ones(window_size)
+    else:
+        try:
+            if wt == "gaussian":
+                kern = get_window(("gaussian", max(1.0, window_size / 6.0)), window_size)
+            elif wt in ("hann", "hanning"):
+                kern = get_window("hann", window_size)
+            else:
+                kern = get_window(wt, window_size)
+        except Exception as exc:  # pragma: no cover - defensive
+            raise ValueError(
+                f"Unsupported window_type={window_type!r}. Use 'rect', 'hann', "
+                f"'hamming', 'triang', 'gaussian', or any scipy.signal.windows name. "
+                f"({exc})"
+            )
+    total = float(kern.sum())
+    if total > 0:
+        kern = kern * (window_size / total)
+    return kern
+
+
 def sliding_window_wcc(
     x: np.ndarray,
     y: np.ndarray,
@@ -71,13 +112,14 @@ def sliding_window_wcc(
     lag_samples: int = 0,
     step_samples: int = 0,
     min_valid_ratio: float = 0.5,
+    window_type: str = "rect",
 ) -> np.ndarray:
     """
     Compute sliding-window cross-correlation (WCC) between x and y.
 
     For each window position, computes Pearson correlation within the window.
     Uses cumsum-based O(n) memory implementation when there are no NaN values
-    and step_samples <= 1; falls back to stride_tricks (O(n*w) memory) when NaN values are present.
+    and step_samples <= 1; falls back to stride-tricks (O(n*w) memory) when NaN values are present.
 
     Parameters
     ----------
@@ -98,6 +140,13 @@ def sliding_window_wcc(
         Minimum fraction of valid (non-NaN) pairs within a window for the
         correlation to be computed (vs. returning NaN). Default 0.5 (50%).
         Only applies when NaN values are present (stride_tricks path).
+    window_type : str
+        Window taper applied to each window before computing Pearson r.
+        ``'rect'`` (default) = uniform/boxcar window (legacy behaviour).
+        ``'hann'`` / ``'hamming'`` / ``'triang'`` / ``'gaussian'`` taper the
+        window edges, reducing abrupt edge effects on the WCC time series
+        (recommended in psychophysiology). The kernel is normalised to mean
+        weight 1, so results stay on the same scale as ``'rect'``.
 
     Returns
     -------
@@ -134,9 +183,11 @@ def sliding_window_wcc(
                 f"due to NaN values forcing stride_tricks fallback. "
                 f"Consider filling NaN before calling this function."
             )
-        wcc_full = _sliding_window_wcc_stride(x, y_lagged, window_size, min_valid_ratio)
+        wcc_full = _sliding_window_wcc_stride(
+            x, y_lagged, window_size, min_valid_ratio, window_type
+        )
     else:
-        wcc_full = _sliding_window_wcc_cumsum(x, y_lagged, window_size)
+        wcc_full = _sliding_window_wcc_cumsum(x, y_lagged, window_size, window_type)
 
     # Apply step if requested
     if step_samples > 1:
@@ -148,11 +199,17 @@ def _sliding_window_wcc_cumsum(
     x: np.ndarray,
     y: np.ndarray,
     window_size: int,
+    window_type: str = "rect",
 ) -> np.ndarray:
     """
     Cumsum-based sliding-window Pearson correlation.
     Assumes no NaN values in x or y.
     Memory: O(n) instead of O(n*w).
+
+    A taper kernel (``window_type``) is applied as a *weighted* Pearson
+    correlation within each window: the cumsums accumulate ``kernel * signal``
+    so edge points contribute less.  For ``window_type='rect'`` the weights
+    are uniform and this reduces exactly to the legacy formula.
 
     Note
     ----
@@ -180,42 +237,55 @@ def _sliding_window_wcc_cumsum(
     x_demeaned = x - mean_x_global
     y_demeaned = y - mean_y_global
 
-    # Cumulative sums of demeaned signals
-    cumsum_x = np.cumsum(x_demeaned)
-    cumsum_y = np.cumsum(y_demeaned)
-    cumsum_xy = np.cumsum(x_demeaned * y_demeaned)
-    cumsum_x2 = np.cumsum(x_demeaned ** 2)
-    cumsum_y2 = np.cumsum(y_demeaned ** 2)
+    kern = _make_window_kernel(window_type, window_size)  # length window_size, sum == window_size
+
+    # The kernel is applied *within* each sliding window, so the full-signal
+    # weight repeats the kernel every ``window_size`` samples:
+    #   weight[i] = kern[i % window_size].
+    # Cumulating ``weight * signal`` then yields, for window [p, p+w),
+    # Σ_j kern[j] * signal[p+j] — the correct taper.  (For 'rect' this
+    # reduces to the legacy uniform-weight cumsum.)
+    Wfull = np.tile(kern, (n // window_size) + 1)[:n]
+
+    # Weighted cumulative sums of demeaned signals (full-length weight * signal)
+    cumsum_k = np.cumsum(Wfull)
+    cumsum_kx = np.cumsum(Wfull * x_demeaned)
+    cumsum_ky = np.cumsum(Wfull * y_demeaned)
+    cumsum_kxy = np.cumsum(Wfull * x_demeaned * y_demeaned)
+    cumsum_kx2 = np.cumsum(Wfull * x_demeaned ** 2)
+    cumsum_ky2 = np.cumsum(Wfull * y_demeaned ** 2)
 
     # Prepend 0 so that range sums [i, i+w) = cumsum[i+w] - cumsum[i]
-    cumsum_x = np.concatenate([[0.0], cumsum_x])
-    cumsum_y = np.concatenate([[0.0], cumsum_y])
-    cumsum_xy = np.concatenate([[0.0], cumsum_xy])
-    cumsum_x2 = np.concatenate([[0.0], cumsum_x2])
-    cumsum_y2 = np.concatenate([[0.0], cumsum_y2])
+    cumsum_k = np.concatenate([[0.0], cumsum_k])
+    cumsum_kx = np.concatenate([[0.0], cumsum_kx])
+    cumsum_ky = np.concatenate([[0.0], cumsum_ky])
+    cumsum_kxy = np.concatenate([[0.0], cumsum_kxy])
+    cumsum_kx2 = np.concatenate([[0.0], cumsum_kx2])
+    cumsum_ky2 = np.concatenate([[0.0], cumsum_ky2])
 
     # Window indices
     i = np.arange(n - window_size + 1)
     i_end = i + window_size
 
-    sum_x = cumsum_x[i_end] - cumsum_x[i]
-    sum_y = cumsum_y[i_end] - cumsum_y[i]
-    sum_xy = cumsum_xy[i_end] - cumsum_xy[i]
-    sum_x2 = cumsum_x2[i_end] - cumsum_x2[i]
-    sum_y2 = cumsum_y2[i_end] - cumsum_y2[i]
+    Wt = cumsum_k[i_end] - cumsum_k[i]
+    sum_x = cumsum_kx[i_end] - cumsum_kx[i]
+    sum_y = cumsum_ky[i_end] - cumsum_ky[i]
+    sum_xy = cumsum_kxy[i_end] - cumsum_kxy[i]
+    sum_x2 = cumsum_kx2[i_end] - cumsum_kx2[i]
+    sum_y2 = cumsum_ky2[i_end] - cumsum_ky2[i]
 
-    # Window-level means (on demeaned signal — close to 0 but not exact)
-    mean_x = sum_x / w
-    mean_y = sum_y / w
+    # Window-level weighted means (on demeaned signal — close to 0 but not exact)
+    mean_x = sum_x / Wt
+    mean_y = sum_y / Wt
 
     # ------------------------------------------------------------------
     # FIX: correct Pearson covariance.
     # Previous (buggy) version:  cov = sum_xy / w          (missing -mean_x*mean_y)
     # Correct Pearson formula: cov = sum_xy/w - mean_x*mean_y
     # ------------------------------------------------------------------
-    cov = sum_xy / w - mean_x * mean_y
-    var_x = sum_x2 / w - mean_x ** 2
-    var_y = sum_y2 / w - mean_y ** 2
+    cov = sum_xy / Wt - mean_x * mean_y
+    var_x = sum_x2 / Wt - mean_x ** 2
+    var_y = sum_y2 / Wt - mean_y ** 2
 
     # Numerical safety: clamp tiny negatives caused by floating point
     var_x = np.maximum(var_x, 0.0)
@@ -235,6 +305,7 @@ def _sliding_window_wcc_stride(
     y: np.ndarray,
     window_size: int,
     min_valid_ratio: float = 0.5,
+    window_type: str = "rect",
 ) -> np.ndarray:
     """
     Stride-tricks WCC with pairwise deletion for NaN handling.
@@ -245,6 +316,9 @@ def _sliding_window_wcc_stride(
       3. Windows passing the gate use ONLY the pairwise-valid points to
          compute Pearson r (pairwise deletion), so partial-NaN windows
          still yield a valid WCC value rather than propagating NaN.
+
+    A taper kernel (``window_type``) is applied as a *weighted* Pearson
+    correlation (effective weight = kernel * pairwise-valid mask).
 
     This is more robust than listwise deletion (entire window NaN if ANY
     point is NaN) while still enforcing a minimum-data quality threshold.
@@ -266,33 +340,39 @@ def _sliding_window_wcc_stride(
     if not np.any(passes_gate):
         return wcc
 
-    # For windows passing the gate, compute WCC using pairwise-valid points.
-    # Use masked arrays for vectorized pairwise deletion.
-    xv = np.ma.array(x_windows[passes_gate], mask=~pair_valid[passes_gate])
-    yv = np.ma.array(y_windows[passes_gate], mask=~pair_valid[passes_gate])
+    # Taper kernel, broadcast over windows: effective weight = kernel * valid.
+    kern = _make_window_kernel(window_type, window_size)[None, :]
+    w_eff = kern * pair_valid  # (n_windows, window_size); 0 where NaN
 
-    # Pairwise means (ignoring masked values)
-    x_means = xv.mean(axis=1, keepdims=True)
-    y_means = yv.mean(axis=1, keepdims=True)
-    x_centered = xv - x_means
-    y_centered = yv - y_means
+    # Global demean means (over finite values) keep the weighted covariance
+    # formula consistent with the cumsum path.
+    mx = float(np.nanmean(x))
+    my = float(np.nanmean(y))
+    xg = x - mx
+    yg = y - my
+    xw = sliding_window_view(xg, window_size)
+    yw = sliding_window_view(yg, window_size)
 
-    # Pairwise std and covariance
-    x_var = (x_centered ** 2).sum(axis=1)
-    y_var = (y_centered ** 2).sum(axis=1)
-    cov_xy = (x_centered * y_centered).sum(axis=1)
+    Wt = w_eff.sum(axis=1)
+    sx = (w_eff * xw).sum(axis=1)
+    sy = (w_eff * yw).sum(axis=1)
+    sxy = (w_eff * xw * yw).sum(axis=1)
+    sx2 = (w_eff * xw ** 2).sum(axis=1)
+    sy2 = (w_eff * yw ** 2).sum(axis=1)
 
-    denom = np.sqrt(x_var * y_var)
-    # Avoid division by zero; np.ma handles this but we want explicit control
-    denom_safe = np.where(denom > 1e-10, denom, 1.0)
-    wcc_valid = cov_xy / denom_safe
-    # Where denom was zero (constant window), set to NaN
-    wcc_valid = np.where(denom > 1e-10, wcc_valid, np.nan)
+    mean_x = np.where(Wt > 0, sx / Wt, 0.0)
+    mean_y = np.where(Wt > 0, sy / Wt, 0.0)
+    cov = sxy / Wt - mean_x * mean_y
+    var_x = sx2 / Wt - mean_x ** 2
+    var_y = sy2 / Wt - mean_y ** 2
+    var_x = np.maximum(var_x, 0.0)
+    var_y = np.maximum(var_y, 0.0)
+    denom = np.sqrt(var_x * var_y)
 
-    # Convert masked array result to plain ndarray, fill masked with NaN
-    wcc_valid = np.ma.filled(wcc_valid, np.nan)
-    wcc_valid = np.clip(wcc_valid, -1.0, 1.0)
-    wcc[passes_gate] = wcc_valid
+    wcc_valid = np.full(n_windows, np.nan)
+    good = passes_gate & (denom > 1e-10)
+    wcc_valid[good] = np.clip(cov[good] / denom[good], -1.0, 1.0)
+    wcc = wcc_valid
 
     return wcc
 
@@ -335,6 +415,7 @@ def _signal_level_surrogate_test(
     alpha: float = 0.05,
     seed: int = 42,
     wcc_window_size: Optional[int] = None,
+    window_type: str = "rect",
 ) -> Dict[str, Any]:
     """Signal-level IAAFT null for L0 features.
 
@@ -434,7 +515,7 @@ def _signal_level_surrogate_test(
         # Signal-level IAAFT: shuffle raw signals, then recompute WCC
         A_s = iaaft_surrogate(sig_A, rng=rng)
         B_s = iaaft_surrogate(sig_B, rng=rng)
-        wcc_s = sliding_window_wcc(A_s, B_s, window_size=wcc_window_size, hz=hz)
+        wcc_s = sliding_window_wcc(A_s, B_s, window_size=wcc_window_size, hz=hz, window_type=window_type)
         wcc_s_valid = wcc_s[np.isfinite(wcc_s)]
         if len(wcc_s_valid) < 10:
             continue  # null_mean[i]/null_peak[i]/null_bc[i] remain NaN
@@ -668,6 +749,7 @@ def wcc_surrogate_test(
     raw_signals: Optional[Tuple[np.ndarray, np.ndarray]] = None,
     wcc_window_size: Optional[int] = None,
     wcc_window_sec: Optional[float] = None,
+    window_type: str = "rect",
     min_wcc_points: int = 30,
     null_model: str = "iaaft",
     block_size: Optional[int] = None,
@@ -737,6 +819,7 @@ def wcc_surrogate_test(
             alpha=alpha,
             seed=seed,
             wcc_window_size=wcc_window_size,
+            window_type=window_type,
         )
     else:
         # WCC-LEVEL null (correct for L1 features)

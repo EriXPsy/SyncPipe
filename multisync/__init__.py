@@ -21,6 +21,7 @@ from .computation_pipeline import (
     quick_compute,
 )
 from .inference_pipeline import InferencePipeline
+from .pipeline_bridge import InferenceInputs, records_to_inference_inputs
 
 # Feature/status governance
 from .feature_definitions import FDR_FEATURES, ONSET_THRESHOLD, REFERENCE_FEATURE
@@ -61,6 +62,9 @@ __all__ = [
     "quick_compute",
     "batch_compute",
     "InferencePipeline",
+    # Data-layer -> pipeline bridge (reviewer entry point)
+    "records_to_inference_inputs",
+    "InferenceInputs",
     # Feature/status governance
     "FDR_FEATURES",
     "REFERENCE_FEATURE",

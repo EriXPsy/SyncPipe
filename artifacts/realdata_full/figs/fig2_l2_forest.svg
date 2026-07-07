@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 560" font-family="Segoe UI,Arial">
+<rect width="680" height="560" fill="#fbfdff"/>
+<text x="20" y="24" font-size="15" font-weight="700" fill="#1a3a5c">L2 条件间检验  minus log10(p_fdr)</text>
+<text x="20" y="42" font-size="11" fill="#5a6b7b">红虚线 = p=0.05 (FDR校正阈值)；红点=显著</text>
+<line x1="550.625" y1="55" x2="550.625" y2="540" stroke="#e0556b" stroke-dasharray="4 3"/>
+<text x="554.625" y="68" font-size="10" fill="#e0556b">p=0.05</text>
+<line x1="120.0" y1="55" x2="120.0" y2="300" stroke="#f0f0f0"/>
+<text x="120.0" y="315" font-size="10" fill="#888" text-anchor="middle">0</text>
+<line x1="285.625" y1="55" x2="285.625" y2="300" stroke="#f0f0f0"/>
+<text x="285.625" y="315" font-size="10" fill="#888" text-anchor="middle">0.5</text>
+<line x1="451.25" y1="55" x2="451.25" y2="300" stroke="#f0f0f0"/>
+<text x="451.25" y="315" font-size="10" fill="#888" text-anchor="middle">1.0</text>
+<line x1="616.875" y1="55" x2="616.875" y2="300" stroke="#f0f0f0"/>
+<text x="616.875" y="315" font-size="10" fill="#888" text-anchor="middle">1.5</text>
+<text x="115" y="72" font-size="10" fill="#334" text-anchor="end">Lerique·pooled·peak</text>
+<circle cx="646.6875" cy="68" r="4.5" fill="#e0556b"/>
+<text x="654.6875" y="72" font-size="9" fill="#667">1.59</text>
+<text x="115" y="94" font-size="10" fill="#334" text-anchor="end">Lerique·pooled·dwell</text>
+<circle cx="646.6875" cy="90" r="4.5" fill="#e0556b"/>
+<text x="654.6875" y="94" font-size="9" fill="#667">1.59</text>
+<text x="115" y="116" font-size="10" fill="#334" text-anchor="end">Lerique·ECG·switch</text>
+<circle cx="408.1875" cy="112" r="4.5" fill="#7a8ea0"/>
+<text x="416.1875" y="116" font-size="9" fill="#667">0.87</text>
+<text x="115" y="138" font-size="10" fill="#334" text-anchor="end">Lerique·ECG·peak</text>
+<circle cx="216.0625" cy="134" r="4.5" fill="#7a8ea0"/>
+<text x="224.0625" y="138" font-size="9" fill="#667">0.29</text>
+<text x="115" y="160" font-size="10" fill="#334" text-anchor="end">Lerique·ECG·dwell</text>
+<circle cx="216.0625" cy="156" r="4.5" fill="#7a8ea0"/>
+<text x="224.0625" y="160" font-size="9" fill="#667">0.29</text>
+<text x="115" y="182" font-size="10" fill="#334" text-anchor="end">Lerique·EDA·switch</text>
+<circle cx="295.5625" cy="178" r="4.5" fill="#7a8ea0"/>
+<text x="303.5625" y="182" font-size="9" fill="#667">0.53</text>
+<text x="115" y="204" font-size="10" fill="#334" text-anchor="end">Lerique·EDA·peak</text>
+<circle cx="514.1875" cy="200" r="4.5" fill="#7a8ea0"/>
+<text x="522.1875" y="204" font-size="9" fill="#667">1.19</text>
+<text x="115" y="226" font-size="10" fill="#334" text-anchor="end">Lerique·EDA·dwell</text>
+<circle cx="365.125" cy="222" r="4.5" fill="#7a8ea0"/>
+<text x="373.125" y="226" font-size="9" fill="#667">0.74</text>
+<text x="115" y="248" font-size="10" fill="#334" text-anchor="end">Lerique·RESP·switch</text>
+<circle cx="259.125" cy="244" r="4.5" fill="#7a8ea0"/>
+<text x="267.125" y="248" font-size="9" fill="#667">0.42</text>
+<text x="115" y="270" font-size="10" fill="#334" text-anchor="end">Lerique·RESP·peak</text>
+<circle cx="232.625" cy="266" r="4.5" fill="#7a8ea0"/>
+<text x="240.625" y="270" font-size="9" fill="#667">0.34</text>
+<text x="115" y="292" font-size="10" fill="#334" text-anchor="end">Lerique·RESP·dwell</text>
+<circle cx="120.0" cy="288" r="4.5" fill="#7a8ea0"/>
+<text x="128.0" y="292" font-size="9" fill="#667">0.00</text>
+<text x="115" y="314" font-size="10" fill="#334" text-anchor="end">Han·affect·switch</text>
+<circle cx="173.0" cy="310" r="4.5" fill="#7a8ea0"/>
+<text x="181.0" y="314" font-size="9" fill="#667">0.16</text>
+<text x="115" y="336" font-size="10" fill="#334" text-anchor="end">Han·affect·peak</text>
+<circle cx="216.0625" cy="332" r="4.5" fill="#7a8ea0"/>
+<text x="224.0625" y="336" font-size="9" fill="#667">0.29</text>
+<text x="115" y="358" font-size="10" fill="#334" text-anchor="end">Han·affect·dwell</text>
+<circle cx="216.0625" cy="354" r="4.5" fill="#7a8ea0"/>
+<text x="224.0625" y="358" font-size="9" fill="#667">0.29</text>
+<text x="115" y="380" font-size="10" fill="#334" text-anchor="end">Andersen·hr·switch</text>
+<circle cx="428.0625" cy="376" r="4.5" fill="#7a8ea0"/>
+<text x="436.0625" y="380" font-size="9" fill="#667">0.93</text>
+<text x="115" y="402" font-size="10" fill="#334" text-anchor="end">Andersen·hr·peak</text>
+<circle cx="375.0625" cy="398" r="4.5" fill="#7a8ea0"/>
+<text x="383.0625" y="402" font-size="9" fill="#667">0.77</text>
+<text x="115" y="424" font-size="10" fill="#334" text-anchor="end">Andersen·hr·dwell</text>
+<circle cx="375.0625" cy="420" r="4.5" fill="#7a8ea0"/>
+<text x="383.0625" y="424" font-size="9" fill="#667">0.77</text>
+<text x="115" y="446" font-size="10" fill="#334" text-anchor="end">Gordon·motion·switch</text>
+<circle cx="120.0" cy="442" r="4.5" fill="#7a8ea0"/>
+<text x="128.0" y="446" font-size="9" fill="#667">0.00</text>
+<text x="115" y="468" font-size="10" fill="#334" text-anchor="end">Gordon·motion·peak</text>
+<circle cx="120.0" cy="464" r="4.5" fill="#7a8ea0"/>
+<text x="128.0" y="468" font-size="9" fill="#667">0.00</text>
+<text x="115" y="490" font-size="10" fill="#334" text-anchor="end">Gordon·motion·dwell</text>
+<circle cx="120.0" cy="486" r="4.5" fill="#7a8ea0"/>
+<text x="128.0" y="490" font-size="9" fill="#667">0.00</text>
+</svg>

@@ -1,0 +1,1617 @@
+{
+  "l0_results": {},
+  "l1_results": {},
+  "l2_results": {
+    "per_feature": [
+      "L2Result(feature='peak_amplitude', condition_a='rest', condition_b='task', observed_diff=-0.572357421150122, null_mean=-0.014675374824526901, null_sd=0.4722720223509203, p_raw=0.00849575212393803, p_fdr=0.025487256371814093, significant_05=True, cohens_d=-1.2119232011690786, n_dyads=14, defined_a=14, defined_b=14, p_definedness=1.0)",
+      "L2Result(feature='dwell_time', condition_a='rest', condition_b='task', observed_diff=nan, null_mean=nan, null_sd=nan, p_raw=1.0, p_fdr=1.0, significant_05=False, cohens_d=nan, n_dyads=1, defined_a=1, defined_b=14, p_definedness=0.0004997501249375312)",
+      "L2Result(feature='switching_rate', condition_a='rest', condition_b='task', observed_diff=-1.589403973509934, null_mean=-0.000745033112582778, null_sd=0.9667701611491613, p_raw=0.044977511244377814, p_fdr=0.06746626686656672, significant_05=False, cohens_d=-1.6440349913372094, n_dyads=14, defined_a=14, defined_b=14, p_definedness=1.0)"
+    ],
+    "n_dyads": 14,
+    "n_significant": 1,
+    "condition_a": "rest",
+    "condition_b": "task",
+    "n_permutations": 2000,
+    "summary_df": [
+      {
+        "feature": "peak_amplitude",
+        "observed_diff": -0.572357421150122,
+        "null_mean": -0.014675374824526901,
+        "null_sd": 0.4722720223509203,
+        "p_raw": 0.00849575212393803,
+        "p_fdr": 0.025487256371814093,
+        "significant_05": true,
+        "cohens_d": -1.2119232011690786,
+        "n_dyads": 14,
+        "defined_a": 14,
+        "defined_b": 14,
+        "p_definedness": 1.0
+      },
+      {
+        "feature": "dwell_time",
+        "observed_diff": NaN,
+        "null_mean": NaN,
+        "null_sd": NaN,
+        "p_raw": 1.0,
+        "p_fdr": 1.0,
+        "significant_05": false,
+        "cohens_d": NaN,
+        "n_dyads": 1,
+        "defined_a": 1,
+        "defined_b": 14,
+        "p_definedness": 0.0004997501249375312
+      },
+      {
+        "feature": "switching_rate",
+        "observed_diff": -1.589403973509934,
+        "null_mean": -0.000745033112582778,
+        "null_sd": 0.9667701611491613,
+        "p_raw": 0.044977511244377814,
+        "p_fdr": 0.06746626686656672,
+        "significant_05": false,
+        "cohens_d": -1.6440349913372094,
+        "n_dyads": 14,
+        "defined_a": 14,
+        "defined_b": 14,
+        "p_definedness": 1.0
+      }
+    ]
+  },
+  "synchrony_existence_results": {
+    "pce01__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.9615384615384616,
+        "peak_amplitude": 0.7692307692307693,
+        "bimodality_coefficient": 0.6538461538461539
+      },
+      "observed": {
+        "mean_synchrony": -0.1520631442327865,
+        "peak_amplitude": 0.25214984844911736,
+        "bimodality_coefficient": 0.4348525839625242
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce01__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.4230769230769231,
+        "peak_amplitude": 0.15384615384615385,
+        "bimodality_coefficient": 0.6923076923076923
+      },
+      "observed": {
+        "mean_synchrony": 0.009126410524624262,
+        "peak_amplitude": 0.47896666372225166,
+        "bimodality_coefficient": 0.4416434523458929
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce01__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.07692307692307693
+      },
+      "observed": {
+        "mean_synchrony": 0.7391940496371956,
+        "peak_amplitude": 0.9025499635912166,
+        "bimodality_coefficient": 0.7053627943206889
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce01__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.6923076923076923
+      },
+      "observed": {
+        "mean_synchrony": 0.700595541255624,
+        "peak_amplitude": 0.9175542394570457,
+        "bimodality_coefficient": 0.5009120619699661
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce02__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.6538461538461539,
+        "peak_amplitude": 0.7307692307692307,
+        "bimodality_coefficient": 0.4230769230769231
+      },
+      "observed": {
+        "mean_synchrony": -0.051800017439383374,
+        "peak_amplitude": 0.2955729999186728,
+        "bimodality_coefficient": 0.4561621340320439
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce02__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.2692307692307692,
+        "peak_amplitude": 0.5384615384615384,
+        "bimodality_coefficient": 0.5769230769230769
+      },
+      "observed": {
+        "mean_synchrony": 0.05491908335475681,
+        "peak_amplitude": 0.3652531773216766,
+        "bimodality_coefficient": 0.4686659467386665
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce02__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.11538461538461539
+      },
+      "observed": {
+        "mean_synchrony": 0.5921304600121656,
+        "peak_amplitude": 0.8775930935424737,
+        "bimodality_coefficient": 0.741870250937853
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce02__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.19230769230769232
+      },
+      "observed": {
+        "mean_synchrony": 0.6436346455271043,
+        "peak_amplitude": 0.8772943636450016,
+        "bimodality_coefficient": 0.6844671259302019
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce03__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.15384615384615385,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.5769230769230769
+      },
+      "observed": {
+        "mean_synchrony": 0.08695329206601653,
+        "peak_amplitude": 0.5618218086596313,
+        "bimodality_coefficient": 0.4826755313469535
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce03__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.46153846153846156,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.7692307692307693
+      },
+      "observed": {
+        "mean_synchrony": -0.017769277263678267,
+        "peak_amplitude": 0.5410778364082819,
+        "bimodality_coefficient": 0.4161774383032379
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce03__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.34615384615384615
+      },
+      "observed": {
+        "mean_synchrony": 0.5422950448518554,
+        "peak_amplitude": 0.93414465341212,
+        "bimodality_coefficient": 0.5755697234271633
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce03__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.46153846153846156
+      },
+      "observed": {
+        "mean_synchrony": 0.5062804837477122,
+        "peak_amplitude": 0.9224308941317387,
+        "bimodality_coefficient": 0.5572982357277091
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce04__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.46153846153846156,
+        "peak_amplitude": 0.9230769230769231,
+        "bimodality_coefficient": 0.9230769230769231
+      },
+      "observed": {
+        "mean_synchrony": 0.029073664859621023,
+        "peak_amplitude": 0.22354445897154307,
+        "bimodality_coefficient": 0.38304707114309794
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce04__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.8076923076923077,
+        "peak_amplitude": 0.7307692307692307,
+        "bimodality_coefficient": 0.6538461538461539
+      },
+      "observed": {
+        "mean_synchrony": -0.10752908127815379,
+        "peak_amplitude": 0.24193687077550824,
+        "bimodality_coefficient": 0.4686303845373437
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce04__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": true
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.038461538461538464
+      },
+      "observed": {
+        "mean_synchrony": 0.6073892839219476,
+        "peak_amplitude": 0.8887779003269616,
+        "bimodality_coefficient": 0.8071061702266376
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce04__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.19230769230769232
+      },
+      "observed": {
+        "mean_synchrony": 0.6460522154783939,
+        "peak_amplitude": 0.9076189866705501,
+        "bimodality_coefficient": 0.6366801987087913
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce05__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 1.0,
+        "peak_amplitude": 0.8846153846153846,
+        "bimodality_coefficient": 0.19230769230769232
+      },
+      "observed": {
+        "mean_synchrony": -0.17521442470336693,
+        "peak_amplitude": 0.19330968492293443,
+        "bimodality_coefficient": 0.5622505939397449
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce05__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.9615384615384616,
+        "peak_amplitude": 0.5384615384615384,
+        "bimodality_coefficient": 0.4230769230769231
+      },
+      "observed": {
+        "mean_synchrony": -0.12772179796853583,
+        "peak_amplitude": 0.30837279884765195,
+        "bimodality_coefficient": 0.48199820524848996
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce05__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.6538461538461539
+      },
+      "observed": {
+        "mean_synchrony": 0.44764951302181094,
+        "peak_amplitude": 0.8826587062531195,
+        "bimodality_coefficient": 0.47741644518868254
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce05__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.46153846153846156
+      },
+      "observed": {
+        "mean_synchrony": 0.4356847133354635,
+        "peak_amplitude": 0.852385281536056,
+        "bimodality_coefficient": 0.5505213504551224
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce06__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.38461538461538464,
+        "peak_amplitude": 0.5384615384615384,
+        "bimodality_coefficient": 0.2692307692307692
+      },
+      "observed": {
+        "mean_synchrony": 0.021587814014405182,
+        "peak_amplitude": 0.2902876040455615,
+        "bimodality_coefficient": 0.5687964347761164
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce06__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.8846153846153846,
+        "peak_amplitude": 0.7692307692307693,
+        "bimodality_coefficient": 0.9230769230769231
+      },
+      "observed": {
+        "mean_synchrony": -0.08715439685283116,
+        "peak_amplitude": 0.23898906958278887,
+        "bimodality_coefficient": 0.39396381936890157
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce06__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.5
+      },
+      "observed": {
+        "mean_synchrony": 0.6016011447017401,
+        "peak_amplitude": 0.8844575316971242,
+        "bimodality_coefficient": 0.5144837028207612
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce06__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.07692307692307693,
+        "bimodality_coefficient": 1.0
+      },
+      "observed": {
+        "mean_synchrony": 0.5764455249562197,
+        "peak_amplitude": 0.894464251623346,
+        "bimodality_coefficient": 0.4026476891009023
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce07__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": true
+      },
+      "p_values": {
+        "mean_synchrony": 0.7692307692307693,
+        "peak_amplitude": 0.7307692307692307,
+        "bimodality_coefficient": 0.038461538461538464
+      },
+      "observed": {
+        "mean_synchrony": -0.07796408957201949,
+        "peak_amplitude": 0.3245404117766583,
+        "bimodality_coefficient": 0.6071607899736811
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce07__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.3076923076923077,
+        "peak_amplitude": 0.3076923076923077,
+        "bimodality_coefficient": 0.15384615384615385
+      },
+      "observed": {
+        "mean_synchrony": 0.041968036632271964,
+        "peak_amplitude": 0.42707203361835044,
+        "bimodality_coefficient": 0.543919621437319
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce07__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.07692307692307693
+      },
+      "observed": {
+        "mean_synchrony": 0.6203848999064944,
+        "peak_amplitude": 0.8835967579420974,
+        "bimodality_coefficient": 0.6832651736774243
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce07__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.34615384615384615
+      },
+      "observed": {
+        "mean_synchrony": 0.5584075794756751,
+        "peak_amplitude": 0.9151493044686694,
+        "bimodality_coefficient": 0.6098433056410926
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce08__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.6923076923076923,
+        "peak_amplitude": 0.8076923076923077,
+        "bimodality_coefficient": 0.6153846153846154
+      },
+      "observed": {
+        "mean_synchrony": -0.054068562392666074,
+        "peak_amplitude": 0.26258576814586393,
+        "bimodality_coefficient": 0.4852934689218754
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce08__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.5769230769230769,
+        "peak_amplitude": 0.6923076923076923,
+        "bimodality_coefficient": 0.9615384615384616
+      },
+      "observed": {
+        "mean_synchrony": -0.021140307470493794,
+        "peak_amplitude": 0.24080648867478002,
+        "bimodality_coefficient": 0.4107901678936671
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce08__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": true
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.038461538461538464
+      },
+      "observed": {
+        "mean_synchrony": 0.6304559205364532,
+        "peak_amplitude": 0.90457365469302,
+        "bimodality_coefficient": 0.7646385534219994
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce08__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.6538461538461539
+      },
+      "observed": {
+        "mean_synchrony": 0.5672027347225969,
+        "peak_amplitude": 0.9079846036238248,
+        "bimodality_coefficient": 0.48741669757135725
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce09__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.6923076923076923,
+        "peak_amplitude": 0.8461538461538461,
+        "bimodality_coefficient": 0.5384615384615384
+      },
+      "observed": {
+        "mean_synchrony": -0.06704344674297175,
+        "peak_amplitude": 0.23056106350601205,
+        "bimodality_coefficient": 0.5125519744862236
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce09__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.6153846153846154,
+        "peak_amplitude": 0.46153846153846156,
+        "bimodality_coefficient": 0.23076923076923078
+      },
+      "observed": {
+        "mean_synchrony": -0.015235364371566506,
+        "peak_amplitude": 0.35667060289357655,
+        "bimodality_coefficient": 0.5483394170327924
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce09__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": true
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.038461538461538464
+      },
+      "observed": {
+        "mean_synchrony": 0.5769624601785234,
+        "peak_amplitude": 0.8552853725334514,
+        "bimodality_coefficient": 0.7435174883579221
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce09__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.07692307692307693,
+        "bimodality_coefficient": 0.8461538461538461
+      },
+      "observed": {
+        "mean_synchrony": 0.5907123356629101,
+        "peak_amplitude": 0.8548453563648186,
+        "bimodality_coefficient": 0.44881265511057034
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce10__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.5,
+        "peak_amplitude": 0.6538461538461539,
+        "bimodality_coefficient": 1.0
+      },
+      "observed": {
+        "mean_synchrony": -0.0026310098070154997,
+        "peak_amplitude": 0.3259280198500929,
+        "bimodality_coefficient": 0.3443286226623974
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce10__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.11538461538461539,
+        "peak_amplitude": 0.19230769230769232,
+        "bimodality_coefficient": 0.6538461538461539
+      },
+      "observed": {
+        "mean_synchrony": 0.09300761269148976,
+        "peak_amplitude": 0.4623839687302341,
+        "bimodality_coefficient": 0.44968350665681256
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce10__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.07692307692307693
+      },
+      "observed": {
+        "mean_synchrony": 0.6020308051526442,
+        "peak_amplitude": 0.94032120653246,
+        "bimodality_coefficient": 0.6947637212245695
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce10__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.7692307692307693
+      },
+      "observed": {
+        "mean_synchrony": 0.5606840101268328,
+        "peak_amplitude": 0.9427211709256035,
+        "bimodality_coefficient": 0.5106035399266374
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce11__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.6153846153846154,
+        "peak_amplitude": 0.3076923076923077,
+        "bimodality_coefficient": 0.23076923076923078
+      },
+      "observed": {
+        "mean_synchrony": -0.01629817830970001,
+        "peak_amplitude": 0.39378008739874937,
+        "bimodality_coefficient": 0.5156535094397308
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce11__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.6538461538461539,
+        "peak_amplitude": 0.6153846153846154,
+        "bimodality_coefficient": 1.0
+      },
+      "observed": {
+        "mean_synchrony": -0.023103423295844756,
+        "peak_amplitude": 0.2954162844505377,
+        "bimodality_coefficient": 0.3639474882343953
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce11__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.38461538461538464
+      },
+      "observed": {
+        "mean_synchrony": 0.6364504189165235,
+        "peak_amplitude": 0.9016770691480197,
+        "bimodality_coefficient": 0.5993293165160037
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce11__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.07692307692307693
+      },
+      "observed": {
+        "mean_synchrony": 0.5643535355421451,
+        "peak_amplitude": 0.8661251958084005,
+        "bimodality_coefficient": 0.681138373712509
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce12__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.5769230769230769,
+        "peak_amplitude": 0.6923076923076923,
+        "bimodality_coefficient": 0.23076923076923078
+      },
+      "observed": {
+        "mean_synchrony": -0.01803049405114567,
+        "peak_amplitude": 0.28370342089930856,
+        "bimodality_coefficient": 0.5184929579237039
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce12__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.9615384615384616,
+        "peak_amplitude": 0.4230769230769231,
+        "bimodality_coefficient": 0.34615384615384615
+      },
+      "observed": {
+        "mean_synchrony": -0.16290034469513426,
+        "peak_amplitude": 0.33410062352406417,
+        "bimodality_coefficient": 0.5546444289928323
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce12__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": true
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.038461538461538464
+      },
+      "observed": {
+        "mean_synchrony": 0.5437465539951537,
+        "peak_amplitude": 0.9183926831033808,
+        "bimodality_coefficient": 0.6983305513957865
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce12__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": true
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.038461538461538464
+      },
+      "observed": {
+        "mean_synchrony": 0.4965394322451121,
+        "peak_amplitude": 0.8762613968355744,
+        "bimodality_coefficient": 0.6965812713537127
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce13__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.23076923076923078,
+        "peak_amplitude": 0.6153846153846154,
+        "bimodality_coefficient": 0.23076923076923078
+      },
+      "observed": {
+        "mean_synchrony": 0.029531457413352252,
+        "peak_amplitude": 0.23834400370046643,
+        "bimodality_coefficient": 0.5474055963827522
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce13__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.8076923076923077,
+        "peak_amplitude": 0.6923076923076923,
+        "bimodality_coefficient": 0.19230769230769232
+      },
+      "observed": {
+        "mean_synchrony": -0.0536391681457261,
+        "peak_amplitude": 0.26581669998144697,
+        "bimodality_coefficient": 0.5798929097425372
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce13__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.2692307692307692
+      },
+      "observed": {
+        "mean_synchrony": 0.5024653199718354,
+        "peak_amplitude": 0.8842843509575152,
+        "bimodality_coefficient": 0.5783482316673972
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce13__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.6153846153846154
+      },
+      "observed": {
+        "mean_synchrony": 0.5751791700499003,
+        "peak_amplitude": 0.9146799457674988,
+        "bimodality_coefficient": 0.5299899121703813
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce14__EDA__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.3076923076923077,
+        "peak_amplitude": 0.15384615384615385,
+        "bimodality_coefficient": 0.3076923076923077
+      },
+      "observed": {
+        "mean_synchrony": 0.017228945162434388,
+        "peak_amplitude": 0.48638093975238217,
+        "bimodality_coefficient": 0.5149743275236914
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce14__RESP__rest": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": false,
+        "peak_amplitude": false,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.9615384615384616,
+        "peak_amplitude": 0.8076923076923077,
+        "bimodality_coefficient": 0.9615384615384616
+      },
+      "observed": {
+        "mean_synchrony": -0.13343831952991347,
+        "peak_amplitude": 0.25447562471558444,
+        "bimodality_coefficient": 0.33073868627080394
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce14__EDA__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": false
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.15384615384615385
+      },
+      "observed": {
+        "mean_synchrony": 0.6443968501138976,
+        "peak_amplitude": 0.8707431273414025,
+        "bimodality_coefficient": 0.6362417869613649
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    },
+    "pce14__RESP__task": {
+      "audit": "synchrony_existence",
+      "null_model": "signal_level_iaaft",
+      "status": "ok",
+      "n_samples": 180,
+      "n_wcc": 151,
+      "n_surrogates": 25,
+      "per_feature_significant": {
+        "mean_synchrony": true,
+        "peak_amplitude": true,
+        "bimodality_coefficient": true
+      },
+      "p_values": {
+        "mean_synchrony": 0.038461538461538464,
+        "peak_amplitude": 0.038461538461538464,
+        "bimodality_coefficient": 0.038461538461538464
+      },
+      "observed": {
+        "mean_synchrony": 0.6258323403872027,
+        "peak_amplitude": 0.9142621992644316,
+        "bimodality_coefficient": 0.7061108848646499
+      },
+      "interpretation": "Necessary-but-not-sufficient evidence: signal-level IAAFT tests whether aligned WCC features exceed independent autocorrelated signals, but it does not rule out shared stimulus or co-presence."
+    }
+  },
+  "design_control_results": {
+    "audit": "design_controls",
+    "features": [
+      "mean_synchrony",
+      "peak_amplitude",
+      "fraction_above_threshold",
+      "dwell_time",
+      "switching_rate"
+    ],
+    "n_dyads": 28,
+    "pseudo_pair": {
+      "enabled": true,
+      "n_pseudo_per_dyad": 3,
+      "interpretation": "If real pairs exceed pseudo-pairs, evidence is more dyad-specific. If real ≈ pseudo, shared context/stimulus/co-presence remains plausible."
+    },
+    "time_shift": {
+      "enabled": true,
+      "shift_lags_sec": [
+        -60.0,
+        -45.0,
+        -30.0,
+        30.0,
+        45.0,
+        60.0
+      ],
+      "interpretation": "If real pairs exceed time-shift controls, evidence depends on precise temporal alignment. If time-shift remains high, slow drifts or shared block structure remain plausible."
+    },
+    "feature_summary": {
+      "mean_synchrony": {
+        "real_median": 0.5838373979207168,
+        "pseudo_pair_median": 0.07882303219141404,
+        "time_shift_median": -0.009194239473666358,
+        "real_minus_pseudo_mean": 0.49836651124300807,
+        "real_minus_time_shift_mean": 0.5776364473967678,
+        "p_real_gt_pseudo": 4.999750012499375e-05,
+        "p_real_gt_time_shift": 4.999750012499375e-05,
+        "n_real": 28,
+        "n_pseudo_dyads": 28,
+        "n_time_shift_dyads": 28
+      },
+      "peak_amplitude": {
+        "real_median": 0.8945271955702891,
+        "pseudo_pair_median": 0.641862565189244,
+        "time_shift_median": 0.5628294038360719,
+        "real_minus_pseudo_mean": 0.23035416545036128,
+        "real_minus_time_shift_mean": 0.3162927953017158,
+        "p_real_gt_pseudo": 4.999750012499375e-05,
+        "p_real_gt_time_shift": 4.999750012499375e-05,
+        "n_real": 28,
+        "n_pseudo_dyads": 28,
+        "n_time_shift_dyads": 28
+      },
+      "fraction_above_threshold": {
+        "real_median": 0.7218543046357616,
+        "pseudo_pair_median": 0.12251655629139073,
+        "time_shift_median": 0.07701389519571339,
+        "real_minus_pseudo_mean": 0.5482497634815516,
+        "real_minus_time_shift_mean": 0.593645042641036,
+        "p_real_gt_pseudo": 4.999750012499375e-05,
+        "p_real_gt_time_shift": 4.999750012499375e-05,
+        "n_real": 28,
+        "n_pseudo_dyads": 28,
+        "n_time_shift_dyads": 28
+      },
+      "dwell_time": {
+        "real_median": 40.5,
+        "pseudo_pair_median": 13.25,
+        "time_shift_median": 11.25,
+        "real_minus_pseudo_mean": 42.1279761904762,
+        "real_minus_time_shift_mean": 42.239197530864196,
+        "p_real_gt_pseudo": 4.999750012499375e-05,
+        "p_real_gt_time_shift": 4.999750012499375e-05,
+        "n_real": 28,
+        "n_pseudo_dyads": 28,
+        "n_time_shift_dyads": 27
+      },
+      "switching_rate": {
+        "real_median": 1.589403973509934,
+        "pseudo_pair_median": 0.794701986754967,
+        "time_shift_median": 0.6593406593406593,
+        "real_minus_pseudo_mean": 0.610217596972564,
+        "real_minus_time_shift_mean": 0.8546677378211335,
+        "p_real_gt_pseudo": 0.00044997750112494374,
+        "p_real_gt_time_shift": 4.999750012499375e-05,
+        "n_real": 28,
+        "n_pseudo_dyads": 28,
+        "n_time_shift_dyads": 28
+      }
+    }
+  },
+  "across_stimulus_results": null,
+  "group_inference_results": {
+    "per_feature": [
+      "L2Result(feature='peak_amplitude', condition_a='rest', condition_b='task', observed_diff=-0.572357421150122, null_mean=-0.014675374824526901, null_sd=0.4722720223509203, p_raw=0.00849575212393803, p_fdr=0.025487256371814093, significant_05=True, cohens_d=-1.2119232011690786, n_dyads=14, defined_a=14, defined_b=14, p_definedness=1.0)",
+      "L2Result(feature='dwell_time', condition_a='rest', condition_b='task', observed_diff=nan, null_mean=nan, null_sd=nan, p_raw=1.0, p_fdr=1.0, significant_05=False, cohens_d=nan, n_dyads=1, defined_a=1, defined_b=14, p_definedness=0.0004997501249375312)",
+      "L2Result(feature='switching_rate', condition_a='rest', condition_b='task', observed_diff=-1.589403973509934, null_mean=-0.000745033112582778, null_sd=0.9667701611491613, p_raw=0.044977511244377814, p_fdr=0.06746626686656672, significant_05=False, cohens_d=-1.6440349913372094, n_dyads=14, defined_a=14, defined_b=14, p_definedness=1.0)"
+    ],
+    "n_dyads": 14,
+    "n_significant": 1,
+    "condition_a": "rest",
+    "condition_b": "task",
+    "n_permutations": 2000,
+    "summary_df": [
+      {
+        "feature": "peak_amplitude",
+        "observed_diff": -0.572357421150122,
+        "null_mean": -0.014675374824526901,
+        "null_sd": 0.4722720223509203,
+        "p_raw": 0.00849575212393803,
+        "p_fdr": 0.025487256371814093,
+        "significant_05": true,
+        "cohens_d": -1.2119232011690786,
+        "n_dyads": 14,
+        "defined_a": 14,
+        "defined_b": 14,
+        "p_definedness": 1.0
+      },
+      {
+        "feature": "dwell_time",
+        "observed_diff": NaN,
+        "null_mean": NaN,
+        "null_sd": NaN,
+        "p_raw": 1.0,
+        "p_fdr": 1.0,
+        "significant_05": false,
+        "cohens_d": NaN,
+        "n_dyads": 1,
+        "defined_a": 1,
+        "defined_b": 14,
+        "p_definedness": 0.0004997501249375312
+      },
+      {
+        "feature": "switching_rate",
+        "observed_diff": -1.589403973509934,
+        "null_mean": -0.000745033112582778,
+        "null_sd": 0.9667701611491613,
+        "p_raw": 0.044977511244377814,
+        "p_fdr": 0.06746626686656672,
+        "significant_05": false,
+        "cohens_d": -1.6440349913372094,
+        "n_dyads": 14,
+        "defined_a": 14,
+        "defined_b": 14,
+        "p_definedness": 1.0
+      }
+    ]
+  },
+  "per_modality_l2": {
+    "EDA": {
+      "n_significant": 2,
+      "condition_a": "rest",
+      "condition_b": "task",
+      "per_feature": [
+        {
+          "feature": "peak_amplitude",
+          "observed_diff": -0.6355303901722891,
+          "p_raw": 0.010994502748625687,
+          "p_fdr": 0.03298350824587706,
+          "significant_05": true,
+          "n_dyads": 14
+        },
+        {
+          "feature": "dwell_time",
+          "observed_diff": NaN,
+          "p_raw": 1.0,
+          "p_fdr": 1.0,
+          "significant_05": false,
+          "n_dyads": 1
+        },
+        {
+          "feature": "switching_rate",
+          "observed_diff": -1.390728476821192,
+          "p_raw": 0.02498750624687656,
+          "p_fdr": 0.03748125937031484,
+          "significant_05": true,
+          "n_dyads": 14
+        }
+      ]
+    },
+    "RESP": {
+      "n_significant": 2,
+      "condition_a": "rest",
+      "condition_b": "task",
+      "per_feature": [
+        {
+          "feature": "peak_amplitude",
+          "observed_diff": -0.5763602095900541,
+          "p_raw": 0.0079960019990005,
+          "p_fdr": 0.01199400299850075,
+          "significant_05": true,
+          "n_dyads": 14
+        },
+        {
+          "feature": "dwell_time",
+          "observed_diff": NaN,
+          "p_raw": 1.0,
+          "p_fdr": 1.0,
+          "significant_05": false,
+          "n_dyads": 0
+        },
+        {
+          "feature": "switching_rate",
+          "observed_diff": -1.7880794701986757,
+          "p_raw": 0.0079960019990005,
+          "p_fdr": 0.01199400299850075,
+          "significant_05": true,
+          "n_dyads": 14
+        }
+      ]
+    }
+  }
+}

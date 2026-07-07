@@ -337,9 +337,14 @@ def load_gordon_dataset(
     if not root.exists():
         raise FileNotFoundError(f"Gordon data_root does not exist: {root}")
 
-    behavior_root = root / "behavior data"
-    if not behavior_root.exists():
-        # Fall back to data_root itself if no "behavior data" subfolder.
+    # NOTE: the OSF export folder is spelled "behavioral data" (lowercase 'b').
+    # Accept both spellings so the loader is robust to either layout.
+    for cand in ("behavioral data", "behavior data"):
+        behavior_root = root / cand
+        if behavior_root.exists():
+            break
+    else:
+        # Fall back to data_root itself if no "behavior* data" subfolder.
         behavior_root = root
 
     records: List[GordonDyadCondition] = []

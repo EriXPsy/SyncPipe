@@ -271,8 +271,10 @@ class DynamicAnalyzer:
         run_qc: bool = True,
         qc_raise_on_fail: bool = True,
         qc_config: Optional[Dict[str, Any]] = None,
+        window_type: str = "rect",
     ) -> None:
         self.window_size = window_size
+        self.window_type = window_type.lower()
         self.surrogate_n = surrogate_n
         self.max_lag_sec = max_lag_sec
         self.alpha = alpha
@@ -456,7 +458,7 @@ class DynamicAnalyzer:
         wcc_cache: Dict[str, np.ndarray] = {}
         for src_key, name_a, name_b, col_a, col_b, x, y in self._iter_pairs(dataset):
             wcc = sliding_window_wcc(
-                x, y, self.window_size, hz
+                x, y, self.window_size, hz, window_type=self.window_type
             )
             wcc_cache[src_key] = wcc
 

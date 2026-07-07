@@ -53,12 +53,13 @@ def extract_pair_features(
     window_size: int,
     threshold: float = ONSET_THRESHOLD,
     feature_names: Sequence[str] = DEFAULT_AUDIT_FEATURES,
+    window_type: str = "rect",
 ) -> Dict[str, float]:
     """Compute WCC and selected SyncPipe features for one signal pair."""
     a, b = _finite_pair(sig_a, sig_b)
     if a.size < window_size or b.size < window_size:
         return {name: float("nan") for name in feature_names}
-    wcc = sliding_window_wcc(a, b, window_size=window_size, hz=hz)
+    wcc = sliding_window_wcc(a, b, window_size=window_size, hz=hz, window_type=window_type)
     feats = extract_features(
         wcc,
         hz=hz,
@@ -74,8 +75,9 @@ def synchrony_existence_audit(
     *,
     hz: float,
     window_size: int,
-    surrogate_n: int = 99,
+    surrogate_n: int = 100,
     seed: int = 42,
+    window_type: str = "rect",
 ) -> Dict[str, Any]:
     """Run signal-level IAAFT synchrony-existence audit for one pair.
 
@@ -93,7 +95,7 @@ def synchrony_existence_audit(
             "reason": "signal_too_short",
             "n_samples": int(min(a.size, b.size)),
         }
-    wcc = sliding_window_wcc(a, b, window_size=window_size, hz=hz)
+    wcc = sliding_window_wcc(a, b, window_size=window_size, hz=hz, window_type=window_type)
     result = wcc_surrogate_test(
         wcc,
         hz=hz,
@@ -102,6 +104,7 @@ def synchrony_existence_audit(
         raw_signals=(a, b),
         wcc_window_size=window_size,
         wcc_window_sec=window_size / hz if hz > 0 else float(window_size),
+        window_type=window_type,
     )
     return {
         "audit": "synchrony_existence",
@@ -158,9 +161,10 @@ def design_control_audit(
     window_size: int,
     threshold: float = ONSET_THRESHOLD,
     feature_names: Sequence[str] = DEFAULT_AUDIT_FEATURES,
-    n_pseudo_per_dyad: int = 3,
+    n_pseudo_per_dyad: int = 10,
     shift_lags_sec: Sequence[float] = (-60.0, -45.0, -30.0, 30.0, 45.0, 60.0),
     seed: int = 42,
+    window_type: str = "rect",
 ) -> Dict[str, Any]:
     """Run pseudo-pair and time-shift design controls for a cohort.
 
@@ -171,9 +175,9 @@ def design_control_audit(
         are required for pseudo-pair controls; one dyad is sufficient for
         time-shift controls.
     n_pseudo_per_dyad : int
-        Number of pseudo-pair draws per real dyad.  Default 3 (suitable for
-        demos); **>= 10 recommended for publication** to obtain stable null
-        distributions for the p(real > pseudo) comparisons.
+        Number of pseudo-pair draws per real dyad.  Default 10 (publication
+        grade); raise further for very small cohorts where the pseudo-null
+        distribution needs more draws to stabilise.
 
     Returns
     -------
@@ -190,6 +194,7 @@ def design_control_audit(
         real[dyad_id] = extract_pair_features(
             a, b, hz=hz, window_size=window_size,
             threshold=threshold, feature_names=feature_names,
+            window_type=window_type,
         )
 
     pseudo_values: Dict[str, Dict[str, list]] = {
@@ -206,6 +211,7 @@ def design_control_audit(
                 feats = extract_pair_features(
                     a, b_partner, hz=hz, window_size=window_size,
                     threshold=threshold, feature_names=feature_names,
+                    window_type=window_type,
                 )
                 for f in feature_names:
                     if np.isfinite(feats.get(f, np.nan)):
@@ -230,6 +236,7 @@ def design_control_audit(
             feats = extract_pair_features(
                 a_use, b_use, hz=hz, window_size=window_size,
                 threshold=threshold, feature_names=feature_names,
+                window_type=window_type,
             )
             for f in feature_names:
                 if np.isfinite(feats.get(f, np.nan)):

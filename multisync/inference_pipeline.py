@@ -97,6 +97,7 @@ class InferencePipeline:
         *,
         wcc_window_size: int,
         labels: Optional[Sequence[str]] = None,
+        window_type: str = "rect",
     ) -> Dict[str, Any]:
         """Step 1: test whether each pair shows synchrony above signal-level null.
 
@@ -118,6 +119,7 @@ class InferencePipeline:
                 window_size=wcc_window_size,
                 surrogate_n=self.surrogate_n,
                 seed=self.seed,
+                window_type=window_type,
             )
         self._synchrony_existence_results = results
         return {
@@ -140,6 +142,7 @@ class InferencePipeline:
         feature_names: Sequence[str] = DEFAULT_AUDIT_FEATURES,
         n_pseudo_per_dyad: int = 3,
         shift_lags_sec: Sequence[float] = (-60.0, -45.0, -30.0, 30.0, 45.0, 60.0),
+        window_type: str = "rect",
     ) -> Dict[str, Any]:
         """Step 2a: run pseudo-pair and time-shift design controls.
 
@@ -158,6 +161,7 @@ class InferencePipeline:
             n_pseudo_per_dyad=n_pseudo_per_dyad,
             shift_lags_sec=shift_lags_sec,
             seed=self.seed,
+            window_type=window_type,
         )
         self._design_control_results = result
         return result
@@ -169,6 +173,7 @@ class InferencePipeline:
         wcc_window_size: int,
         feature_names: Sequence[str] = DEFAULT_AUDIT_FEATURES,
         n_shuffles: Optional[int] = None,
+        window_type: str = "rect",
     ) -> Dict[str, Any]:
         """Step 2b: run across-stimulus shuffle for segmented stimulus designs.
 
@@ -180,7 +185,7 @@ class InferencePipeline:
         window_sec = self.wcc_window_sec or (wcc_window_size / self.hz)
 
         def _wcc(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-            return sliding_window_wcc(a, b, window_size=wcc_window_size, hz=self.hz)
+            return sliding_window_wcc(a, b, window_size=wcc_window_size, hz=self.hz, window_type=window_type)
 
         def _features(wcc: np.ndarray) -> Dict[str, float]:
             feats = extract_features(wcc, hz=self.hz, wcc_window_sec=window_sec)
@@ -239,6 +244,7 @@ class InferencePipeline:
         feature_cols: Optional[List[str]] = None,
         fdr_alpha: float = 0.05,
         n_permutations: int = 10000,
+        window_type: str = "rect",
     ) -> Dict[str, Any]:
         """Run the recommended v1 evidence chain end-to-end.
 
@@ -248,17 +254,17 @@ class InferencePipeline:
         3. group condition inference (paired permutation + FDR)
         """
         existence = self.run_synchrony_existence_audit(
-            raw_signals, wcc_window_size=wcc_window_size,
+            raw_signals, wcc_window_size=wcc_window_size, window_type=window_type,
         )
         design = None
         if design_signal_pairs is not None:
             design = self.run_design_control_audit(
-                design_signal_pairs, wcc_window_size=wcc_window_size,
+                design_signal_pairs, wcc_window_size=wcc_window_size, window_type=window_type,
             )
         across = None
         if across_stim_segments is not None:
             across = self.run_across_stimulus_shuffle_audit(
-                across_stim_segments, wcc_window_size=wcc_window_size,
+                across_stim_segments, wcc_window_size=wcc_window_size, window_type=window_type,
             )
         group = self.run_group_condition_inference(
             condition_col=condition_col,
@@ -318,6 +324,7 @@ class InferencePipeline:
         raw_signals: Tuple[np.ndarray, np.ndarray],
         wcc_window_size: int,
         label: str = "",
+        window_type: str = "rect",
     ) -> Dict[str, Any]:
         """Run L0 signal-level IAAFT surrogate test.
 
@@ -350,6 +357,7 @@ class InferencePipeline:
             raw_signals=raw_signals,
             wcc_window_size=wcc_window_size,
             wcc_window_sec=self.wcc_window_sec,
+            window_type=window_type,
         )
         result["label"] = label
         self._l0_results[label] = result
@@ -466,6 +474,7 @@ class InferencePipeline:
         feature_cols: Optional[List[str]] = None,
         fdr_alpha: float = 0.05,
         n_permutations: int = 10000,
+        window_type: str = "rect",
     ) -> Dict[str, Any]:
         """Run L2 tests separately for each modality.
 
@@ -499,6 +508,7 @@ class InferencePipeline:
         feature_cols: Optional[List[str]] = None,
         fdr_alpha: float = 0.05,
         n_permutations: int = 10000,
+        window_type: str = "rect",
     ) -> Dict[str, Any]:
         """Run the complete L0 → L1 → L2 cascade.
 
@@ -537,6 +547,7 @@ class InferencePipeline:
                     raw_signals_dict[label],
                     wcc_window_size,
                     label=label,
+                    window_type=window_type,
                 )
                 l0_total += 1
                 pfs0 = l0_result.get("per_feature_significant", {})

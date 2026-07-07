@@ -130,7 +130,7 @@ pipe.run_group_condition_inference(
 ```python
 import syncpipe as sp
 
-pipe = sp.InferencePipeline(features_df, hz=1.0, wcc_window_sec=20.0, surrogate_n=99)
+pipe = sp.InferencePipeline(features_df, hz=1.0, wcc_window_sec=20.0, surrogate_n=100)
 
 result = pipe.run_audited_evidence_chain(
     raw_signals,
@@ -140,6 +140,139 @@ result = pipe.run_audited_evidence_chain(
 )
 print(result["summary"])
 ```
+
+---
+
+## Standard Operating Procedure (SOP) for reviewers and new users
+
+This is the canonical, copy-pasteable path from raw aligned signals to an
+audited synchrony claim. A fresh reviewer with a real dataset should be able
+to follow it end-to-end. It mirrors `artifacts/reviewer_audit/AUDIT_REPORT.md`
+§3 and is the recommended methodology section for manuscripts.
+
+### Stage 0 — Load real data
+
+```python
+from multisync.realtest.lerique_2024 import load_lerique_dataset
+
+records = load_lerique_dataset(
+    data_root="/path/to/Lerique-47n3p",
+    preprocess=True,
+    drop_incomplete=True, drop_misaligned=True, drop_short_duration=True,
+)
+# records: List[LeriqueDyadCondition]  (dyad_label, modality, condition,
+#                                        person_a / person_b as time/value frames)
+```
+
+The loader returns dataset records; the three pipelines consume them through
+the bridge `multisync.pipeline_bridge.records_to_inference_inputs`.
+
+### Stage 1 — Feature consultation (Pipeline 1, select-only, no computation)
+
+```python
+from multisync.feature_pipeline import print_feature_table, recommend_features
+print(print_feature_table())            # 12 descriptors: Tier / Axis / FDR / Unit
+rec = recommend_features("general")
+# rec["primary"]    == FDR family == ('peak_amplitude', 'dwell_time', 'switching_rate')
+# rec["reference"]  == ('mean_synchrony',)   # comparator, NOT in FDR family
+# rec["supplementary"] == exploratory descriptors
+```
+
+### Stage 2 — Compute (Pipeline 2)
+
+```python
+from multisync.pipeline_bridge import records_to_inference_inputs
+inputs = records_to_inference_inputs(
+    records, hz=1.0, window_size=30, onset_threshold=0.5,
+    design_condition="trials_concat",
+)
+inputs.features_df     # one row per (dyad, modality, condition) + all descriptors
+inputs.raw_signals    # "dyad__mod__cond" -> (sig_a, sig_b)  for existence audit
+inputs.design_pairs   # "dyad__mod"        -> (sig_a, sig_b)  for design controls
+```
+
+Under the hood: `ComputationPipeline.load_signals → compute_wcc → extract_features
+→ to_dataframe` per record. WCC uses an O(n) cumsum backend; thresholds can be
+session-pooled for cross-dyad comparability.
+
+### Stage 3 — Audited evidence chain (Pipeline 3)
+
+```python
+from multisync.inference_pipeline import InferencePipeline
+from multisync.feature_definitions import FDR_FEATURES
+
+pipe = InferencePipeline(
+    features_df=inputs.features_df, hz=1.0,
+    wcc_window_sec=30.0, surrogate_n=100, seed=42,
+)
+chain = pipe.run_audited_evidence_chain(
+    raw_signals=inputs.raw_signals,
+    wcc_window_size=30,
+    design_signal_pairs=inputs.design_pairs,
+    condition_col="condition", dyad_col="dyad_id",
+    feature_cols=list(FDR_FEATURES),
+    fdr_alpha=0.05, n_permutations=10000,
+)
+print(pipe.summarize())
+
+# MANDATORY for multimodal data — see rule below
+by_mod = pipe.test_l2_by_modality(
+    modality_col="modality", condition_col="condition", dyad_col="dyad_id",
+    feature_cols=list(FDR_FEATURES), n_permutations=10000,
+)
+```
+
+The chain is three steps: (1) signal-level IAAFT **synchrony-existence** audit;
+(2) **design-control** audit (pseudo-pair + time-shift); (3) dyad-paired
+permutation + **BH-FDR** **group-condition** inference.
+
+---
+
+### Mandatory reporting rule — per-modality L2 for multimodal data
+
+> **When more than one modality is present, never report only the pooled L2.**
+
+Pooling modalities inside one FDR family dilutes per-modality effects. This is
+empirically demonstrated: in the synthetic-proxy audit the pooled L2 was 1/3
+significant while EDA and RESP each showed 2/3; on **real Lerique data** EDA
+showed 8/8 descriptors significant (peak_amplitude p_fdr=0.0008, dwell_time
+p_fdr=0.025, switching_rate p_fdr=0.036) while RESP showed only 1/8
+(bimodality_coefficient). Always run `test_l2_by_modality` and report each
+modality's L2 alongside the pooled result. `reviewer_end_to_end.py` and
+`realdata_l2_audit.py` produce `per_modality_l2` automatically.
+
+---
+
+### Publication-grade statistical power
+
+Before any result enters a manuscript, the analysis MUST use:
+
+| Parameter | Minimum | Default in code |
+|---|---|---|
+| `surrogate_n` (signal-level IAAFT / existence) | ≥ 100 | 100 (`design_controls.py`, `inference_pipeline.py`) |
+| `n_permutations` (dyad-paired L2) | ≥ 10000 | 10000 (`inference_pipeline.py`) |
+| `n_pseudo_per_dyad` (design-control pseudo-pair) | ≥ 10 | 10 (`design_controls.py`) |
+
+These are now the package defaults; lower values are acceptable only for smoke
+tests and demos. Raise further for very small cohorts where the pseudo-pair
+null needs more draws to stabilise.
+
+---
+
+### Handling undefined descriptors (`dwell_time` / `switching_rate`)
+
+`dwell_time` and `switching_rate` are **conditional** descriptors: they are
+defined only when the WCC trace contains at least one sustained above-threshold
+run. Under weak coupling, rest conditions, or very short traces they return
+`NaN` **by construction** — this is the null of "sustained synchrony episode",
+not a bug. The L2 layer therefore (a) tests only dyads where the feature is
+finite in *both* conditions, (b) reports definedness rates (`defined_a` /
+`defined_b`), and (c) emits a `[WARN]` + `p_definedness` when definedness differs
+across conditions (potential survivor bias). **Always report definedness
+alongside every dwell/switching result; never treat the NaN as
+missing-at-random.** Real-data definedness rates: Lerique dwell 59.7% defined,
+Han 98.4%, Gordon only 24.3% (its WCC traces are 18–22 points long — too short
+for sustained runs). This gradient is exactly what the construct predicts.
 
 ---
 
@@ -256,7 +389,7 @@ Group-level audited inference:
 ```python
 import syncpipe as sp
 
-pipe = sp.InferencePipeline(features_df, hz=1.0, wcc_window_sec=10.0, surrogate_n=99)
+pipe = sp.InferencePipeline(features_df, hz=1.0, wcc_window_sec=10.0, surrogate_n=100)
 existence = pipe.run_synchrony_existence_audit(raw_signals, wcc_window_size=10)
 design = pipe.run_design_control_audit(signal_pairs, wcc_window_size=10)
 group = pipe.run_group_condition_inference(condition_col="condition", dyad_col="dyad_id")
