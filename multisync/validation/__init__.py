@@ -23,6 +23,7 @@ from .recovery import (
     run_level1_grid,
     summarise_level1,
     summarise_definedness,
+    split_half_pearson_r,
     split_half_icc,
 )
 from .snr import (

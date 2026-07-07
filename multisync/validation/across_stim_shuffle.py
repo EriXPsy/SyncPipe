@@ -163,10 +163,13 @@ def across_stim_shuffle_test(
             }
             continue
 
-        # Two-sided p: Phipson-Smyth unbiased estimate (k+1)/(n+1)
-        k = min(np.sum(surr_finite >= real_v), np.sum(surr_finite <= real_v))
+        # Two-sided p: Phipson-Smyth unbiased estimate (n_extreme+1)/(n+1).
+        # NOTE: `k` above is the *feature name* (the loop variable); we must
+        # NOT reuse it for the integer extreme-count, or the results dict
+        # would end up keyed by integers instead of feature names.
+        n_extreme = min(np.sum(surr_finite >= real_v), np.sum(surr_finite <= real_v))
         n = len(surr_finite)
-        p_two = 2.0 * (k + 1) / (n + 1)
+        p_two = 2.0 * (n_extreme + 1) / (n + 1)
         p_two = min(p_two, 1.0)
 
         ci_lo = np.percentile(surr_finite, 2.5)

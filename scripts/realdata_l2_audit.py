@@ -73,7 +73,7 @@ def _result_row(r) -> dict:
         p_raw=round(float(r.p_raw), 4) if np.isfinite(r.p_raw) else None,
         p_fdr=round(float(r.p_fdr), 4) if np.isfinite(r.p_fdr) else None,
         significant_05=bool(r.significant_05),
-        cohens_d=round(float(r.cohens_d), 3) if np.isfinite(r.cohens_d) else None,
+        perm_effect_size=round(float(r.perm_effect_size), 3) if np.isfinite(r.perm_effect_size) else None,
         defined_a=int(r.defined_a), defined_b=int(r.defined_b),
         p_definedness=round(float(r.p_definedness), 4) if np.isfinite(r.p_definedness) else None,
     )
@@ -163,7 +163,7 @@ def main():
                    "|---|---|---|---|---|---|---|---|"]
             for fr in p["per_feature"]:
                 md.append(f"| {fr['feature']} | {fr['observed_diff']} | {fr['p_raw']} | "
-                          f"{fr['p_fdr']} | {fr['significant_05']} | {fr['cohens_d']} | "
+                          f"{fr['p_fdr']} | {fr['significant_05']} | {fr['perm_effect_size']} | "
                           f"{fr['defined_a']}/{fr['defined_b']} | {fr['p_definedness']} |")
             md.append("")
         for mod, mr in r["per_modality"].items():
@@ -175,7 +175,7 @@ def main():
                    "|---|---|---|---|---|---|---|---|"]
             for fr in mr["per_feature"]:
                 md.append(f"| {fr['feature']} | {fr['observed_diff']} | {fr['p_raw']} | "
-                          f"{fr['p_fdr']} | {fr['significant_05']} | {fr['cohens_d']} | "
+                          f"{fr['p_fdr']} | {fr['significant_05']} | {fr['perm_effect_size']} | "
                           f"{fr['defined_a']}/{fr['defined_b']} | {fr['p_definedness']} |")
             md.append("")
 

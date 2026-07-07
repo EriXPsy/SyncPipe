@@ -10,6 +10,7 @@ from multisync.validation import (
     run_level1_grid,
     summarise_level1,
     summarise_definedness,
+    split_half_pearson_r,
     split_half_icc,
 )
 from multisync.feature_definitions import (
@@ -167,35 +168,69 @@ def test_summarise_guards_against_mixed_thresholds(small_grid_df):
         summarise_definedness(merged)
 
 
-def test_split_half_icc_returns_tuple():
-    """split_half_icc now returns (value, status)."""
+def test_split_half_pearson_r_returns_tuple():
+    """split_half_pearson_r returns (value, status) and is NOT ICC."""
     rng = np.random.default_rng(0)
     v = rng.normal(size=30)
-    value, status = split_half_icc(v, rng_seed=0)
+    value, status = split_half_pearson_r(v, rng_seed=0)
     assert isinstance(value, float)
     assert status in {"ok", "ceiling_undefined", "insufficient_seeds",
                       "all_undefined"}
 
 
-def test_split_half_icc_ceiling_detected():
+def test_split_half_pearson_r_matches_corrcoef():
+    """The returned value must be exactly Pearson r of the two random halves
+    it partitions (relative consistency), NOT an absolute-agreement ICC.
+
+    We replicate the function's own shuffle+split and compare against
+    numpy.corrcoef.  This locks the semantics so the name 'pearson_r' is
+    honest and the old 'icc' misnomer cannot silently return something else.
+    """
+    rng = np.random.default_rng(1)
+    v = rng.normal(size=30)
+    r, status = split_half_pearson_r(v, rng_seed=0)
+    assert status == "ok"
+
+    # Replicate the exact partition the function performs.
+    rng2 = np.random.default_rng(0)
+    idx = np.arange(30)
+    rng2.shuffle(idx)
+    half = 30 // 2
+    a = v[idx[:half]]
+    b = v[idx[half : 2 * half]]
+    expected = float(np.corrcoef(a, b)[0, 1])
+    assert abs(r - expected) < 1e-9
+
+
+def test_split_half_pearson_r_ceiling_detected():
     """When SD is very small, status should be 'ceiling_undefined'
     and value should be the SD (precision estimate)."""
     v = np.ones(30) * 0.97 + np.random.default_rng(0).normal(0, 0.005, 30)
-    value, status = split_half_icc(v, rng_seed=0, ceiling_sd_threshold=0.05)
+    value, status = split_half_pearson_r(v, rng_seed=0, ceiling_sd_threshold=0.05)
     assert status == "ceiling_undefined"
     assert isinstance(value, float) and value >= 0.0
 
 
-def test_split_half_icc_insufficient_seeds():
+def test_split_half_pearson_r_insufficient_seeds():
     v = np.array([0.1, 0.2])
-    value, status = split_half_icc(v, rng_seed=0)
+    value, status = split_half_pearson_r(v, rng_seed=0)
     assert status == "insufficient_seeds"
     assert np.isnan(value)
 
 
-def test_split_half_icc_all_undefined():
+def test_split_half_pearson_r_all_undefined():
     """All-NaN input should return 'all_undefined' status."""
     v = np.array([np.nan, np.nan, np.nan])
-    value, status = split_half_icc(v, rng_seed=0)
+    value, status = split_half_pearson_r(v, rng_seed=0)
     assert status == "all_undefined"
     assert np.isnan(value)
+
+
+def test_split_half_icc_deprecated_alias():
+    """The old 'split_half_icc' name is a deprecated alias that warns."""
+    v = np.random.default_rng(0).normal(size=30)
+    with pytest.warns(DeprecationWarning):
+        value, status = split_half_icc(v, rng_seed=0)
+    assert isinstance(value, float)
+    assert status in {"ok", "ceiling_undefined", "insufficient_seeds",
+                      "all_undefined"}

@@ -406,22 +406,42 @@ def summarise_definedness(df: pd.DataFrame) -> pd.DataFrame:
     ]
 
 
-def split_half_icc(
+def split_half_pearson_r(
     values: np.ndarray,
     rng_seed: int = 0,
     ceiling_sd_threshold: float = 0.05,
 ) -> tuple:
     """
-    Two-way random, single-rater ICC(2,1) on a single-coupling vector.
+    Split-half Pearson r — a *relative-consistency* (reproducibility) index.
+
+    IMPORTANT — this is NOT ICC(2,1):
+        The returned value is the Pearson correlation between two random
+        halves of the vector (``corrcoef(a, b)[0, 1]``). Pearson r measures
+        *relative* (rank/linear) agreement and is blind to a systematic
+        level offset between the two halves.  A true two-way random
+        single-rater ICC(2,1) measures *absolute* agreement and would be
+        strongly penalised by such an offset.  For a systematic offset
+        example (half means 0.95 vs 3.95, near-identical pattern) Pearson r
+        ≈ 0.998 while ICC(2,1) would be much lower.  Do NOT label this
+        number "ICC(2,1)" in a manuscript.
+
+    Why split-half Pearson r (not ICC) is the right metric HERE:
+        This routine audits the *reproducibility of a simulation ground-truth
+        feature across random seeds* in the validation harness.  Relative
+        consistency (does the feature's pattern reproduce across resamples?)
+        is exactly what we want to certify; absolute level agreement between
+        two arbitrary halves is not the quantity of interest.  If you need a
+        genuine absolute-agreement ICC(2,1) for an empirical reliability
+        section, implement it separately via ANOVA mean squares.
 
     Returns
     -------
     (value, status)
         status ∈ {"ok", "ceiling_undefined", "insufficient_seeds",
                    "all_undefined"}
-        - "ok":                  value is a valid Pearson r.
+        - "ok":                  value is a valid split-half Pearson r.
         - "ceiling_undefined":   value is SD (precision estimate);
-                                 ICC is mathematically undefined due to
+                                 the r is mathematically undefined due to
                                  ceiling/floor effect (SD < ceiling_sd_threshold).
         - "insufficient_seeds":  value is NaN; not enough valid seeds (n < 4).
         - "all_undefined":       value is NaN; the feature column is
@@ -449,7 +469,7 @@ def split_half_icc(
 
     sd = float(np.std(v, ddof=1))
     if sd < ceiling_sd_threshold:
-        # Ceiling/floor effect: return SD as precision; do NOT report ICC.
+        # Ceiling/floor effect: return SD as precision; do NOT report r.
         return (sd, "ceiling_undefined")
 
     rng = np.random.default_rng(rng_seed)
@@ -462,3 +482,29 @@ def split_half_icc(
         return (sd, "ceiling_undefined")
     r = float(np.corrcoef(a, b)[0, 1])
     return (r, "ok")
+
+
+def split_half_icc(
+    values: np.ndarray,
+    rng_seed: int = 0,
+    ceiling_sd_threshold: float = 0.05,
+) -> tuple:
+    """Deprecated alias for :func:`split_half_pearson_r`.
+
+    Retained only for backward compatibility.  The function has *always*
+    computed split-half Pearson r, not ICC(2,1); the old name was
+    misleading.  Use ``split_half_pearson_r`` and do not report the value
+    as ICC(2,1).
+    """
+    import warnings
+
+    warnings.warn(
+        "split_half_icc is deprecated; it has always computed split-half "
+        "Pearson r, not ICC(2,1). Use split_half_pearson_r, and do not label "
+        "the result as ICC(2,1) in a manuscript.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return split_half_pearson_r(
+        values, rng_seed=rng_seed, ceiling_sd_threshold=ceiling_sd_threshold
+    )

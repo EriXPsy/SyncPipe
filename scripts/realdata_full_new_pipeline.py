@@ -379,7 +379,7 @@ def _l2row(r) -> Dict[str, Any]:
         "p_raw": (float(g("p_raw")) if g("p_raw") is not None else None),
         "p_fdr": (float(g("p_fdr")) if g("p_fdr") is not None else None),
         "significant_05": bool(g("significant_05")),
-        "cohens_d": (float(g("cohens_d")) if g("cohens_d") is not None else None),
+        "perm_effect_size": (float(g("perm_effect_size")) if g("perm_effect_size") is not None else None),
         "defined_a": (int(g("defined_a")) if g("defined_a") is not None else None),
         "defined_b": (int(g("defined_b")) if g("defined_b") is not None else None),
         "p_definedness": (float(g("p_definedness"))

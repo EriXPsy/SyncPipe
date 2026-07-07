@@ -638,7 +638,7 @@ class InferencePipeline:
                 if feat.significant_05:
                     lines.append(
                         f"    {feat.feature}: p_raw={feat.p_raw:.4f}, "
-                        f"p_fdr={feat.p_fdr:.4f}, d={feat.cohens_d:.2f}"
+                        f"p_fdr={feat.p_fdr:.4f}, d(perm)={feat.perm_effect_size:.2f}"
                     )
                 if feat.p_definedness < 0.05:
                     lines.append(
