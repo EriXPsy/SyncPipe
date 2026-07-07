@@ -131,7 +131,7 @@ def extract_all_features(wcc, hz=1.0, wcc_window_sec=300.0):
     df = extract_features(wcc, hz=hz, wcc_window_sec=wcc_window_sec)
     result = df.to_dict()
     result["first_peak_time"] = compute_first_peak_time(wcc, hz=hz)
-    result["baseline_fraction"] = compute_baseline_fraction(wcc)
+    result["baseline_fraction"] = compute_baseline_fraction(wcc, hz=hz)
     result["inter_peak_cv"] = compute_inter_peak_cv(wcc, hz=hz)
     morph = classify_morphology(wcc, hz=hz)
     result["morphology_label"] = morph.label

@@ -56,7 +56,7 @@ def per_trace_features(wcc: np.ndarray, hz: float) -> dict:
             wcc, hz=hz, threshold=ONSET_THRESHOLD
         ),
         "baseline_fraction": compute_baseline_fraction(
-            wcc, threshold=ONSET_THRESHOLD
+            wcc, hz=hz, threshold=ONSET_THRESHOLD
         ),
     }
 

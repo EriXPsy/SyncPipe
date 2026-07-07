@@ -508,25 +508,24 @@ class DynamicAnalyzer:
         # 5. Score view (context-based synchrony summaries)
         if dataset.context_labels:
             t_vec = dataset.time_vector()
-            # WCC[i] is the window covering signal samples [i, i+window_size);
-            # its time centre is approximately t_vec[i] + wcc_offset.
+            # WCC[i] covers the raw window [i, i + window_size); its temporal
+            # center falls at t_vec[i] + wcc_offset, not at t_vec[i] itself.
+            # Contexts must be matched against this shifted axis or short
+            # context windows (comparable in length to window_size) can pull
+            # WCC values that actually belong to a neighboring window.
             wcc_offset = (self.window_size - 1) / (2.0 * hz)
             for ctx in dataset.context_labels:
-                # Shift context boundaries to align with WCC time centres
-                adjusted_start = ctx.start_sec - wcc_offset
-                adjusted_end = ctx.end_sec - wcc_offset
-                wcc_mask = (t_vec >= adjusted_start) & (t_vec < adjusted_end)
-                wcc_indices = np.where(wcc_mask)[0]
                 local_sync_vals = []
                 for key, wcc in wcc_cache.items():
-                    valid_idx = wcc_indices[wcc_indices < len(wcc)]
-                    if len(valid_idx) == 0:
+                    wcc_time = t_vec[: len(wcc)] + wcc_offset
+                    mask = (wcc_time >= ctx.start_sec) & (wcc_time < ctx.end_sec)
+                    if not mask.any():
                         continue
-                    local_wcc = wcc[valid_idx]
+                    local_wcc = wcc[mask]
                     local_mean = np.nanmean(local_wcc)
                     if not np.isnan(local_mean):
                         local_sync_vals.append(local_mean)
-                # Skip context only when ALL modalities produced no data
+                # Skip context when ALL modalities produced no data
                 if not local_sync_vals:
                     continue
                 mean_sync = float(np.mean(local_sync_vals))

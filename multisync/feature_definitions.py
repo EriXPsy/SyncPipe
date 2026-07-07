@@ -1118,6 +1118,7 @@ def compute_first_peak_time(
 
 def compute_baseline_fraction(
     wcc: np.ndarray,
+    hz: float,
     threshold: float = ONSET_THRESHOLD,
     min_prominence: float = 0.15,
     prominence_window_sec: float = DEFAULT_PROMINENCE_WINDOW_SEC,
@@ -1129,9 +1130,15 @@ def compute_baseline_fraction(
     threshold (sustained).  Intermediate values indicate intermittent
     early crossings (oscillatory).
 
-    NOTE: This function is NOT called by ``extract_features()`` (the main
-    entry point).  It is available for external scripts that need the
-    pre-first-peak baseline fraction as a standalone descriptor.
+    .. note::
+       This function is NOT called by ``extract_features()`` (the main
+       entry point).  It is available for external scripts that need the
+       pre-first-peak baseline fraction as a standalone descriptor.
+
+       ``hz`` became a required parameter when the internal peak search's
+       prominence window was fixed to scale with sampling rate (it was
+       previously a hardcoded 50-sample window regardless of ``hz``).
+       Existing callers must now pass ``hz`` explicitly.
 
     Returns NaN if no prominent peak exists.
     """
@@ -1140,7 +1147,7 @@ def compute_baseline_fraction(
     if not finite.any() or n < 3:
         return float("nan")
     x = np.where(finite, wcc, -np.inf)
-    window_samples = max(1, round(prominence_window_sec * 1.0))  # no hz; use 1 Hz default
+    window_samples = max(1, round(prominence_window_sec * hz))
     peaks = _find_prominent_peaks(x, threshold, min_prominence, window_samples)
     if not peaks:
         return float("nan")

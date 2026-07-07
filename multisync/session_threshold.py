@@ -26,6 +26,7 @@ Two modes are supported:
 """
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -34,6 +35,8 @@ from .dynamic_features import sliding_window_wcc
 from .feature_definitions import compute_surrogate_threshold, ONSET_THRESHOLD
 from .surrogate import iaaft_surrogate, ft_surrogate
 from .wclr import wclr_coupling_trace
+
+logger = logging.getLogger(__name__)
 
 
 __all__ = [
@@ -134,11 +137,11 @@ def compute_session_pooled_threshold(
     Tuple[float, Dict]
         ``(threshold, meta)`` where ``meta`` contains:
         - ``mode``: "session_pooled"
-        - ``n_dyads``: number of dyads that actually contributed data
+        - ``n_dyads``: number of dyads that actually contributed
         - ``n_dyads_input``: total number of dyads passed in
-        - ``n_dyads_used``: same as n_dyads (participating count)
-        - ``n_excluded_nonfinite``: dyads excluded due to NaN/Inf
-        - ``n_excluded_length_mismatch``: dyads excluded due to length mismatch
+        - ``n_dyads_used``: number of dyads that contributed (same as n_dyads)
+        - ``n_dyads_excluded_nonfinite``: dyads excluded due to NaN/Inf
+        - ``n_dyads_excluded_length_mismatch``: dyads excluded due to length mismatch
         - ``surrogate_n_per_dyad``: surrogates per dyad
         - ``total_replicates``: total number of surrogate coupling series
         - ``n_finite_coupling_values``: number of finite coupling values pooled
@@ -153,11 +156,12 @@ def compute_session_pooled_threshold(
             "fallback_used": True,
             "reason": "empty dyad_signals",
             "n_dyads_input": 0,
+            "n_dyads_used": 0,
         }
 
     pooled_values: List[np.ndarray] = []
     n_excluded_nonfinite = 0
-    n_excluded_length = 0
+    n_excluded_length_mismatch = 0
     for i, (sig_a, sig_b) in enumerate(dyad_signals):
         sig_a = np.asarray(sig_a, dtype=float)
         sig_b = np.asarray(sig_b, dtype=float)
@@ -165,7 +169,7 @@ def compute_session_pooled_threshold(
             n_excluded_nonfinite += 1
             continue
         if len(sig_a) != len(sig_b):
-            n_excluded_length += 1
+            n_excluded_length_mismatch += 1
             continue
         coup_matrix = _generate_surrogate_coupling_matrix(
             sig_a, sig_b, hz, wcc_window_size,
@@ -177,16 +181,14 @@ def compute_session_pooled_threshold(
         )
         pooled_values.append(coup_matrix)
 
-    n_dyads_input = len(dyad_signals)
-    n_excluded = n_excluded_nonfinite + n_excluded_length
-    if n_excluded > 0:
-        import logging
-        _log = logging.getLogger(__name__)
-        _log.warning(
-            "compute_session_pooled_threshold: %d/%d dyads excluded "
-            "(%d non-finite, %d length-mismatch). "
-            "n_dyads in meta now reports participating count only.",
-            n_excluded, n_dyads_input, n_excluded_nonfinite, n_excluded_length,
+    n_excluded_total = n_excluded_nonfinite + n_excluded_length_mismatch
+    if n_excluded_total:
+        logger.warning(
+            "compute_session_pooled_threshold: excluded %d/%d dyad(s) from "
+            "threshold pooling (%d non-finite, %d length-mismatch). The "
+            "pooled threshold reflects only the remaining %d dyad(s).",
+            n_excluded_total, len(dyad_signals), n_excluded_nonfinite,
+            n_excluded_length_mismatch, len(dyad_signals) - n_excluded_total,
         )
 
     if not pooled_values:
@@ -194,6 +196,10 @@ def compute_session_pooled_threshold(
             "mode": "session_pooled",
             "fallback_used": True,
             "reason": "no dyads produced finite surrogate coupling values",
+            "n_dyads_input": len(dyad_signals),
+            "n_dyads_used": 0,
+            "n_dyads_excluded_nonfinite": n_excluded_nonfinite,
+            "n_dyads_excluded_length_mismatch": n_excluded_length_mismatch,
         }
 
     pooled = np.vstack(pooled_values)
@@ -201,11 +207,14 @@ def compute_session_pooled_threshold(
 
     meta = {
         "mode": "session_pooled",
-        "n_dyads": len(pooled_values),  # dyads that actually contributed
-        "n_dyads_input": n_dyads_input,
+        # NOTE: n_dyads means "dyads that actually contributed to the pooled
+        # threshold" (== n_dyads_used), NOT the number passed in. See
+        # n_dyads_input for the original count.
+        "n_dyads": len(pooled_values),
+        "n_dyads_input": len(dyad_signals),
         "n_dyads_used": len(pooled_values),
-        "n_excluded_nonfinite": n_excluded_nonfinite,
-        "n_excluded_length_mismatch": n_excluded_length,
+        "n_dyads_excluded_nonfinite": n_excluded_nonfinite,
+        "n_dyads_excluded_length_mismatch": n_excluded_length_mismatch,
         "surrogate_n_per_dyad": surrogate_n,
         "total_replicates": pooled.shape[0],
         "n_finite_coupling_values": int(np.isfinite(pooled).sum()),

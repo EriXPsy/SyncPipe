@@ -28,8 +28,11 @@ from multisync.feature_definitions import (
     RECOVERY_FRAC,
     RISE_HIGH_FRAC,
     RISE_LOW_FRAC,
+    compute_baseline_fraction,
     compute_dwell_time,
+    compute_first_peak_time,
     compute_fraction_above_threshold,
+    compute_inter_peak_cv,
     compute_onset_latency,
     compute_peak_amplitude,
     compute_recovery_time,
@@ -442,3 +445,57 @@ def test_extract_features_handles_all_nan_gracefully():
     assert feats.rise_defined == 0
     assert feats.recovery_defined == 0
     assert np.isnan(feats.peak_amplitude)
+
+
+# ---------------------------------------------------------------------------
+# Prominence-window hz-invariance (regression test)
+#
+# compute_first_peak_time / compute_baseline_fraction / compute_inter_peak_cv
+# previously shared a peak-prominence lookback/lookahead window hardcoded at
+# 50 SAMPLES, not scaled by hz. The same real-world synchrony pattern
+# resampled at a higher rate could silently fail to detect any peak at all
+# (NaN) purely because the fixed 50-sample window no longer reached the
+# neighboring trough. See docs/DECISION_LOG.md.
+# ---------------------------------------------------------------------------
+
+def _make_oscillation(hz: float, duration_sec: float = 60.0, n_cycles: float = 3.0) -> np.ndarray:
+    n = int(duration_sec * hz)
+    t = np.arange(n) / hz
+    return 0.4 + 0.35 * np.sin(2 * np.pi * n_cycles / duration_sec * t)
+
+
+def test_timing_descriptors_are_hz_invariant():
+    """The same real-world oscillation, resampled at different hz, must
+    yield the same first_peak_time (seconds) and the same inter_peak_cv,
+    and must never silently degrade to NaN at higher sampling rates."""
+    results = []
+    for hz in (1.0, 5.0, 20.0):
+        wcc = _make_oscillation(hz)
+        fpt = compute_first_peak_time(wcc, hz=hz, threshold=0.5, min_prominence=0.15)
+        cv = compute_inter_peak_cv(wcc, hz=hz, threshold=0.5, min_prominence=0.15)
+        bf = compute_baseline_fraction(wcc, hz=hz, threshold=0.5, min_prominence=0.15)
+        assert np.isfinite(fpt), f"first_peak_time went NaN at hz={hz}"
+        assert np.isfinite(cv), f"inter_peak_cv went NaN at hz={hz}"
+        assert np.isfinite(bf), f"baseline_fraction went NaN at hz={hz}"
+        results.append((hz, fpt, cv, bf))
+
+    ref_fpt, ref_cv, ref_bf = results[0][1], results[0][2], results[0][3]
+    for hz, fpt, cv, bf in results[1:]:
+        assert fpt == pytest.approx(ref_fpt, abs=1.0 / 1.0), (
+            f"first_peak_time not hz-invariant: hz=1.0 -> {ref_fpt}, hz={hz} -> {fpt}"
+        )
+        assert cv == pytest.approx(ref_cv, abs=0.05), (
+            f"inter_peak_cv not hz-invariant: hz=1.0 -> {ref_cv}, hz={hz} -> {cv}"
+        )
+        assert bf == pytest.approx(ref_bf, abs=0.05), (
+            f"baseline_fraction not hz-invariant: hz=1.0 -> {ref_bf}, hz={hz} -> {bf}"
+        )
+
+
+def test_compute_baseline_fraction_requires_hz():
+    """hz became a required parameter when the prominence window was fixed
+    to scale with sampling rate; calling without it must raise, not
+    silently fall back to the old sample-count behavior."""
+    wcc = _make_oscillation(hz=1.0)
+    with pytest.raises(TypeError):
+        compute_baseline_fraction(wcc, threshold=0.5)  # type: ignore[call-arg]
