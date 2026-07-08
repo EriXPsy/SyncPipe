@@ -33,6 +33,49 @@ from sklearn.preprocessing import StandardScaler
 import logging
 import warnings
 
+# ---------------------------------------------------------------------------
+# Feature-to-sample ratio (FSR) monitoring — overparameterization guard
+# ---------------------------------------------------------------------------
+# DECISION (v1.0 hardening, 2026-07-08): small-sample dyads (n_windows often
+# 20-30 after NaN removal) fitted with a 14-feature joint model are prone to
+# spurious ΔAUC significance.  We force-report the feature-to-sample ratio and
+# warn when n_samples < MIN_SAMPLES_PER_FEATURE * n_features.  NOTE: the joint
+# model also adds target + AR terms beyond ``avg_features_used`` (source
+# features), so the *true* ratio is even smaller — this guard is conservative.
+MIN_SAMPLES_PER_FEATURE = 3
+
+
+def _fsr(n_samples: int, n_features: int) -> float:
+    """Feature-to-sample ratio = n_samples / n_features (0.0 if undefined)."""
+    if not n_features or not n_samples:
+        return 0.0
+    return float(n_samples) / float(n_features)
+
+
+def _overparam_warning(n_samples: int, n_features: int) -> Optional[str]:
+    """Return an overparameterization warning string, or None.
+
+    Fires when ``n_samples < MIN_SAMPLES_PER_FEATURE * n_features`` — i.e. the
+    model has fewer than ~3 samples per estimated coefficient.
+    """
+    if not n_features or not n_samples:
+        return None
+    if n_samples < MIN_SAMPLES_PER_FEATURE * n_features:
+        return (
+            f"model may be overparameterized "
+            f"(n_samples={n_samples} < {MIN_SAMPLES_PER_FEATURE}*"
+            f"n_features={n_features}; feature-to-sample ratio="
+            f"{_fsr(n_samples, n_features):.2f})"
+        )
+    return None
+
+
+def _compose_warning(existing: Optional[str], extra: Optional[str]) -> Optional[str]:
+    """Combine an existing warning with an extra note."""
+    if existing and extra:
+        return f"{existing}; {extra}"
+    return existing or extra
+
 from .feature_definitions import ONSET_THRESHOLD
 
 LEAKAGE_DELTA_AUC_THRESHOLD: float = 0.30
@@ -248,6 +291,8 @@ class PredictionResult:
     folds: List[FoldResult] = field(default_factory=list)
     warning: Optional[str] = None  # e.g. "leakage suspected"
     n_features_used: int = 0  # how many features were non-NaN
+    n_samples: int = 0               # windows used to fit the model
+    feature_to_sample_ratio: float = 0.0  # n_samples / n_features_used (FSR)
     diagnostics: Dict[str, Any] = field(default_factory=dict)  # VIF, multicollinearity, etc.
     # --- Nonlinear prediction baselines (critique E, 2026-07-07) ---
     # Parallel nonlinear models (RandomForest, SVM-RBF) run on the SAME
@@ -274,6 +319,8 @@ class PredictionResult:
             "mean_delta_auc": float(self.mean_delta_auc),
             "warning": self.warning,
             "n_features_used": self.n_features_used,
+            "n_samples": self.n_samples,
+            "feature_to_sample_ratio": self.feature_to_sample_ratio,
             "diagnostics": self.diagnostics,
             "folds": [f.to_dict() for f in self.folds],
         }
@@ -335,6 +382,8 @@ class PredictionResult:
             delta_auc_ci=delta_auc_ci,
             warning=d.get("warning"),
             n_features_used=int(d.get("n_features_used", 0)),
+            n_samples=int(d.get("n_samples", 0)),
+            feature_to_sample_ratio=float(d.get("feature_to_sample_ratio", 0.0)),
             diagnostics=d.get("diagnostics", {}),
             nonlinear=d.get("nonlinear", {}),
             nonlinear_signal_present=bool(d.get("nonlinear_signal_present", False)),
@@ -664,7 +713,12 @@ def rolling_origin_cv(
             mean_baseline_auc=0.5,
             mean_delta_auc=0.0,
             folds=[],
-            warning="insufficient_samples",
+            warning=_compose_warning(
+                "insufficient_samples",
+                _overparam_warning(len(y), avg_features_used),
+            ),
+            n_samples=len(y),
+            feature_to_sample_ratio=_fsr(len(y), avg_features_used),
             n_features_used=avg_features_used,
             diagnostics={},
         )
@@ -680,7 +734,12 @@ def rolling_origin_cv(
             mean_baseline_auc=0.5,
             mean_delta_auc=0.0,
             folds=[],
-            warning="class_imbalance",
+            warning=_compose_warning(
+                "class_imbalance",
+                _overparam_warning(len(y), avg_features_used),
+            ),
+            n_samples=len(y),
+            feature_to_sample_ratio=_fsr(len(y), avg_features_used),
             n_features_used=avg_features_used,
             diagnostics={},
         )
@@ -702,6 +761,8 @@ def rolling_origin_cv(
             mean_delta_auc=0.0,
             folds=[],
             warning="data_too_short_for_cv",
+            n_samples=n_samples,
+            feature_to_sample_ratio=0.0,
             n_features_used=0,
             diagnostics={
                 "error": "insufficient_data_for_cv",
@@ -858,7 +919,12 @@ def rolling_origin_cv(
             mean_baseline_auc=0.5,
             mean_delta_auc=0.0,
             folds=[],
-            warning="no_valid_folds",
+            warning=_compose_warning(
+                "no_valid_folds",
+                _overparam_warning(len(X), avg_features_used),
+            ),
+            n_samples=len(X),
+            feature_to_sample_ratio=_fsr(len(X), avg_features_used),
             n_features_used=avg_features_used,
             diagnostics=diagnostics,
         )
@@ -911,7 +977,9 @@ def rolling_origin_cv(
         nonlinear_signal_present=bool(nonlinear_signal),
         nonlinear_note=nonlinear_note,
         folds=folds,
-        warning=warning,
+        warning=_compose_warning(warning, _overparam_warning(len(X), avg_features_used)),
+        n_samples=len(X),
+        feature_to_sample_ratio=_fsr(len(X), avg_features_used),
         n_features_used=avg_features_used,
         diagnostics=diagnostics,
     )
@@ -1081,7 +1149,12 @@ def cross_modal_prediction(
             mean_ar_baseline_auc=0.5,
             mean_delta_auc=0.0,
             folds=[],
-            warning="insufficient_samples",
+            warning=_compose_warning(
+                "insufficient_samples",
+                _overparam_warning(min_rows, 0),
+            ),
+            n_samples=min_rows,
+            feature_to_sample_ratio=0.0,
             n_features_used=0,
             diagnostics={},
         )
@@ -1143,7 +1216,12 @@ def cross_modal_prediction(
             mean_ar_baseline_auc=0.5,
             mean_delta_auc=0.0,
             folds=[],
-            warning="insufficient_samples",
+            warning=_compose_warning(
+                "insufficient_samples",
+                _overparam_warning(len(y), avg_features_used),
+            ),
+            n_samples=len(y),
+            feature_to_sample_ratio=_fsr(len(y), avg_features_used),
             n_features_used=avg_features_used,
             diagnostics={},
         )
@@ -1160,7 +1238,12 @@ def cross_modal_prediction(
             mean_ar_baseline_auc=0.5,
             mean_delta_auc=0.0,
             folds=[],
-            warning="class_imbalance",
+            warning=_compose_warning(
+                "class_imbalance",
+                _overparam_warning(len(y), avg_features_used),
+            ),
+            n_samples=len(y),
+            feature_to_sample_ratio=_fsr(len(y), avg_features_used),
             n_features_used=avg_features_used,
             diagnostics={},
         )
@@ -1541,7 +1624,9 @@ def cross_modal_prediction(
         nonlinear_signal_present=bool(nonlinear_signal),
         nonlinear_note=nonlinear_note,
         folds=folds,
-        warning=warning,
+        warning=_compose_warning(warning, _overparam_warning(len(y), avg_features_used)),
+        n_samples=len(y),
+        feature_to_sample_ratio=_fsr(len(y), avg_features_used),
         n_features_used=avg_features_used,
         diagnostics=diagnostics,
     )

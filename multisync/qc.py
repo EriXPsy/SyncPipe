@@ -592,6 +592,15 @@ def _check_signal_integrity(dataset: Any, config: Dict[str, Any]) -> StageResult
        ``>= warn_flatline_frac``.
     3. Physiological range (optional): per-modality ``(lo, hi)`` passed via
        ``config["physio_ranges"]``; values outside warn if > 10% out.
+
+    Marker-channel exemption
+    -------------------------
+    Columns declared as marker / event channels (e.g. trial onsets, stimulus
+    markers) are *legitimately* zero- or near-zero variance and must not trip
+    the zero-variance FAIL.  Declare them via ``config["marker_channels"]`` as
+    a list of ``"modality/col"`` strings, or bare ``"modality"`` to exempt all
+    columns of a modality.  Exempted columns are recorded as ``marker_exempt``
+    details and downgraded to a warning instead of a failure.
     """
     details: List[Dict[str, Any]] = []
     failures: List[str] = []
@@ -601,6 +610,7 @@ def _check_signal_integrity(dataset: Any, config: Dict[str, Any]) -> StageResult
     max_flatline_frac = config.get("max_flatline_frac", 0.5)
     warn_flatline_frac = config.get("warn_flatline_frac", 0.2)
     physio_ranges = config.get("physio_ranges", None)
+    marker_channels = set(config.get("marker_channels", []))
 
     if not hasattr(dataset, "modalities") or not dataset.modalities:
         return StageResult(
@@ -625,6 +635,23 @@ def _check_signal_integrity(dataset: Any, config: Dict[str, Any]) -> StageResult
             total_checked += 1
             rng = float(finite.max() - finite.min())
             std = float(np.std(finite, ddof=0))
+
+            # ---- 0. marker-channel exemption ----
+            # Declared marker/event channels are legitimately zero- or
+            # near-zero variance; do not fail them.  See docstring.
+            if (f"{name}/{col}" in marker_channels) or (name in marker_channels):
+                details.append({
+                    "type": "marker_exempt",
+                    "modality": name,
+                    "feature": col,
+                    "std": std,
+                    "range": rng,
+                })
+                warnings_list.append(
+                    f"{name}/{col}: zero/near-zero variance but exempted as "
+                    f"marker channel (config marker_channels)."
+                )
+                continue
 
             # ---- 1. zero / near-zero variance ----
             if std <= max(min_signal_std, 1e-12) or (rng > 0 and std / rng < 1e-3):
@@ -787,15 +814,22 @@ def run_quality_check(
     all_failures: List[str] = []
 
     for st in stages:
-        # Collect human-readable messages
+        # Collect human-readable stage-level messages
         if st.verdict == StageVerdict.FAIL:
             all_failures.append(f"[{st.stage}] {st.message}")
         elif st.verdict == StageVerdict.WARN:
             all_warnings.append(f"[{st.stage}] {st.message}")
-        # Collect per-detail warnings/failures
+        # Surface any detail-level messages carried by the stage.  Stages that
+        # attach a "message" key to their detail dicts get those surfaced here;
+        # stages without per-detail messages are unaffected.
         for d in st.details:
-            # Pass through detail-level messages
-            pass
+            msg = d.get("message") if isinstance(d, dict) else None
+            if not msg:
+                continue
+            if st.verdict == StageVerdict.FAIL:
+                all_failures.append(f"[{st.stage}] {msg}")
+            else:
+                all_warnings.append(f"[{st.stage}] {msg}")
 
     report = DataQualityReport(
         dyad_id=dyad_id,

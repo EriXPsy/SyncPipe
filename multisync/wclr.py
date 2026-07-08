@@ -40,6 +40,12 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
+# Tolerance (in standardized-beta units) for sign-stabilisation: when the
+# absolute-best lag and a same-sign lag are within this margin, the same-sign
+# lag is preferred to avoid artifactual +/- phase jumps.  Only active when
+# sign_stable=True and directionality is preserved (absolute_beta=False).
+SIGN_STABLE_TOL = 0.05
+
 
 __all__ = [
     "windowed_cross_lagged_regression",
@@ -144,6 +150,7 @@ def windowed_cross_lagged_regression(
     min_valid_ratio: float = 0.5,
     metric: str = "beta",
     absolute_beta: bool = True,
+    sign_stable: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Compute WCLR time series between ``x`` and ``y``.
 
@@ -169,6 +176,13 @@ def windowed_cross_lagged_regression(
     absolute_beta : bool
         If True (default), take the absolute value of the beta coefficient.
         Set to False to preserve directionality (anti-phase vs in-phase).
+    sign_stable : bool
+        Only relevant when ``absolute_beta=False`` (signed trace).  If True,
+        when the absolute-best lag and a same-sign lag are within
+        ``SIGN_STABLE_TOL`` of each other, the same-sign lag is preferred to
+        suppress artifactual +/− phase jumps driven by near-tied lags rather
+        than genuine psychological reversals.  Has **no effect** on the
+        default (``absolute_beta=True``) non-negative trace.
 
     Returns
     -------
@@ -209,6 +223,8 @@ def windowed_cross_lagged_regression(
     wclr_trace = np.full(n_windows, np.nan, dtype=float)
     lag_trace = np.full(n_windows, 0, dtype=int)
 
+    prev_signed = float("nan")  # signed value of the previous window (signed mode)
+
     for i in range(n_windows):
         start = i * step_samples
         end = start + window_size
@@ -225,6 +241,7 @@ def windowed_cross_lagged_regression(
         best_abs_val = -1.0
         final_val = np.nan
         best_lag_idx = 0
+        cands = []  # (curr_abs, signed_val, lag_idx) for sign-stabilisation
         for li, xl in enumerate(x_lagged):
             x_win = xl[start:end]
             if np.isfinite(x_win).sum() < min_valid:
@@ -247,9 +264,32 @@ def windowed_cross_lagged_regression(
                 # Retain signed beta when direction matters, else abs
                 final_val = val if (metric == "beta" and not absolute_beta) else curr_abs
                 best_lag_idx = li
+            cands.append((curr_abs, val, li))
+
+        # Optional sign-stabilisation (signed mode only): prefer a lag whose
+        # sign matches the previous window when its |beta| is within
+        # SIGN_STABLE_TOL of the absolute maximum.  Suppresses artifactual
+        # +/− phase jumps from near-tied lags.  No effect on the default
+        # (absolute_beta=True) non-negative trace.
+        if (sign_stable and metric == "beta" and not absolute_beta
+                and np.isfinite(prev_signed)):
+            if cands:
+                best_abs = max(c[0] for c in cands)
+                same_sign = [
+                    (ca, sv, li) for (ca, sv, li) in cands
+                    if ca >= best_abs - SIGN_STABLE_TOL
+                    and np.isfinite(sv) and np.sign(sv) == np.sign(prev_signed)
+                ]
+                if same_sign:
+                    ca, sv, li = max(same_sign, key=lambda t: t[0])
+                    final_val = sv
+                    best_lag_idx = li
 
         wclr_trace[i] = final_val
         lag_trace[i] = lags[best_lag_idx]
+        # Remember the signed value for the next window's stabilisation.
+        if metric == "beta" and not absolute_beta and np.isfinite(final_val):
+            prev_signed = final_val
 
     return wclr_trace, lag_trace
 
@@ -264,6 +304,7 @@ def wclr_coupling_trace(
     min_valid_ratio: float = 0.5,
     metric: str = "beta",
     absolute_beta: bool = True,
+    sign_stable: bool = False,
 ) -> np.ndarray:
     """Convenience wrapper returning only the WCLR coupling trace.
 
@@ -273,8 +314,11 @@ def wclr_coupling_trace(
         See :func:`windowed_cross_lagged_regression`.
     absolute_beta : bool
         See :func:`windowed_cross_lagged_regression`.
+    sign_stable : bool
+        See :func:`windowed_cross_lagged_regression`.
     """
     trace, _ = windowed_cross_lagged_regression(
-        sig_a, sig_b, window_size, hz, max_lag_samples, step_samples, min_valid_ratio, metric, absolute_beta
+        sig_a, sig_b, window_size, hz, max_lag_samples, step_samples,
+        min_valid_ratio, metric, absolute_beta, sign_stable,
     )
     return trace

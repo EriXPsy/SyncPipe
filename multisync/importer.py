@@ -498,12 +498,13 @@ class DataImporter:
         modality: str = "signal",
         time_col: Optional[str] = None,
         signal_col: Optional[str] = None,
+        offset_b_sec: Optional[float] = None,
     ) -> pd.DataFrame:
         """
         Merge two single-person CSV files into one dyad DataFrame.
 
         Useful when person A and person B are stored in separate files.
-        Time alignment is done by inner-join on nearest time values.
+        Time alignment is done by nearest-time ``merge_asof``.
 
         Parameters
         ----------
@@ -515,12 +516,31 @@ class DataImporter:
             Time column name (auto-detected if None).
         signal_col : str or None
             Signal column to extract (auto-detected if None).
+        offset_b_sec : float or None
+            Optional manual clock offset (seconds) applied to **person B**'s
+            timeline *before* alignment.  Use this when B's recording started
+            ``offset_b_sec`` seconds later (positive) or earlier (negative)
+            than A's — e.g. two separately-recorded relative-time CSVs that
+            both begin at 0.0 but were not simultaneously triggered.  If
+            ``None`` (default), no correction is applied.
 
         Returns
         -------
         pd.DataFrame with columns: time, person_a, person_b
+
+        Relative-time alignment risk
+        ----------------------------
+        When both files use *relative* time starting at 0.0 and carry no
+        absolute timestamp, ``merge_asof`` joins on the nearest time value.
+        Two unrelated 0.0 starts are therefore aligned at t=0 *by construction*,
+        even if the true sessions were offset by minutes.  ``force_zero_start``
+        (default ``False``) only re-anchors each file to its own 0.0 and does
+        **not** fix a between-file offset.  SyncPipe is measurement
+        infrastructure: it will not invent an offset it cannot observe.  If you
+        know the offset, pass ``offset_b_sec``; otherwise verify the merged
+        ``time`` axis against external metadata before trusting the dyad.
         """
-        def _load_person(fpath: str) -> pd.DataFrame:
+        def _load_person(fpath: str, is_b: bool = False) -> pd.DataFrame:
             df = pd.read_csv(fpath, low_memory=False)
             df.columns = [c.strip() for c in df.columns]
             tcol = time_col or _detect_time_column(df)
@@ -536,10 +556,12 @@ class DataImporter:
             t = df[tcol].values.astype(float)
             if self.force_zero_start:
                 t = t - t[0]
+            if is_b and offset_b_sec is not None:
+                t = t + float(offset_b_sec)
             return pd.DataFrame({"time": t, "signal": df[scol].values.astype(float)})
 
-        df_a = _load_person(file_a).rename(columns={"signal": "person_a"})
-        df_b = _load_person(file_b).rename(columns={"signal": "person_b"})
+        df_a = _load_person(file_a, is_b=False).rename(columns={"signal": "person_a"})
+        df_b = _load_person(file_b, is_b=True).rename(columns={"signal": "person_b"})
 
         # Merge on nearest time (tolerance = 2 samples at default_hz)
         merged = pd.merge_asof(
