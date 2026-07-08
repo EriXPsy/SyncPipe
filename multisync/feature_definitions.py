@@ -401,6 +401,55 @@ REFERENCE_FEATURE: Tuple[str, ...] = (
 but does NOT enter multiplicity correction.  Singular (mean_synchrony)
 as of 2026-06-17."""
 
+
+# ---------------------------------------------------------------------------
+# Full feature set for reviewer-proof FDR (critique A, 2026-07-07)
+# ---------------------------------------------------------------------------
+# ALL_FEATURES is the complete set of 12 implemented features (the union of
+# every functional tier).  By default the L2 BH-FDR correction uses only the
+# pre-registered confirmatory family (FDR_FEATURES, n=3).  Passing
+# ``full_family_fdr=True`` enters ALL 12 features into a SINGLE BH-FDR step.
+#
+# This is the most CONSERVATIVE multiplicity correction possible (more tests
+# => stricter BH threshold), so it directly answers the "cherry-picking 3/12"
+# critique: if the pre-registered core survives even the all-features-inclusive
+# procedure, the result is robust to any family-selection objection.  The
+# primary manuscript endpoint remains FDR_FEATURES (pre-registered); the
+# full-family version is a supplementary, strictly-more-stringent check.
+
+ALL_FEATURES: Tuple[str, ...] = tuple(FEATURE_TIER.keys())
+"""Every implemented feature (Axis A functional tiers union).
+
+12 features: mean_synchrony (reference) + peak_amplitude, dwell_time,
+switching_rate (core) + onset_latency, rise_time, recovery_time,
+synchrony_entropy, bimodality_coefficient, fraction_above_threshold,
+first_peak_time, inter_peak_cv (conditional/exploratory).  Used by the
+``full_family_fdr`` option to enter all features into one BH-FDR step.
+"""
+
+
+def get_fdr_features(full_family_fdr: bool = False) -> List[str]:
+    """Return the feature set entered into the L2 between-condition BH-FDR.
+
+    Parameters
+    ----------
+    full_family_fdr : bool, default False
+        False (default) — the pre-registered confirmatory family
+        (``FDR_FEATURES``, n=3: peak_amplitude, dwell_time, switching_rate).
+        This is the primary manuscript endpoint.
+        True — all 12 implemented features (``ALL_FEATURES``) enter a single
+        BH-FDR step.  Strictly more conservative; used as a supplementary,
+        reviewer-proof check that the pre-registered core survives even the
+        most inclusive multiplicity correction.
+
+    Returns
+    -------
+    list of str
+        Feature names to pass as ``feature_cols`` to the L2 test / inference
+        pipeline.
+    """
+    return list(ALL_FEATURES) if full_family_fdr else list(FDR_FEATURES)
+
 # ---------------------------------------------------------------------------
 # Informational tier classification (secondary axis — organises Results)
 # ---------------------------------------------------------------------------
@@ -822,7 +871,18 @@ def _binarize_with_hysteresis(
     -------
     np.ndarray[bool]
         Boolean state array (``True`` = elevated).  NaN positions are
-        ``False``.
+        ``False``; the hysteresis memory is also reset at a NaN so that
+        the post-gap sample is evaluated from a clean baseline (a
+        discontinuity must not bridge two otherwise-separated runs).
+
+    Notes
+    -----
+    Prior to 2026-07-08 the ``hysteresis_delta > 0`` branch assigned
+    ``states[i] = state`` at NaN positions, i.e. it *bridged* the gap by
+    inheriting the previous run state.  That silently let a dwell/switch
+    run continue across an injected ``discontinuity_mask`` NaN, defeating
+    the whole point of the mask.  NaN positions are now hard ``False`` and
+    the hysteresis memory resets, exactly as the docstring promised.
     """
     finite = np.isfinite(wcc)
     n = wcc.shape[0]
@@ -838,7 +898,8 @@ def _binarize_with_hysteresis(
     state = False
     for i in range(n):
         if not finite[i]:
-            states[i] = state
+            states[i] = False
+            state = False  # reset hysteresis memory at the discontinuity
             continue
         if not state and wcc[i] >= enter:
             state = True
@@ -1413,6 +1474,8 @@ __all__ = [
     "FEATURE_TIER",
     "FDR_FEATURES",
     "REFERENCE_FEATURE",
+    "ALL_FEATURES",
+    "get_fdr_features",
     "CORE_FEATURES",
     "CONDITIONAL_FEATURES",
     # Informational tier (secondary classification)

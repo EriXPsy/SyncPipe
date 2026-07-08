@@ -105,6 +105,7 @@ class SynchronyDataset:
         self,
         dyad_id: str,
         modalities: Optional[Dict[str, pd.DataFrame]] = None,
+        discontinuity_mask: Optional[np.ndarray] = None,
     ) -> None:
         self.dyad_id = dyad_id
         self.modalities: Dict[str, pd.DataFrame] = {}
@@ -112,6 +113,15 @@ class SynchronyDataset:
         self._aligned: bool = False
         self._normalized: bool = False
         self.target_hz: float = 1.0
+        # Per-sample (signal-resolution) validity mask: True at samples
+        # internal to a single recording segment, False at segment seams.
+        # Consumed by the WCC engine to skip discontinuity-spanning windows.
+        # Set via Dyad(discontinuity_mask=...) or assigned directly.
+        self.discontinuity_mask: Optional[np.ndarray] = (
+            np.asarray(discontinuity_mask, dtype=bool)
+            if discontinuity_mask is not None
+            else None
+        )
 
         if modalities:
             for name, df in modalities.items():
@@ -294,6 +304,13 @@ class SynchronyDataset:
         n_samples = int(np.floor((t_max - t_min) * target_hz)) + 1
         common_time = np.linspace(t_min, t_max, n_samples)
 
+        # Capture original time axes BEFORE overwrite, so a discontinuity_mask
+        # (stored at the pre-align resolution) can be resampled to common_time.
+        orig_times = {
+            name: df["time"].values.astype(float)
+            for name, df in self.modalities.items()
+        }
+
         for name, df in self.modalities.items():
             cols = feat_cols[name]
             original_time = df["time"].values.astype(float)
@@ -323,6 +340,30 @@ class SynchronyDataset:
                 new_df[col] = interp_func(common_time)
 
             self.modalities[name] = new_df
+
+        # Resample discontinuity_mask (if present) to the new common_time via
+        # zero-order hold, so it stays aligned with the resampled modalities.
+        # A resampled sample inherits the validity of the source sample it
+        # falls on, conservatively invalidating windows near segment seams.
+        if getattr(self, "discontinuity_mask", None) is not None:
+            dm = np.asarray(self.discontinuity_mask, dtype=bool)
+            src_time = None
+            for name, ot in orig_times.items():
+                if len(ot) == len(dm):
+                    src_time = ot
+                    break
+            if src_time is not None and len(src_time) == len(dm):
+                if len(common_time) != len(dm):
+                    idx = np.searchsorted(src_time, common_time, side="right") - 1
+                    idx = np.clip(idx, 0, len(dm) - 1)
+                    self.discontinuity_mask = dm[idx]
+                # else: same length, already aligned — keep as-is.
+            else:
+                logger.warning(
+                    "align(): discontinuity_mask length %d does not match any "
+                    "modality time axis; leaving mask un-resampled.",
+                    len(dm),
+                )
 
         self._aligned = True
         return self

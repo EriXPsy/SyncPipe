@@ -25,6 +25,7 @@ from .feature_definitions import (
     REFERENCE_FEATURE,
     CORE_FEATURES,
     CONDITIONAL_FEATURES,
+    get_fdr_features as _ssot_get_fdr_features,
 )
 
 
@@ -255,9 +256,18 @@ def explain_feature(name: str) -> Optional[FeatureInfo]:
     return _FEATURE_CATALOG.get(name)
 
 
-def get_fdr_features() -> List[str]:
-    """Return the list of features included in the FDR family."""
-    return list(FDR_FEATURES)
+def get_fdr_features(full_family_fdr: bool = False) -> List[str]:
+    """Return the list of features included in the L2 BH-FDR correction.
+
+    Parameters
+    ----------
+    full_family_fdr : bool, default False
+        Forwarded to the SSoT ``get_fdr_features``.  False returns the
+        pre-registered confirmatory family (FDR_FEATURES, n=3); True returns
+        all 12 implemented features for a strictly-more-conservative,
+        reviewer-proof single BH-FDR step.
+    """
+    return _ssot_get_fdr_features(full_family_fdr)
 
 
 def get_core_features() -> List[str]:

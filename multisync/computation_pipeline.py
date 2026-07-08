@@ -15,6 +15,8 @@ import pandas as pd
 
 from .dynamic_features import (
     sliding_window_wcc,
+    sliding_window_wcc_masked,
+    _apply_discontinuity_mask,
     extract_dynamic_features,
 )
 from .importer import DataImporter
@@ -75,6 +77,11 @@ class ComputationPipeline:
         self._wcc: Optional[np.ndarray] = None
         self._features: Optional[Dict[str, float]] = None
         self._metadata: Dict[str, object] = {}
+        # Per-sample segment-boundary mask (True = internal to a segment).
+        # When set, cross-boundary coupling windows are NaN'd so features
+        # and the surrogate null skip them.  Signal-resolution (same length
+        # as the loaded signals); None means "no boundaries to gate".
+        self._discontinuity_mask: Optional[np.ndarray] = None
 
     # ---- data loading ----------------------------------------------------
 
@@ -83,6 +90,7 @@ class ComputationPipeline:
         sig_a: np.ndarray,
         sig_b: np.ndarray,
         label: Optional[str] = None,
+        discontinuity_mask: Optional[np.ndarray] = None,
         **metadata,
     ):
         """Load two pre-processed 1-D signal arrays.
@@ -93,11 +101,18 @@ class ComputationPipeline:
             Two aligned time series (e.g. Person A and Person B EDA).
         label : str or None
             Optional label (e.g. condition name).
+        discontinuity_mask : np.ndarray of bool or None
+            Per-sample validity flag marking segment boundaries / seams
+            (True = internal to a segment, False = at a discontinuity).
+            When provided, coupling windows straddling a boundary are set
+            NaN.  Must be at the same sampling resolution as ``sig_a`` /
+            ``sig_b`` (signal-level).
         **metadata
             Arbitrary key-value metadata stored with the results.
         """
         self._sig_a = np.asarray(sig_a, dtype=float)
         self._sig_b = np.asarray(sig_b, dtype=float)
+        self._discontinuity_mask = discontinuity_mask
         self._metadata = {"label": label, **metadata}
         self._wcc = None
         self._features = None
@@ -188,6 +203,14 @@ class ComputationPipeline:
             self._wcc = sliding_window_wcc(
                 sig_a_n, sig_b_n, self.window_size, hz=self.hz,
                 window_type=self.window_type,
+            )
+
+        # Gate out coupling windows that straddle a segment-boundary seam.
+        # NaN windows are skipped by feature extraction (isfinite) and by the
+        # surrogate nulls, keeping observed features and null consistent.
+        if self._discontinuity_mask is not None and self.backend == "wcc":
+            self._wcc = _apply_discontinuity_mask(
+                self._wcc, self._discontinuity_mask, self.window_size
             )
 
         return self._wcc

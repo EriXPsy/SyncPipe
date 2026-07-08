@@ -29,7 +29,7 @@ from .design_controls import (
     synchrony_existence_audit,
 )
 from .dynamic_features import sliding_window_wcc, wcc_surrogate_test
-from .feature_definitions import FDR_FEATURES, ONSET_THRESHOLD, extract_features
+from .feature_definitions import FDR_FEATURES, ONSET_THRESHOLD, extract_features, get_fdr_features
 from .validation.across_stim_shuffle import across_stim_shuffle_test
 from .validation.l2_between_condition import (
     between_condition_fdr,
@@ -98,6 +98,7 @@ class InferencePipeline:
         wcc_window_size: int,
         labels: Optional[Sequence[str]] = None,
         window_type: str = "rect",
+        discontinuity_mask: Optional[Dict[str, np.ndarray]] = None,
     ) -> Dict[str, Any]:
         """Step 1: test whether each pair shows synchrony above signal-level null.
 
@@ -105,6 +106,15 @@ class InferencePipeline:
         interpersonal coupling.  Shared-stimulus and co-presence alternatives
         are evaluated in :meth:`run_design_control_audit` and
         :meth:`run_across_stimulus_shuffle_audit`.
+
+        Parameters
+        ----------
+        raw_signals : dict
+            Mapping from observation label -> (sig_a, sig_b).
+        discontinuity_mask : dict or None
+            Optional mapping from the same labels -> per-sample boundary mask
+            (signal-resolution). When provided, each pair's existence audit
+            gates out coupling windows straddling a segment seam.
         """
         selected = list(labels) if labels is not None else list(raw_signals.keys())
         results: Dict[str, Any] = {}
@@ -112,6 +122,11 @@ class InferencePipeline:
             if label not in raw_signals:
                 continue
             sig_a, sig_b = raw_signals[label]
+            dm = (
+                discontinuity_mask.get(label)
+                if discontinuity_mask is not None
+                else None
+            )
             results[label] = synchrony_existence_audit(
                 sig_a,
                 sig_b,
@@ -120,6 +135,7 @@ class InferencePipeline:
                 surrogate_n=self.surrogate_n,
                 seed=self.seed,
                 window_type=window_type,
+                discontinuity_mask=dm,
             )
         self._synchrony_existence_results = results
         return {
@@ -219,6 +235,7 @@ class InferencePipeline:
         fdr_alpha: float = 0.05,
         n_permutations: int = 10000,
         contrast: Optional[Tuple[str, str]] = None,
+        full_family_fdr: bool = False,
     ) -> Dict[str, Any]:
         """Step 3: test whether features differentiate experimental conditions."""
         result = self.test_l2_condition(
@@ -228,6 +245,7 @@ class InferencePipeline:
             fdr_alpha=fdr_alpha,
             n_permutations=n_permutations,
             contrast=contrast,
+            full_family_fdr=full_family_fdr,
         )
         self._group_inference_results = result
         return result
@@ -245,6 +263,8 @@ class InferencePipeline:
         fdr_alpha: float = 0.05,
         n_permutations: int = 10000,
         window_type: str = "rect",
+        full_family_fdr: bool = False,
+        discontinuity_mask: Optional[Dict[str, np.ndarray]] = None,
     ) -> Dict[str, Any]:
         """Run the recommended v1 evidence chain end-to-end.
 
@@ -252,9 +272,17 @@ class InferencePipeline:
         1. synchrony-existence audit (signal-level IAAFT)
         2. design-control audit (pseudo-pair/time-shift; optional across-stim)
         3. group condition inference (paired permutation + FDR)
+
+        Parameters
+        ----------
+        discontinuity_mask : dict or None
+            Optional label -> per-sample boundary mask (signal-resolution).
+            Forwarded to the synchrony-existence audit so L0 gating respects
+            segment seams (see ``discontinuity_mask`` on the audit for detail).
         """
         existence = self.run_synchrony_existence_audit(
             raw_signals, wcc_window_size=wcc_window_size, window_type=window_type,
+            discontinuity_mask=discontinuity_mask,
         )
         design = None
         if design_signal_pairs is not None:
@@ -272,6 +300,7 @@ class InferencePipeline:
             feature_cols=feature_cols,
             fdr_alpha=fdr_alpha,
             n_permutations=n_permutations,
+            full_family_fdr=full_family_fdr,
         )
         return {
             "evidence_chain_version": "v1",
@@ -325,6 +354,7 @@ class InferencePipeline:
         wcc_window_size: int,
         label: str = "",
         window_type: str = "rect",
+        discontinuity_mask: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         """Run L0 signal-level IAAFT surrogate test.
 
@@ -344,6 +374,10 @@ class InferencePipeline:
             WCC window size in samples (needed for correct recomputation).
         label : str
             Optional label for results tracking.
+        discontinuity_mask : np.ndarray of bool or None
+            Per-sample boundary mask (signal-resolution). Forwarded to the
+            L0 signal-level null so recomputed surrogate WCC NaN out windows
+            straddling a seam, matching the observed WCC gating.
 
         Returns
         -------
@@ -358,6 +392,7 @@ class InferencePipeline:
             wcc_window_size=wcc_window_size,
             wcc_window_sec=self.wcc_window_sec,
             window_type=window_type,
+            discontinuity_mask=discontinuity_mask,
         )
         result["label"] = label
         self._l0_results[label] = result
@@ -420,6 +455,7 @@ class InferencePipeline:
         fdr_alpha: float = 0.05,
         n_permutations: int = 10000,
         contrast: Optional[Tuple[str, str]] = None,
+        full_family_fdr: bool = False,
     ) -> Dict[str, Any]:
         """Run L2 between-condition permutation test with BH-FDR correction.
 
@@ -441,19 +477,26 @@ class InferencePipeline:
             Column name for dyad/pair identifiers.
         feature_cols : list of str or None
             Features to test. Default: the FDR-family features (FDR_FEATURES).
+            If ``feature_cols`` is None and ``full_family_fdr=True``, all 12
+            implemented features enter a single BH-FDR step (strictly more
+            conservative; reviewer-proof against "cherry-picking 3/12").
         fdr_alpha : float
             BH-FDR significance threshold (default 0.05).
         n_permutations : int
             Number of permutation iterations.
         contrast : tuple of (cond_a, cond_b) or None
             Specific contrast to test. If None, tests all pairwise.
+        full_family_fdr : bool, default False
+            When True and ``feature_cols`` is None, test the full 12-feature
+            family under one BH-FDR correction.  Has no effect if
+            ``feature_cols`` is supplied explicitly.
 
         Returns
         -------
         dict with per-feature p_raw, p_fdr, significant_05, effect_size.
         """
         if feature_cols is None:
-            feature_cols = list(FDR_FEATURES)
+            feature_cols = get_fdr_features(full_family_fdr)
 
         self._l2_results = between_condition_fdr(
             self.df,
@@ -475,6 +518,7 @@ class InferencePipeline:
         fdr_alpha: float = 0.05,
         n_permutations: int = 10000,
         window_type: str = "rect",
+        full_family_fdr: bool = False,
     ) -> Dict[str, Any]:
         """Run L2 tests separately for each modality.
 
@@ -484,7 +528,7 @@ class InferencePipeline:
         Returns dict mapping modality → L2 results.
         """
         if feature_cols is None:
-            feature_cols = list(FDR_FEATURES)
+            feature_cols = get_fdr_features(full_family_fdr)
 
         return between_condition_by_modality(
             self.df,
@@ -509,6 +553,8 @@ class InferencePipeline:
         fdr_alpha: float = 0.05,
         n_permutations: int = 10000,
         window_type: str = "rect",
+        full_family_fdr: bool = False,
+        discontinuity_mask: Optional[Dict[str, np.ndarray]] = None,
     ) -> Dict[str, Any]:
         """Run the complete L0 → L1 → L2 cascade.
 
@@ -548,6 +594,11 @@ class InferencePipeline:
                     wcc_window_size,
                     label=label,
                     window_type=window_type,
+                    discontinuity_mask=(
+                        discontinuity_mask.get(label)
+                        if discontinuity_mask is not None
+                        else None
+                    ),
                 )
                 l0_total += 1
                 pfs0 = l0_result.get("per_feature_significant", {})
@@ -571,6 +622,7 @@ class InferencePipeline:
             feature_cols=feature_cols,
             fdr_alpha=fdr_alpha,
             n_permutations=n_permutations,
+            full_family_fdr=full_family_fdr,
         )
 
         return {
@@ -631,7 +683,8 @@ class InferencePipeline:
         if self._l2_results:
             n_sig = self._l2_results.get("n_significant", 0)
             n_total = self._l2_results.get("n_tested", len(FDR_FEATURES))
-            lines.append(f"\nL2 (between-condition + BH-FDR): {n_sig}/{n_total} significant")
+            fam = "all-features" if n_total > len(FDR_FEATURES) else "FDR-family"
+            lines.append(f"\nL2 (between-condition + BH-FDR, {fam}): {n_sig}/{n_total} significant")
             lines.append("  Method: dyad-paired permutation + BH-FDR correction")
             lines.append("  Significant features:")
             for feat in self._l2_results.get("per_feature", []):
@@ -702,6 +755,11 @@ def _build_cascade_summary(
     l0_rate = l0_pass / max(l0_total, 1)
     l1_rate = l1_pass / max(l1_total, 1)
     n_l2_sig = l2_results.get("n_significant", 0)
+    n_l2_total = l2_results.get("n_tested", len(FDR_FEATURES))
+    # Family label: the pre-registered 3-feature FDR family is the primary
+    # endpoint; full_family_fdr=True enters all 12 features into one BH-FDR
+    # step (reviewer-proof against "cherry-picking 3/12").
+    fam = "all-features" if n_l2_total > len(FDR_FEATURES) else "FDR-family"
 
     parts = []
 
@@ -740,17 +798,19 @@ def _build_cascade_summary(
 
     if n_l2_sig >= 4:
         parts.append(
-            f"L2: {n_l2_sig}/{len(FDR_FEATURES)} FDR features are condition-differentiated. "
+            f"L2 (between-condition BH-FDR, {fam}): {n_l2_sig}/{n_l2_total} features "
+            "are condition-differentiated. "
             "Strong evidence that synchrony is modulated by task context."
         )
     elif n_l2_sig > 0:
         parts.append(
-            f"L2: {n_l2_sig}/{len(FDR_FEATURES)} FDR features are condition-differentiated. "
+            f"L2 (between-condition BH-FDR, {fam}): {n_l2_sig}/{n_l2_total} features "
+            "are condition-differentiated. "
             "Selective modulation evidence."
         )
     else:
         parts.append(
-            "L2: No features survived BH-FDR. "
+            f"L2 (between-condition BH-FDR, {fam}): No features survived BH-FDR. "
             "Synchrony may exist (L0) but not vary by condition."
         )
 

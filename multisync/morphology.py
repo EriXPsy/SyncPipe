@@ -597,10 +597,37 @@ class MorphologyAnalyzer:
         """Return shape descriptors + SyncPipe features per trace."""
         return morphology_feature_table(self.wcc_traces, hz=self.hz, prominence=prominence)
 
-    def diagnostics(self, feature_cols: Optional[List[str]] = None) -> Dict[str, object]:
+    def diagnostics(
+        self,
+        feature_cols: Optional[List[str]] = None,
+        y_external: Optional[np.ndarray] = None,
+    ) -> Dict[str, object]:
         """Collinearity, incremental value, and matched-mean contrast.
 
-        Requires ``run_method1`` to have been called (uses Method 1 labels as y).
+        Parameters
+        ----------
+        feature_cols : list of str or None
+            Features to include. Defaults to the full SyncPipe feature set.
+        y_external : array-like or None
+            **External** class / condition labels aligned row-for-row with the
+            feature table (e.g. the experimental condition each trace belongs
+            to). When provided, ``incremental_value`` and
+            ``matched_mean_contrast`` are computed against this honest
+            ground-truth target.
+
+            When ``None`` (the default), these two metrics are **NOT**
+            computed: predicting the data-derived Method-1 cluster labels
+            would be *circular* (critique B, 2026-07-07) — the clusters are
+            themselves a function of the shape descriptors, so "predicting"
+            them validates nothing external. In that case the honest validity
+            metric is :meth:`ari_vs_condition`, which compares cluster
+            structure to experimenter-provided conditions.
+
+        Returns
+        -------
+        dict with keys ``correlation``, ``vif``, ``notes``, and (only when
+        ``y_external`` is given) ``incremental_drop_meansync``,
+        ``incremental_keep_meansync``, ``matched_mean_contrast``.
         """
         if self._method1 is None or self._method1["labels"] is None or len(self._method1["labels"]) == 0:
             raise ValueError("Call run_method1() before diagnostics().")
@@ -609,24 +636,80 @@ class MorphologyAnalyzer:
             feature_cols = ["mean_synchrony", "peak_amplitude", "dwell_time", "switching_rate",
                              "bimodality_coefficient", "synchrony_entropy",
                              "onset_latency", "rise_time", "recovery_time"]
-        y = self._method1["labels"]
         corr, vif = collinearity_report(feat_df, feature_cols)
-        inc_drop, meta_drop = incremental_value(feat_df, y, feature_cols, baseline_drop_meansync=True)
-        inc_keep, meta_keep = incremental_value(feat_df, y, feature_cols, baseline_drop_meansync=False)
-        mm = matched_mean_contrast(feat_df, y, feature_cols)
-        return {
-            "correlation": corr,
-            "vif": vif,
-            "incremental_drop_meansync": (inc_drop, meta_drop),
-            "incremental_keep_meansync": (inc_keep, meta_keep),
-            "matched_mean_contrast": mm,
-        }
+        out: Dict[str, object] = {"correlation": corr, "vif": vif, "notes": []}
+        if y_external is not None:
+            y = np.asarray(y_external)
+            inc_drop, meta_drop = incremental_value(feat_df, y, feature_cols, baseline_drop_meansync=True)
+            inc_keep, meta_keep = incremental_value(feat_df, y, feature_cols, baseline_drop_meansync=False)
+            mm = matched_mean_contrast(feat_df, y, feature_cols)
+            out["incremental_drop_meansync"] = (inc_drop, meta_drop)
+            out["incremental_keep_meansync"] = (inc_keep, meta_keep)
+            out["matched_mean_contrast"] = mm
+        else:
+            out["notes"].append(
+                "incremental_value / matched_mean_contrast OMITTED: they are "
+                "CIRCULAR when computed against data-derived cluster labels. "
+                "Provide y_external (external condition labels) to compute them "
+                "as honest validity metrics, or use ari_vs_condition()."
+            )
+        return out
 
-    def to_report(self, feature_cols: Optional[List[str]] = None) -> Dict[str, object]:
+    def ari_vs_condition(self, condition_labels: np.ndarray) -> Dict[str, object]:
+        """External validity: ARI between Method-1 clusters and true conditions.
+
+        Unlike :meth:`diagnostics`' ``incremental_value`` (which predicts the
+        data-derived cluster labels and is therefore circular), this compares
+        the discovered cluster structure to **external** condition labels
+        supplied by the experimenter.  A high ARI means the morphology
+        clusters recover the experimental manipulation — the honest validity
+        signal for morphology analyses (critique B, 2026-07-07).
+
+        Parameters
+        ----------
+        condition_labels : array-like
+            One condition label per trace, aligned row-for-row with the
+            traces passed to ``__init__``.
+
+        Returns
+        -------
+        dict with key ``method1_ari_vs_condition`` (float) and, when Method 2
+        has been run, ``method2_n_episodes``.
+        """
+        if self._method1 is None or len(self._method1.get("labels", [])) == 0:
+            raise ValueError("Call run_method1() before ari_vs_condition().")
+        conds = np.asarray(condition_labels)
+        labels = np.asarray(self._method1["labels"])
+        if len(conds) != len(labels):
+            raise ValueError(
+                f"condition_labels length {len(conds)} != n_traces {len(labels)}"
+            )
+        result: Dict[str, object] = {
+            "method1_ari_vs_condition": float(adjusted_rand_score(labels, conds))
+        }
+        if self._method2 is not None and "n_episodes" in self._method2:
+            result["method2_n_episodes"] = int(self._method2.get("n_episodes", 0))
+        return result
+
+    def to_report(
+        self,
+        feature_cols: Optional[List[str]] = None,
+        condition_labels: Optional[np.ndarray] = None,
+    ) -> Dict[str, object]:
         """Return a JSON-serializable morphology report dictionary.
 
         Combines Method 1, Method 2, feature table, and diagnostics into a
         single structure suitable for JSON export or downstream reporting.
+
+        Parameters
+        ----------
+        feature_cols : list of str or None
+            Features for the collinearity / incremental-value diagnostics.
+        condition_labels : array-like or None
+            External condition labels (one per trace). When provided, the
+            report includes ``ari_vs_condition`` — the honest external validity
+            metric. Without it, the circular ``incremental_value`` metrics are
+            omitted (see :meth:`diagnostics`).
         """
         if self._method1 is None:
             raise ValueError("Call run_method1() before to_report().")
@@ -641,6 +724,21 @@ class MorphologyAnalyzer:
         feat_df_clustered = feat_df.copy()
         feat_df_clustered["cluster"] = labels
         cluster_means = feat_df_clustered.groupby("cluster").mean()
+
+        diag_report: Dict[str, object] = {
+            "correlation": _df_to_dict(diag["correlation"]),
+            "vif": _series_to_dict(diag["vif"]),
+        }
+        if "incremental_drop_meansync" in diag:
+            diag_report["incremental_drop_meansync"] = {
+                "table": _df_to_dict(diag["incremental_drop_meansync"][0]),
+                "meta": _to_json_safe(diag["incremental_drop_meansync"][1]),
+            }
+            diag_report["incremental_keep_meansync"] = {
+                "table": _df_to_dict(diag["incremental_keep_meansync"][0]),
+                "meta": _to_json_safe(diag["incremental_keep_meansync"][1]),
+            }
+            diag_report["matched_mean_contrast"] = _df_to_dict(diag["matched_mean_contrast"])
 
         report = {
             "n_traces": len(self.wcc_traces),
@@ -661,33 +759,33 @@ class MorphologyAnalyzer:
                 "waveform_archetypes": _to_json_safe(self._method2.get("waveform_archetypes")),
                 "feature_profiles": _df_to_dict(self._method2.get("feature_profiles")),
             },
-            "diagnostics": {
-                "correlation": _df_to_dict(diag["correlation"]),
-                "vif": _series_to_dict(diag["vif"]),
-                "incremental_drop_meansync": {
-                    "table": _df_to_dict(diag["incremental_drop_meansync"][0]),
-                    "meta": _to_json_safe(diag["incremental_drop_meansync"][1]),
-                },
-                "incremental_keep_meansync": {
-                    "table": _df_to_dict(diag["incremental_keep_meansync"][0]),
-                    "meta": _to_json_safe(diag["incremental_keep_meansync"][1]),
-                },
-                "matched_mean_contrast": _df_to_dict(diag["matched_mean_contrast"]),
-            },
+            "diagnostics": diag_report,
             "notes": [
                 "All morphology analyses are EXPLORATORY in v1.0.",
                 "Cluster stability should be confirmed with bootstrap ARI before any confirmatory claim.",
                 "High-VIF features are redundant and should not be treated as independent tests.",
+                "incremental_value / matched_mean_contrast are CIRCULAR against data-derived "
+                "cluster labels and are omitted unless external condition labels are supplied "
+                "(critique B, 2026-07-07). The primary validity metric is ari_vs_condition.",
             ],
         }
+
+        if condition_labels is not None:
+            report["ari_vs_condition"] = _to_json_safe(self.ari_vs_condition(condition_labels))
+
         return report
 
-    def write_report(self, path: Union[str, Path], feature_cols: Optional[List[str]] = None) -> None:
+    def write_report(
+        self,
+        path: Union[str, Path],
+        feature_cols: Optional[List[str]] = None,
+        condition_labels: Optional[np.ndarray] = None,
+    ) -> None:
         """Write a JSON morphology report to ``path``."""
         import json
 
         path = Path(path)
-        report = self.to_report(feature_cols=feature_cols)
+        report = self.to_report(feature_cols=feature_cols, condition_labels=condition_labels)
         path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
 
 

@@ -195,6 +195,95 @@ def sliding_window_wcc(
     return wcc_full
 
 
+def _apply_discontinuity_mask(
+    wcc: np.ndarray,
+    discontinuity_mask: Optional[np.ndarray],
+    window_size: Optional[int] = None,
+) -> np.ndarray:
+    """Invalidate WCC samples that span a signal-level discontinuity.
+
+    Real concatenated recordings (e.g. Lerique rest1/rest_postblock/trials
+    seams) contain segment boundaries where the cross-correlation is
+    meaningless.  ``discontinuity_mask`` marks, per *signal* sample, whether
+    that sample is internal to a single segment (True) or sits on a boundary
+    (False).  A WCC window is invalid iff it *contains* any boundary sample,
+    so we set those WCC positions to NaN — downstream feature extraction and
+    surrogate nulls already skip non-finite WCC, so the boundary is excluded
+    uniformly.
+
+    Parameters
+    ----------
+    wcc : np.ndarray
+        WCC time series.
+    discontinuity_mask : np.ndarray or None
+        If None, ``wcc`` is returned unchanged.
+        If length == len(wcc) + window_size - 1 (signal-resolution): a window
+        ``i`` is invalid iff any of ``mask[i:i+window_size]`` is False.
+        If length == len(wcc) (WCC-resolution): already window-level validity
+        flags (True = valid); invalid positions become NaN.
+    window_size : int or None
+        Required when ``discontinuity_mask`` is signal-resolution.
+
+    Returns
+    -------
+    np.ndarray
+        WCC with discontinuity-spanning windows set to NaN.
+    """
+    if discontinuity_mask is None:
+        return wcc
+    wcc = np.asarray(wcc, dtype=float)
+    dm = np.asarray(discontinuity_mask)
+    if dm.dtype != bool:
+        dm = dm.astype(bool)
+
+    if len(dm) == len(wcc):
+        # Already WCC-resolution validity flags.
+        invalid = ~dm
+    elif window_size is not None and len(dm) == len(wcc) + window_size - 1:
+        # Signal-resolution: a window is invalid if it contains any False.
+        dm_int = dm.astype(np.int8)
+        csum = np.concatenate([[0], np.cumsum(dm_int)])
+        win_sum = csum[window_size:] - csum[:-window_size]  # length == len(wcc)
+        invalid = win_sum < window_size
+    else:
+        logger.warning(
+            "_apply_discontinuity_mask: mask length %d incompatible with "
+            "wcc length %d (window_size=%s); skipping mask.",
+            len(dm), len(wcc), window_size,
+        )
+        return wcc
+
+    wcc = wcc.copy()
+    wcc[invalid] = np.nan
+    return wcc
+
+
+def sliding_window_wcc_masked(
+    x: np.ndarray,
+    y: np.ndarray,
+    window_size: int,
+    hz: float = 1.0,
+    lag_samples: int = 0,
+    step_samples: int = 0,
+    min_valid_ratio: float = 0.5,
+    window_type: str = "rect",
+    discontinuity_mask: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """sliding_window_wcc with discontinuity-boundary gating.
+
+    Identical to :func:`sliding_window_wcc`, but windows whose span contains a
+    segment discontinuity (per ``discontinuity_mask``) are set to NaN so
+    downstream feature extraction and surrogate nulls skip them.  See
+    :func:`_apply_discontinuity_mask` for mask semantics.
+    """
+    wcc = sliding_window_wcc(
+        x, y, window_size, hz=hz, lag_samples=lag_samples,
+        step_samples=step_samples, min_valid_ratio=min_valid_ratio,
+        window_type=window_type,
+    )
+    return _apply_discontinuity_mask(wcc, discontinuity_mask, window_size)
+
+
 def _sliding_window_wcc_cumsum(
     x: np.ndarray,
     y: np.ndarray,
@@ -416,6 +505,7 @@ def _signal_level_surrogate_test(
     seed: int = 42,
     wcc_window_size: Optional[int] = None,
     window_type: str = "rect",
+    discontinuity_mask: Optional[np.ndarray] = None,
 ) -> Dict[str, Any]:
     """Signal-level IAAFT null for L0 features.
 
@@ -516,6 +606,10 @@ def _signal_level_surrogate_test(
         A_s = iaaft_surrogate(sig_A, rng=rng)
         B_s = iaaft_surrogate(sig_B, rng=rng)
         wcc_s = sliding_window_wcc(A_s, B_s, window_size=wcc_window_size, hz=hz, window_type=window_type)
+        # Gate the SAME discontinuity windows as the observed WCC so the null
+        # distribution is computed over an identical set of valid windows.
+        # Without this, boundary windows inflate the null and bias p-values.
+        wcc_s = _apply_discontinuity_mask(wcc_s, discontinuity_mask, wcc_window_size)
         wcc_s_valid = wcc_s[np.isfinite(wcc_s)]
         if len(wcc_s_valid) < 10:
             continue  # null_mean[i]/null_peak[i]/null_bc[i] remain NaN
@@ -754,6 +848,7 @@ def wcc_surrogate_test(
     null_model: str = "iaaft",
     block_size: Optional[int] = None,
     threshold: float = ONSET_THRESHOLD,
+    discontinuity_mask: Optional[np.ndarray] = None,
 ) -> Dict[str, Any]:
     """
     Test significance of WCC features using surrogate data.
@@ -820,6 +915,7 @@ def wcc_surrogate_test(
             seed=seed,
             wcc_window_size=wcc_window_size,
             window_type=window_type,
+            discontinuity_mask=discontinuity_mask,
         )
     else:
         # WCC-LEVEL null (correct for L1 features)
@@ -855,6 +951,7 @@ def compute_surrogate_threshold_from_signals(
     surrogate_n: int = 200,
     percentile: float = SURROGATE_THRESHOLD_PERCENTILE,
     seed: int = 42,
+    discontinuity_mask: Optional[np.ndarray] = None,
 ) -> Tuple[float, bool]:
     """Compute a per-dyad surrogate-derived onset threshold from raw signals.
 
@@ -904,6 +1001,9 @@ def compute_surrogate_threshold_from_signals(
         a_surr = iaaft_surrogate(sig_a, rng)
         b_surr = iaaft_surrogate(sig_b, rng)
         wcc_s = sliding_window_wcc(a_surr, b_surr, wcc_window_size, hz)
+        # Exclude the same boundary windows as the observed WCC so the
+        # surrogate-derived onset threshold is computed over valid windows.
+        wcc_s = _apply_discontinuity_mask(wcc_s, discontinuity_mask, wcc_window_size)
         surrogate_wccs.append(wcc_s)
 
     surrogate_matrix = np.vstack(surrogate_wccs)  # (surrogate_n, n_timepoints)
@@ -1033,6 +1133,7 @@ def extract_features_all_pairs(
     use_surrogate_threshold: bool = True,
     surrogate_n: int = 200,
     surrogate_seed: int = 42,
+    discontinuity_mask: Optional[np.ndarray] = None,
 ) -> Tuple[Dict[str, DynamicFeatures], Dict[str, Dict[str, Any]]]:
     """
     Compute WCC + dynamic features for all modality pairs.
@@ -1062,6 +1163,10 @@ def extract_features_all_pairs(
         Number of IAAFT surrogates for threshold computation (default 200).
     surrogate_seed : int
         RNG seed for surrogate threshold reproducibility.
+    discontinuity_mask : np.ndarray or None
+        Per-sample validity mask (True = internal to a segment). Windows
+        spanning a discontinuity are set NaN in the WCC so features skip
+        them. If None, read from ``dataset.discontinuity_mask``.
 
     Returns
     -------
@@ -1075,6 +1180,9 @@ def extract_features_all_pairs(
     names = dataset.modality_names
     results: Dict[str, DynamicFeatures] = {}
     threshold_meta: Dict[str, Dict[str, Any]] = {}
+    dm = discontinuity_mask if discontinuity_mask is not None else getattr(
+        dataset, "discontinuity_mask", None
+    )
 
     for i, name_a in enumerate(names):
         for name_b in names[i + 1:]:
@@ -1095,6 +1203,7 @@ def extract_features_all_pairs(
                             wcc_window_size=window_size,
                             surrogate_n=surrogate_n,
                             seed=surrogate_seed,
+                            discontinuity_mask=dm,
                         )
                         threshold_meta[key] = {
                             "threshold": thr,
@@ -1117,7 +1226,9 @@ def extract_features_all_pairs(
                             "is_surrogate_derived": False,
                         }
 
-                    wcc = sliding_window_wcc(x, y, window_size, hz)
+                    wcc = sliding_window_wcc_masked(
+                        x, y, window_size, hz, discontinuity_mask=dm
+                    )
                     feat = extract_dynamic_features(
                         wcc, hz, thr, onset_k,
                         wcc_window_sec=wcc_window_sec,
@@ -1138,6 +1249,7 @@ def extract_features_segmented(
     use_surrogate_threshold: bool = True,
     surrogate_n: int = 200,
     surrogate_seed: int = 42,
+    discontinuity_mask: Optional[np.ndarray] = None,
 ) -> Tuple[Dict[str, Dict[str, DynamicFeatures]], Dict[str, Dict[str, Any]]]:
     """
     Compute WCC + dynamic features per CONTEXT segment.
@@ -1173,6 +1285,10 @@ def extract_features_segmented(
         Number of IAAFT surrogates (default 200).
     surrogate_seed : int
         RNG seed for threshold reproducibility.
+    discontinuity_mask : np.ndarray or None
+        Per-sample validity mask (True = internal to a segment). Windows
+        spanning a discontinuity are set NaN in the WCC so features skip
+        them. If None, read from ``dataset.discontinuity_mask``.
 
     Returns
     -------
@@ -1182,6 +1298,9 @@ def extract_features_segmented(
     feat_cols = dataset.feature_columns
     names = dataset.modality_names
     t_vec = dataset.time_vector()
+    dm = discontinuity_mask if discontinuity_mask is not None else getattr(
+        dataset, "discontinuity_mask", None
+    )
 
     # --- Pre-compute per-dyad thresholds from full-length signals ---
     dyad_thresholds: Dict[str, float] = {}
@@ -1203,6 +1322,7 @@ def extract_features_segmented(
                             wcc_window_size=window_size,
                             surrogate_n=surrogate_n,
                             seed=surrogate_seed,
+                            discontinuity_mask=dm,
                         )
                         dyad_thresholds[key] = thr
                         threshold_meta[key] = {
@@ -1264,6 +1384,8 @@ def extract_features_segmented(
 
                         x_seg = x[mask]
                         y_seg = y[mask]
+                        # Segment slice of the signal-resolution mask.
+                        seg_dm = dm[mask] if dm is not None else None
 
                         valid_ratio = (
                             ~np.isnan(x_seg) & ~np.isnan(y_seg)
@@ -1271,8 +1393,8 @@ def extract_features_segmented(
                         if valid_ratio < (1.0 - max_nan_ratio):
                             continue
 
-                        wcc = sliding_window_wcc(
-                            x_seg, y_seg, window_size, hz
+                        wcc = sliding_window_wcc_masked(
+                            x_seg, y_seg, window_size, hz, discontinuity_mask=seg_dm
                         )
                         if len(wcc) < 5:
                             continue

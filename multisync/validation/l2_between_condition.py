@@ -425,6 +425,7 @@ def between_condition_fdr(
 
     return {
         "per_feature": results,
+        "n_tested": len(results),
         "n_dyads": n_dyads,
         "n_significant": n_significant,
         "condition_a": condition_a,

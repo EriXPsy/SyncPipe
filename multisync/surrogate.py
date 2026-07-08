@@ -10,6 +10,8 @@ from typing import Optional
 
 import numpy as np
 
+from .feature_definitions import SWITCHING_HYSTERESIS_DELTA
+
 
 # ---------------------------------------------------------------------------
 # FT surrogate (Fourier-phase randomization)
@@ -115,7 +117,7 @@ def state_transition_shuffle_surrogate(
     wcc: np.ndarray,
     threshold: float,
     rng: np.random.Generator,
-    hysteresis_delta: float = 0.0,
+    hysteresis_delta: float = SWITCHING_HYSTERESIS_DELTA,
 ) -> np.ndarray:
     """Generate a state-transition shuffle surrogate.
 

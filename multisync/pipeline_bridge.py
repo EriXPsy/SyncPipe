@@ -66,6 +66,7 @@ class InferenceInputs:
     features_df: pd.DataFrame
     raw_signals: Dict[str, Tuple[np.ndarray, np.ndarray]]
     design_pairs: Dict[str, Tuple[np.ndarray, np.ndarray]]
+    discontinuity_mask: Optional[Dict[str, np.ndarray]] = None
     condition_col: str = "condition"
     dyad_col: str = "dyad_id"
 
@@ -138,6 +139,10 @@ def records_to_inference_inputs(
 
     frames: List[pd.DataFrame] = []
     raw_signals: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
+    # discontinuity_mask keyed identically to raw_signals: label ->
+    # per-sample boundary mask (signal-resolution, same length as the
+    # raw signals). Passed through so the inference L0 null can gate seams.
+    discontinuity_mask: Dict[str, Optional[np.ndarray]] = {}
     # design_pairs keyed by "<dyad>__<modality>" -> latest-seen (or chosen) condition
     design_pairs: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
 
@@ -155,6 +160,13 @@ def records_to_inference_inputs(
         cond = str(rec.condition)
         key = f"{dyad}__{mod}__{cond}"
 
+        # --- per-sample boundary mask (same resolution as the raw signals) ---
+        # Must be resolved BEFORE the computation pipeline consumes it.
+        rec_mask = getattr(rec, "discontinuity_mask", None)
+        discontinuity_mask[key] = (
+            np.asarray(rec_mask, dtype=bool) if rec_mask is not None else None
+        )
+
         # --- Stage 2: computation pipeline (load -> WCC -> features) ---
         pipe = ComputationPipeline(
             hz=float(getattr(rec, "target_hz", hz)),
@@ -162,7 +174,7 @@ def records_to_inference_inputs(
             onset_threshold=onset_threshold,
             window_type=window_type,
         )
-        pipe.load_signals(a, b)
+        pipe.load_signals(a, b, discontinuity_mask=discontinuity_mask[key])
         pipe.compute_wcc()
         pipe.extract_features()
         row = pipe.to_dataframe()
@@ -195,6 +207,7 @@ def records_to_inference_inputs(
         features_df=features_df,
         raw_signals=raw_signals,
         design_pairs=design_pairs,
+        discontinuity_mask=discontinuity_mask or None,
         condition_col=condition_col,
         dyad_col=dyad_col,
     )

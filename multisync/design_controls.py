@@ -20,7 +20,11 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
-from .dynamic_features import sliding_window_wcc, wcc_surrogate_test
+from .dynamic_features import (
+    sliding_window_wcc,
+    sliding_window_wcc_masked,
+    wcc_surrogate_test,
+)
 from .feature_definitions import ONSET_THRESHOLD, extract_features
 
 SignalPair = Tuple[np.ndarray, np.ndarray]
@@ -78,6 +82,7 @@ def synchrony_existence_audit(
     surrogate_n: int = 100,
     seed: int = 42,
     window_type: str = "rect",
+    discontinuity_mask: Optional[np.ndarray] = None,
 ) -> Dict[str, Any]:
     """Run signal-level IAAFT synchrony-existence audit for one pair.
 
@@ -85,6 +90,14 @@ def synchrony_existence_audit(
     features exceed what independently IAAFT-randomised signals can produce.
     It is necessary-but-not-sufficient evidence for interpersonal coupling.
     Shared-stimulus and co-presence alternatives require design controls.
+
+    Parameters
+    ----------
+    discontinuity_mask : np.ndarray of bool or None
+        Per-sample boundary mask (signal-resolution). When provided, the
+        observed WCC and the recomputed surrogate WCC both NaN out windows
+        straddling a seam, so the audit does not credit coupling that is an
+        artefact of segment concatenation.
     """
     a, b = _finite_pair(sig_a, sig_b)
     if a.size < window_size or b.size < window_size:
@@ -95,7 +108,10 @@ def synchrony_existence_audit(
             "reason": "signal_too_short",
             "n_samples": int(min(a.size, b.size)),
         }
-    wcc = sliding_window_wcc(a, b, window_size=window_size, hz=hz, window_type=window_type)
+    wcc = sliding_window_wcc_masked(
+        a, b, window_size=window_size, hz=hz, window_type=window_type,
+        discontinuity_mask=discontinuity_mask,
+    )
     result = wcc_surrogate_test(
         wcc,
         hz=hz,
@@ -105,6 +121,7 @@ def synchrony_existence_audit(
         wcc_window_size=window_size,
         wcc_window_sec=window_size / hz if hz > 0 else float(window_size),
         window_type=window_type,
+        discontinuity_mask=discontinuity_mask,
     )
     return {
         "audit": "synchrony_existence",

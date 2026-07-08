@@ -75,6 +75,80 @@ FEATURE_NAMES = [
 
 
 # ---------------------------------------------------------------------------
+# Nonlinear prediction baselines (critique E, 2026-07-07)
+# ---------------------------------------------------------------------------
+# The primary prediction model is linear LogisticRegression (L1).  A linear
+# delta_AUC of 0 is ambiguous: it could mean "no signal" OR "the signal is
+# real but nonlinear and the linear model is too dumb to catch it".  Running
+# RandomForest and SVM-RBF in parallel on the SAME folds resolves that
+# ambiguity: if linear delta ~ 0 but a nonlinear delta > 0, the pipeline
+# flags ``nonlinear_signal_present``.
+
+def _nonlinear_model_factories() -> Dict[str, Any]:
+    """Return {model_name: zero-arg factory} for the nonlinear baselines.
+
+    Imported lazily so the nonlinear path is opt-in and the module imports
+    even if sklearn's ensemble/svm extras are unavailable (the linear path
+    never touches them).
+    """
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.svm import SVC
+
+    return {
+        "random_forest": lambda: RandomForestClassifier(
+            n_estimators=200, random_state=42,
+            class_weight="balanced", n_jobs=1,
+        ),
+        "svm_rbf": lambda: SVC(
+            kernel="rbf", probability=True, random_state=42,
+            class_weight="balanced",
+        ),
+    }
+
+
+def _fit_score(clf, X_train, y_train, X_test, y_test) -> float:
+    """Fit a classifier on scaled train data and return ROC-AUC on test.
+
+    Returns NaN on any failure (so one bad model does not break the fold).
+    """
+    try:
+        clf.fit(X_train, y_train)
+        if hasattr(clf, "predict_proba"):
+            proba = clf.predict_proba(X_test)[:, 1]
+        else:
+            proba = clf.decision_function(X_test)
+        return float(roc_auc_score(y_test, proba))
+    except Exception:
+        return float("nan")
+
+
+def _aggregate_nonlinear(
+    model_aucs: Dict[str, List[float]],
+    model_deltas: Dict[str, List[float]],
+) -> Dict[str, Dict[str, Any]]:
+    """Aggregate per-fold AUCs/deltas of parallel models into a report dict."""
+    summary: Dict[str, Dict[str, Any]] = {}
+    for name in model_aucs:
+        if not model_aucs[name]:
+            continue
+        _ci = _bootstrap_ci(model_deltas[name])
+        summary[name] = {
+            "mean_auc": float(np.nanmean(model_aucs[name])),
+            "mean_delta_auc": float(np.nanmean(model_deltas[name])),
+            "delta_auc_ci": list(_ci) if _ci is not None else None,
+            "n_folds": int(sum(1 for a in model_aucs[name]
+                               if not (isinstance(a, float) and np.isnan(a)))),
+        }
+    return summary
+
+
+# Threshold: linear delta effectively zero (|delta| < EPS) while a nonlinear
+# model shows a meaningful positive incremental value.
+_NONLINEAR_SIGNAL_LINEAR_EPS = 0.02
+_NONLINEAR_SIGNAL_DELTA = 0.05
+
+
+# ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
 
@@ -175,6 +249,16 @@ class PredictionResult:
     warning: Optional[str] = None  # e.g. "leakage suspected"
     n_features_used: int = 0  # how many features were non-NaN
     diagnostics: Dict[str, Any] = field(default_factory=dict)  # VIF, multicollinearity, etc.
+    # --- Nonlinear prediction baselines (critique E, 2026-07-07) ---
+    # Parallel nonlinear models (RandomForest, SVM-RBF) run on the SAME
+    # CV folds as the primary linear LogisticRegression, so their delta_AUC
+    # is directly comparable.  If the linear model's delta_AUC is ~0 but a
+    # nonlinear model's delta_AUC > 0, ``nonlinear_signal_present`` is set:
+    # the signal is real but nonlinear, which a linear-only pipeline would
+    # have missed (distinguishing "no signal" from "model too dumb").
+    nonlinear: Dict[str, Any] = field(default_factory=dict)
+    nonlinear_signal_present: bool = False
+    nonlinear_note: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         d = {
@@ -193,6 +277,21 @@ class PredictionResult:
             "diagnostics": self.diagnostics,
             "folds": [f.to_dict() for f in self.folds],
         }
+        if self.nonlinear:
+            d["nonlinear"] = {
+                name: {
+                    "mean_auc": float(v["mean_auc"]),
+                    "mean_delta_auc": float(v["mean_delta_auc"]),
+                    "delta_auc_ci": (
+                        [float(v["delta_auc_ci"][0]), float(v["delta_auc_ci"][1])]
+                        if v.get("delta_auc_ci") is not None else None
+                    ),
+                    "n_folds": int(v["n_folds"]),
+                }
+                for name, v in self.nonlinear.items()
+            }
+            d["nonlinear_signal_present"] = bool(self.nonlinear_signal_present)
+            d["nonlinear_note"] = self.nonlinear_note
         if not np.isnan(self.mean_ablation_auc):
             d["mean_ablation_auc"] = float(self.mean_ablation_auc)
             d["mean_ablation_delta_auc"] = float(self.mean_ablation_delta_auc)
@@ -237,6 +336,9 @@ class PredictionResult:
             warning=d.get("warning"),
             n_features_used=int(d.get("n_features_used", 0)),
             diagnostics=d.get("diagnostics", {}),
+            nonlinear=d.get("nonlinear", {}),
+            nonlinear_signal_present=bool(d.get("nonlinear_signal_present", False)),
+            nonlinear_note=d.get("nonlinear_note", ""),
             folds=folds,
         )
 
@@ -629,6 +731,11 @@ def rolling_origin_cv(
     feature_coefs_sum = np.zeros(len(feature_names))
     valid_folds = 0
 
+    # Parallel nonlinear baselines (critique E): same folds, same scaling.
+    nl_factories = _nonlinear_model_factories()
+    nl_aucs: Dict[str, List[float]] = {name: [] for name in nl_factories}
+    nl_deltas: Dict[str, List[float]] = {name: [] for name in nl_factories}
+
     for fold_id, (train_idx, test_idx) in enumerate(tscv.split(X)):
         if len(test_idx) < 3:  # Lowered from 5 to accommodate smaller windows
             continue
@@ -656,6 +763,7 @@ def rolling_origin_cv(
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
+                random_state=42,
             )
             clf.fit(X_train_scaled, y_train)
             y_prob = clf.predict_proba(X_test_scaled)[:, 1]
@@ -707,6 +815,7 @@ def rolling_origin_cv(
                 C=1e12,  # effectively no regularization
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
+                random_state=42,
             )
             clf_ar.fit(X_train_ar_scaled, y_train)
             ar_auc = roc_auc_score(
@@ -716,6 +825,18 @@ def rolling_origin_cv(
             pass  # mean_synchrony unavailable — fall back to naive baseline
         except Exception:
             ar_auc = 0.5
+
+        # --- Parallel nonlinear baselines (critique E) ---
+        # Score RandomForest / SVM-RBF on the SAME scaled train/test split so
+        # their delta_AUC is directly comparable to the linear model. A NaN
+        # AUC (failed fit) is simply dropped from that model's aggregation.
+        base_ref = max(baseline_auc, ar_auc)
+        nl_aucs.setdefault("linear_logreg", []).append(dynamic_auc)
+        nl_deltas.setdefault("linear_logreg", []).append(dynamic_auc - base_ref)
+        for _n, _factory in nl_factories.items():
+            _mauc = _fit_score(_factory(), X_train_scaled, y_train, X_test_scaled, y_test)
+            nl_aucs[_n].append(_mauc)
+            nl_deltas[_n].append(_mauc - base_ref)
 
         folds.append(FoldResult(
             fold_id=fold_id,
@@ -751,6 +872,29 @@ def rolling_origin_cv(
         feature_names[i]: float(avg_coefs[i]) for i in range(len(feature_names))
     }
 
+    # --- Nonlinear baseline aggregation (critique E) ---
+    nl_summary = _aggregate_nonlinear(nl_aucs, nl_deltas)
+    nonlinear_signal = (
+        abs(mean_delta) < _NONLINEAR_SIGNAL_LINEAR_EPS
+        and any(
+            v["mean_delta_auc"] > _NONLINEAR_SIGNAL_DELTA for v in nl_summary.values()
+        )
+    )
+    if nonlinear_signal:
+        best = max(nl_summary, key=lambda k: nl_summary[k]["mean_delta_auc"])
+        nonlinear_note = (
+            f"nonlinear_signal_present: linear delta_AUC={mean_delta:.3f} ~ 0 "
+            f"but {best} delta_AUC={nl_summary[best]['mean_delta_auc']:.3f} > 0. "
+            f"The synchrony signal is real but nonlinear; a linear-only "
+            f"pipeline would have reported 'no signal'."
+        )
+    else:
+        nonlinear_note = (
+            "No nonlinear signal detected beyond the linear model "
+            f"(linear delta_AUC={mean_delta:.3f}); linear and nonlinear "
+            "baselines agree."
+        )
+
     warning = None
     if mean_delta > LEAKAGE_DELTA_AUC_THRESHOLD:
         warning = "leakage_suspected"
@@ -763,6 +907,9 @@ def rolling_origin_cv(
         mean_dynamic_auc=mean_dynamic,
         mean_baseline_auc=mean_baseline,
         mean_delta_auc=mean_delta,
+        nonlinear=nl_summary,
+        nonlinear_signal_present=bool(nonlinear_signal),
+        nonlinear_note=nonlinear_note,
         folds=folds,
         warning=warning,
         n_features_used=avg_features_used,
@@ -1084,6 +1231,13 @@ def cross_modal_prediction(
     abl_coefs_sum = np.zeros(len(abl_joint_names))
     valid_folds = 0
 
+    # Parallel nonlinear baselines (critique E): scored on the SAME joint
+    # feature space as the linear joint model, so their delta_AUC is directly
+    # comparable.
+    nl_factories = _nonlinear_model_factories()
+    nl_aucs: Dict[str, List[float]] = {name: [] for name in nl_factories}
+    nl_deltas: Dict[str, List[float]] = {name: [] for name in nl_factories}
+
     # Reshape AR channels into 2-D column vectors once for hstack reuse.
     source_ar = source_mean_sync_col.reshape(-1, 1) if source_mean_sync_col.size else np.zeros((len(X_source), 1))
     target_ar = target_mean_sync_col.reshape(-1, 1) if target_mean_sync_col.size else np.zeros((len(X_target), 1))
@@ -1152,6 +1306,7 @@ def cross_modal_prediction(
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
+                random_state=42,
             )
             clf_restricted.fit(X_target_train_s, y_train)
             restricted_auc = roc_auc_score(
@@ -1168,6 +1323,7 @@ def cross_modal_prediction(
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
+                random_state=42,
             )
             clf_joint.fit(X_joint_train_s, y_train)
             joint_auc = roc_auc_score(
@@ -1186,6 +1342,7 @@ def cross_modal_prediction(
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
+                random_state=42,
             )
             clf_abl.fit(X_abl_train_s, y_train)
             ablation_auc = roc_auc_score(
@@ -1210,6 +1367,15 @@ def cross_modal_prediction(
             ablation_delta = ablation_auc - max(baseline_auc, restricted_auc)
         else:
             ablation_delta = float("nan")
+
+        # --- Parallel nonlinear baselines on the joint feature space (E) ---
+        base_ref = max(baseline_auc, restricted_auc)
+        nl_aucs.setdefault("linear_logreg", []).append(joint_auc)
+        nl_deltas.setdefault("linear_logreg", []).append(delta_auc)
+        for _n, _factory in nl_factories.items():
+            _mauc = _fit_score(_factory(), X_joint_train_s, y_train, X_joint_test_s, y_test)
+            nl_aucs[_n].append(_mauc)
+            nl_deltas[_n].append(_mauc - base_ref)
 
         folds.append(FoldResult(
             fold_id=fold_id,
@@ -1238,6 +1404,9 @@ def cross_modal_prediction(
             warning="no_valid_folds",
             n_features_used=avg_features_used,
             diagnostics=diagnostics,
+            nonlinear={},
+            nonlinear_signal_present=False,
+            nonlinear_note="no valid folds",
         )
 
     mean_joint = np.mean([f.dynamic_auc for f in folds])
@@ -1319,6 +1488,32 @@ def cross_modal_prediction(
     else:
         ablation_conclusion = "Ablation experiment failed (no valid folds)."
 
+    # --- Nonlinear baseline aggregation (critique E) ---
+    # Mirrors rolling_origin_cv: if the linear model recovers ~0 delta
+    # but a nonlinear model (RF / SVM-RBF) recovers > 0, the synchrony
+    # signal is real but nonlinear and would otherwise be missed.
+    nl_summary = _aggregate_nonlinear(nl_aucs, nl_deltas)
+    nonlinear_signal = (
+        abs(mean_delta) < _NONLINEAR_SIGNAL_LINEAR_EPS
+        and any(
+            v["mean_delta_auc"] > _NONLINEAR_SIGNAL_DELTA for v in nl_summary.values()
+        )
+    )
+    if nonlinear_signal:
+        best = max(nl_summary, key=lambda k: nl_summary[k]["mean_delta_auc"])
+        nonlinear_note = (
+            f"nonlinear_signal_present: linear delta_AUC={mean_delta:.3f} ~ 0 "
+            f"but {best} delta_AUC={nl_summary[best]['mean_delta_auc']:.3f} > 0. "
+            f"The synchrony signal is real but nonlinear; a linear-only "
+            f"pipeline would have reported 'no signal'."
+        )
+    else:
+        nonlinear_note = (
+            "No nonlinear signal detected beyond the linear model "
+            f"(linear delta_AUC={mean_delta:.3f}); linear and nonlinear "
+            "baselines agree."
+        )
+
     warning = None
     if mean_delta > LEAKAGE_DELTA_AUC_THRESHOLD:
         warning = "leakage_suspected"
@@ -1342,6 +1537,9 @@ def cross_modal_prediction(
         ablation_conclusion=ablation_conclusion,
         dynamic_auc_ci=dynamic_auc_ci,
         delta_auc_ci=delta_auc_ci,
+        nonlinear=nl_summary,
+        nonlinear_signal_present=bool(nonlinear_signal),
+        nonlinear_note=nonlinear_note,
         folds=folds,
         warning=warning,
         n_features_used=avg_features_used,

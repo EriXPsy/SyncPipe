@@ -903,7 +903,19 @@ def load_lerique_dataset(
                     a_sig = a_raw
                     b_sig = b_raw
                     fs_out = raw_fs
-                    mask_out = a_mask if a_raw is not None else b_mask
+                    # Combine P1/P2 masks with AND logic: a sample is usable
+                    # only if BOTH persons have it usable at this index.
+                    # Consistent with the preprocess=True branch above. Trim
+                    # to the shorter mask so it stays aligned with the signals.
+                    if a_mask is not None and b_mask is not None:
+                        n_common = min(a_mask.size, b_mask.size)
+                        mask_out = a_mask[:n_common] & b_mask[:n_common]
+                        a_sig = a_sig[:n_common] if a_sig is not None else None
+                        b_sig = b_sig[:n_common] if b_sig is not None else None
+                    elif a_mask is not None:
+                        mask_out = a_mask
+                    else:
+                        mask_out = b_mask
 
                 def _to_df(sig: Optional[np.ndarray], fs: float) -> Optional[pd.DataFrame]:
                     if sig is None:
@@ -986,7 +998,16 @@ def lerique_record_to_multisync_dyad(rec: LeriqueDyadCondition):
         f"{ch}_a": rec.person_a[["time", "value"]].copy(),
         f"{ch}_b": rec.person_b[["time", "value"]].copy(),
     }
-    return Dyad(hz=rec.target_hz, dyad_id=rec.dyad_id, **modalities)
+    # Carry the segment-boundary discontinuity mask into the Dyad so the
+    # full analysis chain (align -> observed WCC -> surrogate nulls) can
+    # gate out windows that straddle a concatenation seam.  The mask is
+    # per-sample at the same resolution as the modality arrays.
+    return Dyad(
+        hz=rec.target_hz,
+        dyad_id=rec.dyad_id,
+        discontinuity_mask=rec.discontinuity_mask,
+        **modalities,
+    )
 
 
 __all__ = [

@@ -32,6 +32,7 @@ from .dynamic_features import (
     extract_features_all_pairs,
     extract_features_segmented,
     sliding_window_wcc,
+    sliding_window_wcc_masked,
 )
 from .feature_definitions import ONSET_THRESHOLD
 from .prediction import FoldResult, PredictionResult, rolling_origin_cv
@@ -53,14 +54,14 @@ class Dyad(SynchronyDataset):
         Modality name → DataFrame mapping.
     """
 
-    def __init__(self, hz: float = 1.0, **modalities: pd.DataFrame) -> None:
+    def __init__(self, hz: float = 1.0, discontinuity_mask: Optional[np.ndarray] = None, **modalities: pd.DataFrame) -> None:
         # Extract dyad_id if provided as a string; otherwise use default.
         # Always remove it from modalities to prevent add_modality() from
         # treating it as a DataFrame.
         dyad_id = modalities.pop("dyad_id", "dyad_01")
         if not isinstance(dyad_id, str):
             dyad_id = "dyad_01"
-        super().__init__(dyad_id=dyad_id)
+        super().__init__(dyad_id=dyad_id, discontinuity_mask=discontinuity_mask)
         self._default_hz = hz
         for name, df in modalities.items():
             self.add_modality(name, df)
@@ -457,8 +458,9 @@ class DynamicAnalyzer:
         # Cache WCC sequences for score view (#6) and reuse
         wcc_cache: Dict[str, np.ndarray] = {}
         for src_key, name_a, name_b, col_a, col_b, x, y in self._iter_pairs(dataset):
-            wcc = sliding_window_wcc(
-                x, y, self.window_size, hz, window_type=self.window_type
+            wcc = sliding_window_wcc_masked(
+                x, y, self.window_size, hz, window_type=self.window_type,
+                discontinuity_mask=getattr(dataset, "discontinuity_mask", None),
             )
             wcc_cache[src_key] = wcc
 

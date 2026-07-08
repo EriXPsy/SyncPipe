@@ -62,6 +62,11 @@ N_PERM = 2000
 N_PSEUDO = 8
 SEED = 42
 
+# Emit a supplementary L2 result that enters ALL 12 implemented features into
+# a single BH-FDR step (reviewer-proof against the "cherry-picking 3/12"
+# critique). Set False to skip the extra permutation pass.
+EMIT_FULL_FAMILY_FDR = True
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -443,6 +448,7 @@ def run_dataset(name: str, records: List[RawRecord], cfg: Dict[str, Any]) -> Dic
             condition_col="condition", dyad_col="dyad_id",
             feature_cols=list(FDR_FEATURES), fdr_alpha=0.05,
             n_permutations=N_PERM,
+            discontinuity_mask=inputs.discontinuity_mask,
         )
 
         # --- existence pass rate (correctly extract the per-pair results) ---
@@ -477,6 +483,21 @@ def run_dataset(name: str, records: List[RawRecord], cfg: Dict[str, Any]) -> Dic
                 res["l2_per_modality"] = _summarize_pm(pm)
             except Exception as e:
                 res["l2_per_modality"] = {"error": str(e)}
+
+            # --- Supplementary: reviewer-proof full-family FDR (critique A) ---
+            # Re-run the pooled L2 entering ALL 12 implemented features into a
+            # single BH-FDR step. Strictly more conservative; if the
+            # pre-registered core survives this, the "cherry-picking 3/12"
+            # critique is answered. Opt-out via EMIT_FULL_FAMILY_FDR.
+            if EMIT_FULL_FAMILY_FDR:
+                try:
+                    ff = pipe.test_l2_condition(
+                        condition_col="condition", dyad_col="dyad_id",
+                        feature_cols=None, fdr_alpha=0.05,
+                        n_permutations=N_PERM, full_family_fdr=True)
+                    res["l2_full_family"] = _summarize_l2(ff)
+                except Exception as e:
+                    res["l2_full_family"] = {"error": str(e)}
 
         res["morphology"] = _run_morphology(inputs.raw_signals, hz, window)
     except Exception as e:

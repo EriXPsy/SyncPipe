@@ -89,6 +89,9 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     print("  Running analysis...")
     results = analyzer.fit_transform(dyad)
     results.parameters["qc"] = qc_report.to_dict()
+    results.parameters["full_family_fdr"] = bool(
+        getattr(args, "full_family_fdr", False)
+    )
     if qc_report.overall_verdict != "PASS":
         results.diagnostics.append({
             "stage": "qc",
@@ -368,6 +371,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_analyze.add_argument(
         "--contexts", nargs="*", help="Context labels: start,end,label[,score]."
     )
+    p_analyze.add_argument(
+        "--full-family-fdr", action="store_true",
+        help="Record that the L2 between-condition BH-FDR should enter ALL 12 "
+             "implemented features (strictly more conservative) instead of the "
+             "pre-registered 3-feature confirmatory family. Governs the FDR "
+             "family used by group-condition inference (scripts/Python API).",
+    )
     p_analyze.set_defaults(func=cmd_analyze)
 
     # demo
@@ -390,6 +400,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_demo.add_argument(
         "--no-prediction", action="store_true",
         help="Skip rolling-origin prediction CV for a faster methods demo.",
+    )
+    p_demo.add_argument(
+        "--full-family-fdr", action="store_true",
+        help="Record that the L2 between-condition BH-FDR should enter ALL 12 "
+             "implemented features (strictly more conservative) instead of the "
+             "pre-registered 3-feature confirmatory family.",
     )
     p_demo.set_defaults(func=cmd_demo)
 
