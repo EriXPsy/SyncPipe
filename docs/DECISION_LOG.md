@@ -77,3 +77,55 @@ This file records **current v1 decisions and changes**. Older exploratory or sup
 2. Monitor the external sklearn/scipy L-BFGS-B deprecation warning.
 3. Archive older exploratory decision history outside this active decision log.
 4. Continue validating WCC-level order nulls before making stronger structure claims.
+
+---
+
+## Dual namespace (`multisync` vs `syncpipe`): intentional, with a sunset plan
+
+**Decision.** The `syncpipe` namespace is the preferred import/CLI surface
+(`syncpipe` command and `import syncpipe`). The older `multisync` namespace
+remains **only as a compatibility alias** during the transition away from the
+original project name *MultiSync* (renamed to avoid collision with the
+published `multiSyncPy`).
+
+**Sunset plan (added 2026-07-09).**
+
+- **v1.0 (current):** both namespaces work; new code and docs use `syncpipe`.
+- **v1.1:** importing `multisync` emits a `DeprecationWarning` pointing users
+  to `syncpipe`.
+- **v2.0:** the `multisync` alias is removed; `syncpipe` is the only namespace.
+
+A compatibility alias with no removal date tends to become permanent technical
+debt. Pinning it to a version schedule keeps the migration honest and gives
+downstream users a clear migration window.
+
+---
+
+## Related tools (positioning, not competition)
+
+SyncPipe sits in a small field of interpersonal-synchrony tooling. Naming
+proximity is real and worth stating explicitly so reviewers are not surprised:
+
+- **multiSyncPy** (Hudson, Wiltshire & Atzmueller, 2023, *Behavior Research
+  Methods*): group/multi-person synchrony beyond dyads, with Kuramoto
+  simulations demonstrating sensitivity to coupling strength and convergent
+  validity across multivariate synchrony indices. SyncPipe's dyad-focused,
+  WCC-episode framing is narrower; the rename away from *MultiSync* was
+  precisely to avoid implying overlap that does not exist.
+- **SyncPy** (Varni & Avril, 2015): a unified open-source library for
+  interpersonal/machine synchrony on dyadic and multiparty time series.
+  Name is visually/phonetically close to *SyncPipe*; SyncPipe is a distinct,
+  independently developed tool and should be cited separately. No code is
+  shared.
+- **SUSY** (Ramseyer & Tschacher lineage; R package, v0.1.1): synchrony
+  measurement via segment-reshuffling surrogates. Its pseudo-pair design
+  control is spiritually similar to SyncPipe's design-control audit; the
+  difference is language (R vs Python) and the WCC-episode feature layer.
+- **rMEA** (Gallery et al.): motion-energy analysis in R, a close sibling for
+  the motion-energy modality specifically.
+
+SyncPipe's differentiating claim is **audited measurement infrastructure**: a
+transparent WCC trace, a governed feature table, signal- and design-level null
+models, and exported artifacts — rather than a single synchrony score or a
+broad metric zoo.
+

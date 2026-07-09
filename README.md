@@ -1,6 +1,6 @@
 # SyncPipe
 
-> **Measurement infrastructure for multimodal interpersonal synchrony.**  
+> **Measurement infrastructure for dyadic, continuous low-frequency multimodal interpersonal synchrony.**  
 > SyncPipe is not intended to be merely a feature-profile generator. Its v1 goal is to provide a standardized, auditable measurement procedure for dyadic synchrony: from aligned signals, to WCC traces, to interpretable descriptors, to null-model audits, to design-specific confound checks, to group-level inference.
 
 SyncPipe is an open-source Python package for analyzing **dyadic peripheral physiological and behavioral synchrony**. It is built for psychology, social neuroscience, psychophysiology, developmental science, psychotherapy, teamwork, and related fields where researchers need more than a single mean-correlation score but also need stronger statistical guardrails than one-off scripts usually provide. The preferred v1 command/import namespace is `syncpipe`; the older `multisync` namespace remains as a compatibility alias during transition.
@@ -46,6 +46,32 @@ In this sense, SyncPipe is closer in spirit to DPABI-like scientific infrastruct
 - Replace raw physiological preprocessing. High-frequency raw signals should be converted into scientifically justified second-level time series before entering SyncPipe.
 - Provide clinically calibrated thresholds. Current thresholds are methodological anchors, not diagnostic cutoffs.
 - Claim that every descriptor is confirmatory. Several descriptors are intentionally exploratory or event-mode-only.
+
+---
+
+## Scope and modalities
+
+SyncPipe is **multimodal in a deliberately narrow sense**. All modalities it
+validates are **continuous, low-frequency time series that have already been
+preprocessed into a common second-level envelope** — e.g. ECG/IBI, EDA,
+respiration, motion-energy, or (in principle) neural envelopes. The package's
+"modality independence" rests on the fact that every supported signal has been
+flattened into the *same statistical object* (an aligned low-rate trace) before
+it reaches the WCC layer.
+
+This scope does **not** currently cover:
+
+- high-frequency raw signals that have not been reduced to an envelope;
+- discrete-event modalities such as facial action-unit sequences, turn-taking
+  events, or speech onsets, which require event-based (rather than continuous
+  WCC) synchrony measures — planned for v2;
+- EEG/fNIRS hyperscanning in its native high-dimensional form (the *envelope*
+  of such signals is in scope; the raw high-density recording is not).
+
+If your modality cannot be expressed as a continuous low-frequency envelope
+without losing the effect you care about, SyncPipe is the wrong tool for v1.
+See `docs/LIMITATIONS.md` for the full scope statement and `docs/DECISION_LOG.md`
+for positioning relative to related tools (SyncPy, multiSyncPy, SUSY, rMEA).
 
 ---
 

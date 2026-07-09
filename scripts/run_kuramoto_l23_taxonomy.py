@@ -51,18 +51,9 @@ SEED = 42
 CALIPER = 0.005                 # max mean_sync difference for a match
 
 # =====================================================================
-# Kuramoto solver (same as v2)
-# =====================================================================
-
-def solve_phase_difference(K_func, delta_omega, theta_0, T, n_fine=2000):
-    def ode(t, y):
-        K = K_func(t) if callable(K_func) else K_func
-        return [delta_omega - K * np.sin(y[0])]
-    t_eval = np.linspace(0, T, n_fine)
-    sol = solve_ivp(ode, [0, T], [theta_0], t_eval=t_eval,
-                    method='RK45', rtol=1e-9, atol=1e-12)
-    delta_theta = sol.y[0]
-    return np.abs(np.cos(delta_theta / 2.0))
+# Kuramoto solver — single source of truth in multisync.simulation.kuramoto
+# (which now carries a unit test guarding coupling -> synchrony monotonicity).
+from multisync.simulation.kuramoto import solve_phase_difference
 
 
 def sample_to_n(r_fine, n=300):
