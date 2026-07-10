@@ -22,11 +22,6 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
 ]
-web = [
-    "fastapi>=0.100",
-    "uvicorn[standard]>=0.23",
-    "python-multipart>=0.0.6",
-]
 
 [project.scripts]
 syncpipe = "multisync.cli:main"

@@ -75,22 +75,33 @@ tested guarantee.
 
 ## 4. Validation-path coverage gaps
 
-The code that *produces* the validation numbers has historically had weak
+The code that *produces* the validation numbers historically had weak
 test coverage:
 
 - real-data loaders (`multisync/realtest/lerique_2024.py`,
   `multisync/realtest/gordon_2025.py`) and the pipeline bridge
-  (`multisync/pipeline_bridge.py`) carry little or no dedicated unit testing.
+  (`multisync/pipeline_bridge.py`) carried little or no dedicated unit testing.
 - simulation ground-truth generators (e.g. the Kuramoto scripts under
   `scripts/`) were, until recently, inline rather than imported modules.
 
 This matters because a silent bug in a loader or a simulator (a mis-wired
 coupling parameter, a dropped segment-boundary mask) would produce validation
 output that *looks* completely normal while the floor is wrong. Contract tests
-for loaders, the pipeline bridge, and the simulation generators have been added
-to guard against this; see `tests/test_realtest_loaders.py`,
-`tests/test_pipeline_bridge_plumbing.py`, and
-`tests/test_simulation_groundtruth.py`.
+now exercise these paths end-to-end:
+
+- `tests/test_realtest_and_bridge_contracts.py` — the pipeline-bridge mask
+  propagation, **and** `load_lerique_dataset` / `load_gordon_dataset` called
+  on synthetic on-disk datasets (including the P1/P2 discontinuity-mask AND
+  logic — the original single-sided mask-drop bug site).
+- `tests/test_simulation_kuramoto.py` — the Kuramoto coupling → synchrony
+  generator pulled into `multisync/simulation/kuramoto.py`.
+
+> **Honesty note on loader coverage.** The loader *bodies* are only
+> partially covered. The `preprocess=False` (raw passthrough) and
+> `preprocess=True` (EDA/RESP via scipy) AND-mask branches in
+> `lerique_2024.py` are now exercised; the ECG/IBI path (neurokit2) and the
+> Gordon CSV resampling edge cases remain lightly covered. Treat loader
+> outputs as validated at the *contract* level, not exhaustively.
 
 ---
 

@@ -121,7 +121,7 @@ proximity is real and worth stating explicitly so reviewers are not surprised:
   measurement via segment-reshuffling surrogates. Its pseudo-pair design
   control is spiritually similar to SyncPipe's design-control audit; the
   difference is language (R vs Python) and the WCC-episode feature layer.
-- **rMEA** (Gallery et al.): motion-energy analysis in R, a close sibling for
+- **rMEA** (Kleinbub & Ramseyer, 2020): motion-energy analysis in R, a close sibling for
   the motion-energy modality specifically.
 
 SyncPipe's differentiating claim is **audited measurement infrastructure**: a
