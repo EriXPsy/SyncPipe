@@ -81,7 +81,7 @@ _FOOTER_TEMPLATE = """
   Dynamic process analysis for interpersonal synchrony research &nbsp;|&nbsp;
   {timestamp} &nbsp;|&nbsp;
   <em>If you use this analysis in a publication, please cite SyncPipe
-  (github.com/EriXPsy/multisync).</em>
+  (github.com/EriXPsy/SyncPipe).</em>
 </div>
 """
 
