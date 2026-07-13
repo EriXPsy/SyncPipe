@@ -343,6 +343,61 @@ def test_switching_rate_zero_when_constant_trace():
 
 
 # ---------------------------------------------------------------------------
+# Gap-robustness (DECISION, 2026-07-13): missing points must not fabricate
+# structure in the two confirmatory episode features.
+# ---------------------------------------------------------------------------
+
+def _single_episode_with_gap(n=100, onset=20, offset=80, hi=0.8, lo=0.1,
+                              gap_start=48, gap_end=53):
+    """One continuous elevated run (onset:offset) interrupted by a NaN gap in
+    its middle; baseline (lo) elsewhere. The gap is the ONLY break, so the
+    episode is genuinely one run of (offset-onset - gap_len) valid samples."""
+    wcc = np.full(n, lo, dtype=float)
+    wcc[onset:offset] = hi
+    wcc[gap_start:gap_end] = np.nan
+    return wcc
+
+
+def test_dwell_time_artifact_gap_does_not_split_run():
+    """A single elevated episode interrupted by an artifact gap must remain
+    one run (dwell ~ valid length), not be split into two short runs."""
+    wcc = _single_episode_with_gap()
+    d = compute_dwell_time(wcc, hz=1.0)
+    # 60 elevated samples minus the 5-sample gap = 55 valid samples, not the
+    # ~27.5 a hard split into two runs would yield.
+    assert d == pytest.approx(55.0, abs=2.0)
+
+
+def test_switching_rate_artifact_gap_does_not_inflate():
+    """An artifact gap inside one episode must not add transitions: the rate
+    stays equal to the continuous (no-gap) version, not double it."""
+    wcc = _single_episode_with_gap()
+    rate_gap = compute_switching_rate(wcc, hz=1.0)
+    wcc_cont = np.full(100, 0.1, dtype=float)
+    wcc_cont[20:80] = 0.8
+    rate_cont = compute_switching_rate(wcc_cont, hz=1.0)
+    # With the fix the gap adds 0 transitions; without it the run would split
+    # into two and the rate would roughly double (~2.5/min here).
+    assert rate_gap == pytest.approx(rate_cont, abs=0.2)
+    assert rate_gap < 1.5
+
+
+def test_switching_rate_duration_uses_valid_time():
+    """Two fully-valid elevated blocks + trailing NaN padding: the transition
+    count is identical with/without the fix, but the duration denominator is
+    valid time only (3 transitions / 1 valid-min = 3/min), not the full length
+    (which would give 3 / 2 min = 1.5 / min)."""
+    n = 120
+    wcc = np.full(n, 0.1, dtype=float)
+    wcc[0:21] = 0.8           # elevated block 1 (indices 0..20)
+    wcc[30:51] = 0.8          # elevated block 2 (indices 30..50)
+    wcc[60:120] = np.nan      # trailing NaN padding (no valid samples after)
+    rate = compute_switching_rate(wcc, hz=1.0)
+    # 3 transitions (up, down-up, down) over 60 valid seconds = 3 / min.
+    assert rate == pytest.approx(3.0, abs=0.1)
+
+
+# ---------------------------------------------------------------------------
 # Occupancy descriptor · fraction_above_threshold
 # ---------------------------------------------------------------------------
 

@@ -71,6 +71,36 @@ This file records **current v1 decisions and changes**. Older exploratory or sup
 
 ---
 
+## 2026-07-13 — Episode-feature robustness to missing data
+
+**Decision.** `compute_dwell_time` and `compute_switching_rate` now compute
+episode statistics over *valid (finite) WCC samples only*:
+
+- A missing point (NaN, i.e. a `discontinuity_mask` gap) is excluded from the
+  binary sequence, **not** treated as a low-state sample. Consequently an
+  artifact gap (a) does not split one elevated run into two shorter runs
+  (which would deflate `dwell_time`) and (b) does not inject spurious
+  False->True / True->False transitions (which would inflate `switching_rate`).
+- `switching_rate` duration is **valid time only** (`finite.sum() / hz / 60`),
+  not the full array length including gaps.
+
+The Schmitt-trigger binarizer (`_binarize_with_hysteresis`) is intentionally
+*unchanged*: it still hard-breaks at NaN (the 2026-07-08 fix), so surrogate /
+state-shuffle logic is unaffected. The gap-robustness lives only in the two
+summary functions.
+
+**Why this matters.** `dwell_time` and `switching_rate` are the two features
+carrying SyncPipe's "quality of synchrony" argument in the Kuramoto validation.
+If missing rates differ across experimental conditions, the old behaviour
+would have created a confound with the condition (dual direction: one inflated,
+one deflated) — exactly the kind of artifact a reviewer would flag.
+
+**Source of truth.** `multisync/feature_definitions.py` (`compute_dwell_time`,
+`compute_switching_rate`); guarded by `tests/test_feature_definitions.py`
+(gap-robustness tests).
+
+---
+
 ## Pending v1 cleanup items
 
 1. Decide whether to suppress or re-route expected relative-timestamp warnings in synthetic tests/demos.
