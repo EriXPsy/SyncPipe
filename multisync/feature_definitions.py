@@ -941,16 +941,24 @@ def compute_dwell_time(
     if not finite.any():
         return float("nan")
     above = _binarize_with_hysteresis(wcc, threshold, hysteresis_delta)
-    if not above.any():
+    # Gap-robust (DECISION, 2026-07-13): operate on the valid (finite) points
+    # only.  A missing point is excluded, not treated as a low-state sample, so
+    # an artifact gap (a) does not split one elevated run into two shorter
+    # runs (which would deflate dwell_time) and (b) contributes no dwell time.
+    # Because the forced-False at the gap is dropped here, the two valid
+    # segments of a single episode merge into one run.
+    above_valid = above[finite]
+    if not above_valid.any():
         return float("nan")
 
-    padded = np.concatenate(([False], above, [False]))
+    padded = np.concatenate(([False], above_valid, [False]))
     diffs = np.diff(padded.astype(np.int8))
     starts = np.where(diffs == 1)[0]
     ends = np.where(diffs == -1)[0]
     run_lengths = ends - starts
     if run_lengths.size == 0:
         return float("nan")
+    # run_lengths are counts of valid samples; /hz gives valid-time seconds.
     return float(np.mean(run_lengths)) / hz
 
 
@@ -989,10 +997,16 @@ def compute_switching_rate(
     if not finite.any():
         return float("nan")
     above = _binarize_with_hysteresis(wcc, threshold, hysteresis_delta)
-    if above.size < 2:
+    # Gap-robust (DECISION, 2026-07-13): transitions are counted only between
+    # consecutive valid samples, so a missing point does not manufacture a
+    # spurious False->True / True->False pair (which would inflate
+    # switching_rate).  Duration is valid time only (finite samples), not the
+    # full array length including gaps.
+    above_valid = above[finite]
+    if above_valid.size < 2:
         return float("nan")
-    transitions = int(np.sum(above[1:] != above[:-1]))
-    duration_min = above.size / hz / 60.0
+    transitions = int(np.sum(above_valid[1:] != above_valid[:-1]))
+    duration_min = finite.sum() / hz / 60.0
     if duration_min == 0:
         return float("nan")
     return float(transitions) / duration_min
@@ -1035,7 +1049,13 @@ def compute_fraction_above_threshold(
 def compute_synchrony_entropy(wcc: np.ndarray, n_bins: int = 20) -> float:
     """Conditional: Shannon entropy of WCC amplitude distribution.
 
-    Enters the FDR family (DECISION-09, revised 2026-06-17).
+    Tier: CONDITIONAL. NOT a member of the confirmatory group-condition FDR
+    family (FDR_FEATURES = peak_amplitude, dwell_time, switching_rate). An
+    earlier revision (DECISION-09, 2026-06-17) proposed FDR membership, but
+    that was never carried into the locked v1.0 confirmatory set, so the prior
+    "Enters the FDR family" wording here was stale. Retained as a
+    permutation-invariant L0 amplitude-distribution descriptor for exploratory
+    analysis (see compute_bimodality_coefficient for the analogous removal).
     Bridges Structure and Temporal information dimensions.
 
     The histogram range is data-adaptive: ``[finite.min(), finite.max()]``
@@ -1387,6 +1407,16 @@ def extract_features(
     )
 
     if peak_idx is not None:
+        # Intentional split (DECISION-03/05, 2026-07-13): the peak anchor
+        # (peak_index, peak_value) is taken from the smoothed series `sm` for
+        # robustness, but rise/recovery crossing searches run on the RAW `wcc`.
+        # The crossing timing must reflect the real (unsmoothed) signal, and
+        # the quartile/half-recovery levels are referenced to `peak_value`
+        # (the smoothed amplitude), not to wcc[peak_index]. peak_index is a
+        # valid index into both arrays (they are equal-length and aligned),
+        # so there is no indexing error. We deliberately do NOT search in
+        # `sm`: smoothed_wcc zero-pads at the boundaries, which would fabricate
+        # spurious crossings near the trace edges.
         rise_t, rise_def = compute_rise_time(
             wcc, peak_index=peak_idx, peak_value=peak_value,
             hz=hz, baseline=threshold,
