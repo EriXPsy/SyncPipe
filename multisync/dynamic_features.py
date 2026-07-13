@@ -995,9 +995,12 @@ def compute_surrogate_threshold_from_signals(
     -------
     Tuple[float, bool]
         ``(threshold, is_surrogate_derived)``.  ``threshold`` falls back to
-        ``ONSET_THRESHOLD`` (0.5) if fewer than 10 finite surrogate WCC
-        values are available (degenerate case); ``is_surrogate_derived`` is
-        ``False`` exactly when this fallback fired.
+        ``ONSET_THRESHOLD`` (0.5) when the underlying surrogate distribution
+        is degenerate (too few finite values) or contaminated by periodicity
+        / strong autocorrelation (see :func:`feature_definitions.
+        compute_surrogate_threshold`); both fallback paths emit a warning,
+        and ``is_surrogate_derived`` is ``False`` exactly when a fallback
+        fired.
     """
     rng = np.random.default_rng(seed)
     surrogate_wccs: List[np.ndarray] = []
@@ -1006,6 +1009,12 @@ def compute_surrogate_threshold_from_signals(
     sig_a = np.asarray(sig_a, dtype=float)
     sig_b = np.asarray(sig_b, dtype=float)
     if not (np.all(np.isfinite(sig_a)) and np.all(np.isfinite(sig_b))):
+        logger.warning(
+            "compute_surrogate_threshold_from_signals: non-finite raw "
+            "signals detected — cannot build IAAFT surrogates. Falling back "
+            "to fixed ONSET_THRESHOLD=%s (is_surrogate_derived=False).",
+            ONSET_THRESHOLD,
+        )
         return ONSET_THRESHOLD, False
 
     for _ in range(surrogate_n):

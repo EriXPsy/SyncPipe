@@ -136,6 +136,7 @@ References
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field, fields as _dc_fields, MISSING as _DC_MISSING
 from typing import Any, Dict, Optional, Tuple
 
@@ -162,6 +163,18 @@ The surrogate null distribution for a dyad is built by computing WCC on
 ``SURROGATE_THRESHOLD_PERCENTILE``-th quantile of all surrogate WCC values,
 representing the highest WCC level reachable by chance at the given false-
 positive rate.
+"""
+
+SURROGATE_THRESHOLD_MAX: float = 0.9
+"""Hard sanity ceiling for a surrogate-derived onset threshold (BUG-3).
+
+A null 95th-percentile WCC at or above this level is almost always an
+*artifact* of the surrogate method, not a genuine "high sync by chance"
+level: IAAFT surrogates preserve the autocorrelation/periodicity of the
+ORIGINAL signals, so for periodic or strongly autocorrelated data the
+surrogate WCC distribution is shifted upward.  When the derived threshold
+exceeds this bound we fail loud and fall back to :data:`ONSET_THRESHOLD`
+rather than silently using a contaminated cut-off.
 """
 
 PEAK_SMOOTHING_WINDOW: int = 3
@@ -1318,9 +1331,13 @@ def compute_surrogate_threshold(
     -------
     Tuple[float, bool]
         ``(threshold, is_surrogate_derived)``. ``threshold`` falls back to
-        ``ONSET_THRESHOLD`` (0.5) if fewer than 10 finite surrogate values
-        are available (degenerate case); ``is_surrogate_derived`` is
-        ``False`` exactly when this fallback fired, so callers can flag
+        ``ONSET_THRESHOLD`` (0.5) when (a) fewer than 10 finite surrogate
+        values are available (degenerate case) or (b) the derived threshold
+        exceeds :data:`SURROGATE_THRESHOLD_MAX` (periodicity / strong-
+        autocorrelation artifact of IAAFT surrogates; BUG-3).  Both fallback
+        paths emit a ``logger.warning`` so the substitution is *never* silent;
+        ``is_surrogate_derived`` is ``False`` exactly when a fallback fired,
+        so callers can flag
         which dyads received a data-driven threshold and which received
         the fixed fallback — this distinction MUST be reported alongside
         any dwell_time / switching_rate / onset_latency computed under
@@ -1342,8 +1359,31 @@ def compute_surrogate_threshold(
         wcc_surrogates = wcc_surrogates.reshape(1, -1)
     finite = wcc_surrogates[np.isfinite(wcc_surrogates)]
     if finite.size < 10:
-        return ONSET_THRESHOLD, False  # degenerate fallback, explicitly flagged
-    return float(np.percentile(finite, percentile)), True
+        # Degenerate case: not enough finite surrogate WCC values to form a
+        # reliable null distribution.  Fail LOUD (do NOT silently substitute)
+        # and fall back to the locked DECISION-01 threshold.
+        logging.getLogger(__name__).warning(
+            "compute_surrogate_threshold: only %d finite surrogate WCC "
+            "values (< 10) available — falling back to fixed ONSET_THRESHOLD"
+            "=%s. Surrogate-derived threshold NOT used for this dyad/session.",
+            finite.size, ONSET_THRESHOLD,
+        )
+        return ONSET_THRESHOLD, False
+    derived = float(np.percentile(finite, percentile))
+    # Periodicity / strong-autocorrelation guard (BUG-3): an extreme null
+    # threshold means the surrogate (null) distribution is contaminated by
+    # the preserved autocorrelation structure, NOT a genuine high sync-by-
+    # chance level.  Fail LOUD and fall back to the fixed threshold.
+    if derived > SURROGATE_THRESHOLD_MAX:
+        logging.getLogger(__name__).warning(
+            "compute_surrogate_threshold: derived threshold %.3f exceeds "
+            "sanity ceiling %.2f — likely a periodicity/autocorrelation "
+            "artifact of IAAFT surrogates. Falling back to fixed "
+            "ONSET_THRESHOLD=%s for this dyad/session.",
+            derived, SURROGATE_THRESHOLD_MAX, ONSET_THRESHOLD,
+        )
+        return ONSET_THRESHOLD, False
+    return derived, True
 
 
 # ---------------------------------------------------------------------------
