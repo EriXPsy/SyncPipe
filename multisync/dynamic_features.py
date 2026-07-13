@@ -638,8 +638,16 @@ def _signal_level_surrogate_test(
             logger.warning(f"Only {n}/{surrogate_n} valid surrogates for this feature")
         if n == 0 or not np.isfinite(obs_val):
             return 1.0, finite_null, 0
-        p = (np.sum(finite_null >= obs_val) + 1) / (n + 1)
-        return float(p), finite_null, n
+        # Two-tailed Phipson-Smyth (BUG-4 fix): unify L0 with the L1
+        # _wcc_level_surrogate_test, which already uses this conservative
+        # two-tailed form.  An upper-tail was methodologically arguable for
+        # an existence test, but an inconsistent tail policy across the L0/L1
+        # family is the actual defect; two-tail is the conservative,
+        # consistent choice and matches tests/validation/test_per_feature_significance.py.
+        p_ge = (np.sum(finite_null >= obs_val) + 1) / (n + 1)
+        p_le = (np.sum(finite_null <= obs_val) + 1) / (n + 1)
+        p = float(min(1.0, 2.0 * min(p_ge, p_le)))
+        return p, finite_null, n
 
     p_mean, null_mean_valid, n_mean = _phipson_smyth_p(null_mean, obs_mean)
     p_peak, null_peak_valid, n_peak = _phipson_smyth_p(null_peak, obs_peak)

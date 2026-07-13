@@ -78,8 +78,9 @@ from ..synthetic import generate_ground_truth_dyad
 # ---------------------------------------------------------------------------
 # mean_synchrony is Reference (reported, NOT in FDR) and bimodality_
 # coefficient is exploratory (NOT in FDR) per the 2026-06-29 SSoT
-# decision (Option B).  Dwell/switching use two-tailed tests;
-# peak_amplitude uses upper-tailed.
+# decision (Option B).  All FDR-family features now use two-tailed tests
+# (BUG-4 fix: L0 peak_amplitude unified with L1 dwell/switching so the
+# L0/L1 family shares one consistent, conservative tail policy).
 # SSoT guard: the feature list for FEATURE_TAILS is locked to
 # ``FDR_FEATURES`` in ``feature_definitions.py``.
 # The tail directions below are pgt1_intensity-specific; the list of
@@ -87,8 +88,8 @@ from ..synthetic import generate_ground_truth_dyad
 from ..feature_definitions import FDR_FEATURES  # noqa: E402 (late import — SSoT guard)
 
 FEATURE_TAILS: Dict[str, str] = {
-    # Family L0 (signal-level null): existence test
-    "peak_amplitude":        "upper",
+    # Family L0 (signal-level null): existence test — two-tailed (BUG-4)
+    "peak_amplitude":        "two",
     # Family L1 (WCC-level null): structural increment test
     "dwell_time":            "two",
     "switching_rate":        "two",
