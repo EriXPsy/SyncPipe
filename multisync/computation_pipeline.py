@@ -178,7 +178,11 @@ class ComputationPipeline:
             self._wcc = trace
             return self._wcc
 
-        if method == "cumsum":
+        if method == "cumsum" and self.window_type == "rect":
+            # Fast O(n) cumsum backend — correct ONLY for the uniform ('rect')
+            # taper.  A non-rect taper would be phase-shifted by the global
+            # tiling; the existing `else` branch routes tapered windows through
+            # sliding_window_wcc, which applies the kernel per-window (correct).
             from .dynamic_features import _sliding_window_wcc_cumsum
 
             if normalize:

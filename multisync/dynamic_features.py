@@ -175,13 +175,24 @@ def sliding_window_wcc(
     # Full-resolution WCC first (no step)
     has_nan = bool(np.isnan(x).any() or np.isnan(y_lagged).any())
 
-    if has_nan:
+    # The cumsum backend applies the taper kernel as a *globally tiled* weight
+    # (weight[i] = kern[i % window_size]).  For a sliding window of stride 1
+    # this is only correct when the kernel is uniform ('rect') — otherwise the
+    # kernel is phase-shifted by (i % window_size) for off-boundary windows,
+    # yielding a WRONG WCC for tapered windows.  Tapered windows must use the
+    # stride backend, which aligns the kernel to each window start.  The cumsum
+    # backend is retained only for the fast rect + no-NaN case.  (BUG-1 fix:
+    # this guarantees one backend per (window_type, has_nan) combo, so a single
+    # NaN no longer silently changes the WCC of unaffected windows.)
+    use_stride = has_nan or window_type != "rect"
+    if use_stride:
         mem_estimate = (n - window_size + 1) * window_size * 8 * 4
         if mem_estimate > 1e9:
             logger.warning(
                 f"sliding_window_wcc: large memory estimate ({mem_estimate/1e9:.1f} GB) "
-                f"due to NaN values forcing stride_tricks fallback. "
-                f"Consider filling NaN before calling this function."
+                f"due to NaN values or a tapered window forcing stride_tricks "
+                f"fallback. Consider filling NaN / using 'rect' before calling "
+                f"this function."
             )
         wcc_full = _sliding_window_wcc_stride(
             x, y_lagged, window_size, min_valid_ratio, window_type
