@@ -127,23 +127,27 @@ FEATURE_NAMES = [
 # ambiguity: if linear delta ~ 0 but a nonlinear delta > 0, the pipeline
 # flags ``nonlinear_signal_present``.
 
-def _nonlinear_model_factories() -> Dict[str, Any]:
+def _nonlinear_model_factories(seed: int = 42) -> Dict[str, Any]:
     """Return {model_name: zero-arg factory} for the nonlinear baselines.
 
     Imported lazily so the nonlinear path is opt-in and the module imports
     even if sklearn's ensemble/svm extras are unavailable (the linear path
     never touches them).
+
+    ``seed`` is threaded from the caller so nonlinear baselines share the
+    pipeline's reproducible RNG state (BUG-7: seed was previously hard-coded
+    to 42 and never propagated from ``SyncPipe.seed``).
     """
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.svm import SVC
 
     return {
         "random_forest": lambda: RandomForestClassifier(
-            n_estimators=200, random_state=42,
+            n_estimators=200, random_state=seed,
             class_weight="balanced", n_jobs=1,
         ),
         "svm_rbf": lambda: SVC(
-            kernel="rbf", probability=True, random_state=42,
+            kernel="rbf", probability=True, random_state=seed,
             class_weight="balanced",
         ),
     }
@@ -600,6 +604,7 @@ def rolling_origin_cv(
     max_iter: int = 200,
     pair_name: str = "",
     mode: str = "intra",
+    seed: int = 42,
 ) -> PredictionResult:
     """
     Rolling-origin time-series CV using DYNAMIC FEATURES (not raw WCC).
@@ -796,7 +801,7 @@ def rolling_origin_cv(
     valid_folds = 0
 
     # Parallel nonlinear baselines (critique E): same folds, same scaling.
-    nl_factories = _nonlinear_model_factories()
+    nl_factories = _nonlinear_model_factories(seed)
     nl_aucs: Dict[str, List[float]] = {name: [] for name in nl_factories}
     nl_deltas: Dict[str, List[float]] = {name: [] for name in nl_factories}
 
@@ -827,7 +832,7 @@ def rolling_origin_cv(
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
-                random_state=42,
+                random_state=seed,
             )
             clf.fit(X_train_scaled, y_train)
             y_prob = clf.predict_proba(X_test_scaled)[:, 1]
@@ -879,7 +884,7 @@ def rolling_origin_cv(
                 C=1e12,  # effectively no regularization
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
-                random_state=42,
+                random_state=seed,
             )
             clf_ar.fit(X_train_ar_scaled, y_train)
             ar_auc = roc_auc_score(
@@ -1039,6 +1044,7 @@ def cross_modal_prediction(
     max_iter: int = 200,
     source_name: str = "",
     target_name: str = "",
+    seed: int = 42,
 ) -> PredictionResult:
     """
     Cross-modal prediction: incremental predictive validity test.
@@ -1270,8 +1276,14 @@ def cross_modal_prediction(
                 f"High multicollinearity detected: {len(high_corr_pairs)} feature pairs "
                 f"with |r| > 0.9. Consider removing redundant features."
             )
-    except Exception:
-        pass
+    except Exception as e:
+        # Do NOT silently swallow — a failed multicollinearity diagnostic is
+        # itself a signal the researcher should see (e.g. singular feature
+        # matrix).  Record it instead of dropping the whole check.
+        logger.warning(
+            "Multicollinearity check skipped: np.corrcoef on source "
+            "features raised %s: %s", type(e).__name__, e,
+        )
 
     # --- Physical-time-aware gap ---
     effective_gap = _compute_effective_gap(gap, window_size, horizon_windows)
@@ -1321,7 +1333,7 @@ def cross_modal_prediction(
     # Parallel nonlinear baselines (critique E): scored on the SAME joint
     # feature space as the linear joint model, so their delta_AUC is directly
     # comparable.
-    nl_factories = _nonlinear_model_factories()
+    nl_factories = _nonlinear_model_factories(seed)
     nl_aucs: Dict[str, List[float]] = {name: [] for name in nl_factories}
     nl_deltas: Dict[str, List[float]] = {name: [] for name in nl_factories}
 
@@ -1393,7 +1405,7 @@ def cross_modal_prediction(
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
-                random_state=42,
+                random_state=seed,
             )
             clf_restricted.fit(X_target_train_s, y_train)
             restricted_auc = roc_auc_score(
@@ -1410,7 +1422,7 @@ def cross_modal_prediction(
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
-                random_state=42,
+                random_state=seed,
             )
             clf_joint.fit(X_joint_train_s, y_train)
             joint_auc = roc_auc_score(
@@ -1432,7 +1444,7 @@ def cross_modal_prediction(
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
-                random_state=42,
+                random_state=seed,
             )
             clf_abl.fit(X_abl_train_s, y_train)
             ablation_auc = roc_auc_score(

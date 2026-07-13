@@ -460,11 +460,15 @@ def _sliding_window_wcc_stride(
     sx2 = (w_eff * xw ** 2).sum(axis=1)
     sy2 = (w_eff * yw ** 2).sum(axis=1)
 
-    mean_x = np.where(Wt > 0, sx / Wt, 0.0)
-    mean_y = np.where(Wt > 0, sy / Wt, 0.0)
-    cov = sxy / Wt - mean_x * mean_y
-    var_x = sx2 / Wt - mean_x ** 2
-    var_y = sy2 / Wt - mean_y ** 2
+    # Wt can be 0 for all-NaN windows; np.where does NOT short-circuit the
+    # division, so mask the divide inside errstate to avoid RuntimeWarnings
+    # (the Wt==0 positions are overwritten with 0.0 / later masked out).
+    with np.errstate(divide="ignore", invalid="ignore"):
+        mean_x = np.where(Wt > 0, sx / Wt, 0.0)
+        mean_y = np.where(Wt > 0, sy / Wt, 0.0)
+        cov = sxy / Wt - mean_x * mean_y
+        var_x = sx2 / Wt - mean_x ** 2
+        var_y = sy2 / Wt - mean_y ** 2
     var_x = np.maximum(var_x, 0.0)
     var_y = np.maximum(var_y, 0.0)
     denom = np.sqrt(var_x * var_y)
@@ -1120,6 +1124,12 @@ def extract_dynamic_features(
         nan_ratio = 1.0 - float(valid.mean())
 
     if nan_ratio > max_nan_ratio or int(valid.sum()) < 5:
+        logger.warning(
+            "extract_dynamic_features: NaN ratio %.3f exceeds "
+            "max_nan_ratio %.3f (or only %d valid points < 5) — returning "
+            "all-NaN DynamicFeatures for this WCC series.",
+            nan_ratio, max_nan_ratio, int(valid.sum()),
+        )
         _nan_features = DynamicFeatures.from_dict({
             "onset_latency": float("nan"),
             "rise_time": float("nan"),

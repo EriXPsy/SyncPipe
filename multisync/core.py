@@ -17,6 +17,7 @@ Target: From raw data to Viewer-ready JSON.
 from __future__ import annotations
 
 import json
+import logging
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -326,6 +327,16 @@ class DynamicAnalyzer:
         """
         names = dataset.modality_names
         feat_cols = dataset.feature_columns
+        if len(names) < 2:
+            # No pair can be formed; the caller would otherwise produce a
+            # silently empty AnalysisResults.  Fail LOUD (no silent empty
+            # output for a mis-specified single-modality dataset).
+            logging.getLogger(__name__).warning(
+                "DynamicAnalyzer._iter_pairs: dataset has only %d modality"
+                "(ies) (%s); at least 2 are required to form a pair. "
+                "Analysis will yield zero pairs / empty results.",
+                len(names), names,
+            )
         for i, name_a in enumerate(names):
             for name_b in names[i + 1:]:
                 for col_a in feat_cols[name_a]:
@@ -478,6 +489,7 @@ class DynamicAnalyzer:
                 pair_name=src_key,
                 mode="intra",
                 onset_threshold=pred_thr,
+                seed=self.seed,
             )
             # Record result even if no folds (warning shown in diagnostics)
             pred_entry = {

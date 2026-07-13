@@ -461,6 +461,7 @@ def _check_sampling_uniformity(dataset: Any, config: Dict[str, Any]) -> StageRes
     """
     details: List[Dict[str, Any]] = []
     failures_list: List[str] = []
+    mild_warnings: List[str] = []
 
     max_isi_cv = config.get("max_isi_cv", 0.10)
     min_effective_samples = config.get("min_effective_samples", 50)
@@ -518,8 +519,14 @@ def _check_sampling_uniformity(dataset: Any, config: Dict[str, Any]) -> StageRes
                     f"FFT-based methods (CCF, IAAFT) assume uniform sampling."
                 )
             else:
-                # WARN level — mild irregularity
-                pass
+                # WARN level — mild irregularity (below the 0.30 hard-fail
+                # threshold but above max_isi_cv).  Record it so the stage
+                # verdict escalates to WARN instead of silently passing.
+                mild_warnings.append(
+                    f"'{name}' has mildly irregular sampling (ISI CV = {cv:.2f}). "
+                    f"FFT-based methods (CCF, IAAFT) assume uniform sampling; "
+                    f"proceed but interpret surrogate-based p-values with caution."
+                )
 
     if failures_list:
         return StageResult(
@@ -527,6 +534,14 @@ def _check_sampling_uniformity(dataset: Any, config: Dict[str, Any]) -> StageRes
             verdict=StageVerdict.FAIL,
             details=details,
             message=f"{len(failures_list)} sampling uniformity issue(s).",
+        )
+
+    if mild_warnings:
+        return StageResult(
+            stage="sampling_uniformity",
+            verdict=StageVerdict.WARN,
+            details=details,
+            message=f"{len(mild_warnings)} mild sampling irregularity warning(s).",
         )
 
     return StageResult(
