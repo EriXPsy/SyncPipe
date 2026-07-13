@@ -294,6 +294,7 @@ class PredictionResult:
     n_samples: int = 0               # windows used to fit the model
     feature_to_sample_ratio: float = 0.0  # n_samples / n_features_used (FSR)
     diagnostics: Dict[str, Any] = field(default_factory=dict)  # VIF, multicollinearity, etc.
+    n_failed_folds: int = 0   # folds dropped due to primary-model failure (NOT counted in means)
     # --- Nonlinear prediction baselines (critique E, 2026-07-07) ---
     # Parallel nonlinear models (RandomForest, SVM-RBF) run on the SAME
     # CV folds as the primary linear LogisticRegression, so their delta_AUC
@@ -322,6 +323,7 @@ class PredictionResult:
             "n_samples": self.n_samples,
             "feature_to_sample_ratio": self.feature_to_sample_ratio,
             "diagnostics": self.diagnostics,
+            "n_failed_folds": self.n_failed_folds,
             "folds": [f.to_dict() for f in self.folds],
         }
         if self.nonlinear:
@@ -385,6 +387,7 @@ class PredictionResult:
             n_samples=int(d.get("n_samples", 0)),
             feature_to_sample_ratio=float(d.get("feature_to_sample_ratio", 0.0)),
             diagnostics=d.get("diagnostics", {}),
+            n_failed_folds=int(d.get("n_failed_folds", 0)),
             nonlinear=d.get("nonlinear", {}),
             nonlinear_signal_present=bool(d.get("nonlinear_signal_present", False)),
             nonlinear_note=d.get("nonlinear_note", ""),
@@ -1313,6 +1316,7 @@ def cross_modal_prediction(
     joint_coefs_sum = np.zeros(len(joint_feature_names))
     abl_coefs_sum = np.zeros(len(abl_joint_names))
     valid_folds = 0
+    failed_folds = 0  # primary joint-model failures (dropped, NOT fabricated as 0.5)
 
     # Parallel nonlinear baselines (critique E): scored on the SAME joint
     # feature space as the linear joint model, so their delta_AUC is directly
@@ -1399,7 +1403,7 @@ def cross_modal_prediction(
             restricted_auc = 0.5
 
         # --- Joint model (source + target + both ARs) ---
-        joint_auc = 0.5
+        joint_auc = float("nan")
         try:
             clf_joint = LogisticRegression(
                 penalty="l1",
@@ -1414,8 +1418,11 @@ def cross_modal_prediction(
             )
             joint_coefs_sum += clf_joint.coef_[0]
             valid_folds += 1
-        except Exception:
-            pass
+        except Exception as e:
+            # Skip this fold - do NOT pretend AUC=0.5 (mirrors intra-mode).
+            logger.debug("Cross-modal joint fold %d failed: %s", fold_id, e)
+            failed_folds += 1
+            continue
 
         # --- Ablation joint model (drop SOURCE AR only) ---
         ablation_auc = float("nan")
@@ -1485,6 +1492,7 @@ def cross_modal_prediction(
             mean_delta_auc=0.0,
             folds=[],
             warning="no_valid_folds",
+            n_failed_folds=failed_folds,
             n_features_used=avg_features_used,
             diagnostics=diagnostics,
             nonlinear={},
@@ -1626,6 +1634,7 @@ def cross_modal_prediction(
         folds=folds,
         warning=_compose_warning(warning, _overparam_warning(len(y), avg_features_used)),
         n_samples=len(y),
+        n_failed_folds=failed_folds,
         feature_to_sample_ratio=_fsr(len(y), avg_features_used),
         n_features_used=avg_features_used,
         diagnostics=diagnostics,
