@@ -81,16 +81,26 @@ def test_tapered_wcc_matches_bruteforce_per_window(pair, window_type):
 
 
 def test_tapered_wcc_does_not_use_buggy_cumsum_backend(pair):
-    """Tapered WCC must NOT equal the (phase-shifted) cumsum output."""
+    """Tapered WCC must NOT use the (phase-shifted) cumsum backend.
+
+    The cumsum backend is rect-only and must refuse non-rect input loudly
+    (fail-loud), rather than silently returning a phase-shifted WCC.  The
+    public API must still produce the CORRECT tapered WCC (matching the
+    independent brute-force ground truth).
+    """
     x, y = pair
     w = 50
+    # The cumsum backend must refuse non-rect input loudly, not silently
+    # return a corrupted WCC.
+    with pytest.raises(ValueError):
+        _sliding_window_wcc_cumsum(x, y, w, "hann")
+    # And the public API must still produce the CORRECT tapered WCC.
     got = sliding_window_wcc(x, y, w, window_type="hann")
-    cumsum_out = _sliding_window_wcc_cumsum(x, y, w, "hann")
-    # The cumsum backend applies the taper globally-tiled, which is wrong for
-    # non-rect windows.  If the dispatcher still routed hann -> cumsum, these
-    # would match.  They must NOT.
-    assert not np.allclose(got, cumsum_out, atol=1e-6), (
-        "tapered WCC unexpectedly matches the cumsum (phase-shifted) output"
+    exp = _bruteforce_tapered_wcc(x, y, w, "hann")
+    mask = np.isfinite(exp)
+    assert np.allclose(got[mask], exp[mask], atol=1e-6), (
+        "tapered WCC deviates from correct per-window value "
+        f"(max diff {np.max(np.abs(got[mask] - exp[mask])):.2e})"
     )
 
 

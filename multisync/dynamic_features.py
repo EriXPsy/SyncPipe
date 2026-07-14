@@ -142,11 +142,21 @@ def sliding_window_wcc(
         Only applies when NaN values are present (stride_tricks path).
     window_type : str
         Window taper applied to each window before computing Pearson r.
-        ``'rect'`` (default) = uniform/boxcar window (legacy behaviour).
+        ``'rect'`` (default) = uniform/boxcar window (legacy behaviour) and
+        the only path that uses the fast O(n) cumsum backend.
         ``'hann'`` / ``'hamming'`` / ``'triang'`` / ``'gaussian'`` taper the
-        window edges, reducing abrupt edge effects on the WCC time series
-        (recommended in psychophysiology). The kernel is normalised to mean
-        weight 1, so results stay on the same scale as ``'rect'``.
+        window edges, reducing abrupt edge effects on the WCC time series.
+        The kernel is normalised to mean weight 1, so results stay on the
+        same scale as ``'rect'``.
+
+        Note: a non-rect taper is numerically correct (the dispatcher routes
+        it to the stride backend, which aligns the kernel per window start),
+        but it forgoes the O(n) cumsum fast path and uses O(n*w) memory.
+        Prefer ``'rect'`` for large signals unless tapering is
+        methodologically required. Do NOT call the private
+        ``_sliding_window_wcc_cumsum`` directly with a taper — it raises
+        ``ValueError`` (its globally-tiled weight is phase-shifted for
+        non-rect windows and would silently return a wrong WCC).
 
     Returns
     -------
@@ -311,6 +321,17 @@ def _sliding_window_wcc_cumsum(
     so edge points contribute less.  For ``window_type='rect'`` the weights
     are uniform and this reduces exactly to the legacy formula.
 
+    Warning
+    -------
+    This backend is ONLY valid for ``window_type='rect'``.  For a non-rect
+    taper the globally-tiled weight ``kern[i % window_size]`` is phase-shifted
+    for off-boundary windows, yielding a numerically INCORRECT WCC (verified:
+    ~0.3 absolute error on a [-1, 1] scale for a 'hann' window).  Tapered
+    windows must use :func:`sliding_window_wcc`, which routes them to the
+    stride backend (correct per-window kernel alignment).  This function
+    raises ``ValueError`` for any ``window_type != 'rect'`` to fail loud
+    rather than returning corrupted values.  (BUG-1 / Finding 5.)
+
     Note
     ----
     Input signals are **pre-demeaned** (using their global means) before
@@ -326,6 +347,23 @@ def _sliding_window_wcc_cumsum(
     """
     n = len(x)
     w = float(window_size)
+
+    # Fail loud (Karpathy Rule 12): this backend applies the taper as a
+    # *globally tiled* weight (weight[i] = kern[i % window_size]), which is
+    # only correct for the uniform 'rect' kernel.  A non-rect taper is
+    # phase-shifted for off-boundary windows and yields a WRONG WCC.  Tapered
+    # windows must go through sliding_window_wcc (routes to the stride
+    # backend, which aligns the kernel per window start).  Refuse loudly
+    # rather than silently returning corrupted numbers.  (See BUG-1 / Finding 5.)
+    if window_type != "rect":
+        raise ValueError(
+            f"_sliding_window_wcc_cumsum only supports window_type='rect'; "
+            f"got {window_type!r}. Tapered windows must use sliding_window_wcc "
+            f"(routes to the stride backend, which aligns the kernel per "
+            f"window start). The cumsum backend's globally-tiled weight is "
+            f"phase-shifted for non-rect windows and produces a numerically "
+            f"INCORRECT WCC."
+        )
 
     # ------------------------------------------------------------------
     # Pre-demean using global means to avoid catastrophic cancellation
