@@ -59,6 +59,15 @@ from .feature_definitions import (
 
 logger = logging.getLogger(__name__)
 
+# Memory guard (gstack OOM #6): surrogate generation materializes a
+# (surrogate_n, n_timepoints) float64 matrix via np.vstack. Under the
+# core.DynamicAnalyzer default surrogate_n=5000 this is bounded (~tens of MiB),
+# but a high surrogate_n or very long signals can silently OOM. Warn loudly
+# (fail loud) *before* allocating instead of crashing the process. This does
+# NOT change behaviour for normal inputs and does NOT alter the production
+# default surrogate_n=5000.
+SURROGATE_MEM_GUARD_BYTES = 512 * 1024 * 1024  # 512 MiB
+
 
 # ---------------------------------------------------------------------------
 # Sliding-window WCC (Weighted Cross-Correlation)
@@ -1076,6 +1085,20 @@ def compute_surrogate_threshold_from_signals(
         wcc_s = _apply_discontinuity_mask(wcc_s, discontinuity_mask, wcc_window_size)
         surrogate_wccs.append(wcc_s)
 
+    # Memory guard (gstack OOM #6): warn before allocating the
+    # (surrogate_n, n_timepoints) surrogate matrix if it would exceed the
+    # guard budget. Purely a warning — computation is unchanged for normal
+    # inputs.
+    if surrogate_wccs:
+        _n_tp = surrogate_wccs[0].shape[0]
+        _est = len(surrogate_wccs) * _n_tp * surrogate_wccs[0].dtype.itemsize
+        if _est > SURROGATE_MEM_GUARD_BYTES:
+            logger.warning(
+                "compute_surrogate_threshold_from_signals: surrogate matrix "
+                "would allocate ~%.1f MiB (surrogate_n=%d x %d timepoints). "
+                "This may OOM; consider lowering surrogate_n or truncating signals.",
+                _est / (1024 * 1024), len(surrogate_wccs), _n_tp,
+            )
     surrogate_matrix = np.vstack(surrogate_wccs)  # (surrogate_n, n_timepoints)
     return compute_surrogate_threshold(surrogate_matrix, percentile=percentile)
 

@@ -38,6 +38,14 @@ from .wclr import wclr_coupling_trace
 
 logger = logging.getLogger(__name__)
 
+# Memory guard (gstack OOM #6): compute_session_pooled_threshold materializes a
+# pooled surrogate matrix of shape (n_dyads * surrogate_n, n_coupling_points)
+# float64. Under a high surrogate_n (default 5000 in core.DynamicAnalyzer) and
+# many dyads this can silently OOM. Warn loudly (fail loud) *before* allocating
+# instead of crashing the process. This does NOT change behaviour for normal
+# inputs and does NOT alter the production default surrogate_n=5000.
+SURROGATE_POOLED_MEM_GUARD_BYTES = 512 * 1024 * 1024  # 512 MiB
+
 
 __all__ = [
     "compute_session_pooled_threshold",
@@ -202,6 +210,21 @@ def compute_session_pooled_threshold(
             "n_dyads_excluded_length_mismatch": n_excluded_length_mismatch,
         }
 
+    # Memory guard (gstack OOM #6): estimate the pooled surrogate matrix size
+    # before allocating. Warn loudly instead of silently OOM-ing if it would
+    # exceed the guard budget. Purely a warning — computation is unchanged for
+    # normal inputs.
+    if pooled_values:
+        _rows = sum(m.shape[0] for m in pooled_values)
+        _cols = pooled_values[0].shape[1]
+        _est = _rows * _cols * pooled_values[0].dtype.itemsize
+        if _est > SURROGATE_POOLED_MEM_GUARD_BYTES:
+            logger.warning(
+                "compute_session_pooled_threshold: pooled surrogate matrix "
+                "would allocate ~%.1f MiB (%d dyads x surrogate_n=%d x %d points). "
+                "This may OOM; consider lowering surrogate_n or chunking dyads.",
+                _est / (1024 * 1024), len(pooled_values), surrogate_n, _cols,
+            )
     pooled = np.vstack(pooled_values)
     threshold, is_surrogate = compute_surrogate_threshold(pooled, percentile=percentile)
 
