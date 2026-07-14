@@ -841,7 +841,7 @@ def rolling_origin_cv(
             valid_folds += 1
         except Exception as e:
             # Skip this fold - do NOT pretend AUC=0.5
-            logger.debug("Fold %d failed: %s", fold_id, e)
+            logger.warning("Fold %d failed: %s", fold_id, e)
             continue
 
         # Baseline: predict constant = training set positive rate
@@ -1432,7 +1432,7 @@ def cross_modal_prediction(
             valid_folds += 1
         except Exception as e:
             # Skip this fold - do NOT pretend AUC=0.5 (mirrors intra-mode).
-            logger.debug("Cross-modal joint fold %d failed: %s", fold_id, e)
+            logger.warning("Cross-modal joint fold %d failed: %s", fold_id, e)
             failed_folds += 1
             continue
 
