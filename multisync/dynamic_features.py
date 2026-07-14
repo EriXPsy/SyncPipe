@@ -1140,6 +1140,8 @@ def extract_dynamic_features(
             "mean_synchrony": float("nan"),
             "synchrony_entropy": float("nan"),
         })
+        # Report the (high) discontinuity fraction even on the all-NaN path.
+        _nan_features.nan_fraction = nan_ratio
         if return_raw_profiles:
             return _nan_features, []
         return _nan_features
@@ -1155,6 +1157,9 @@ def extract_dynamic_features(
         wcc_window_sec=wcc_window_sec,
         threshold=threshold,
     )
+    # Discontinuity-masked WCC fraction: mandatory diagnostic for
+    # dwell_time / switching_rate confound assessment (Claude review #1 v1b).
+    features.nan_fraction = nan_ratio
 
     if return_raw_profiles:
         return features, []

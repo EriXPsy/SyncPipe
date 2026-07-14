@@ -325,6 +325,7 @@ def morphology_feature_table(
     hz: float = 1.0,
     wcc_window_sec: Optional[float] = None,
     prominence: float = 0.1,
+    onset_threshold: Optional[float] = None,
 ) -> pd.DataFrame:
     """Return a DataFrame with shape descriptors + SyncPipe features per trace.
 
@@ -337,12 +338,23 @@ def morphology_feature_table(
         WCC window duration in seconds; used for sustained-crossing scaling.
     prominence : float
         Prominence for scalefree_descriptors.
+    onset_threshold : float or None
+        WCC onset/dwell/switching threshold forwarded to
+        :func:`extract_dynamic_features`. **Pass the same surrogate-derived
+        threshold used by the main pipeline** so that the SyncPipe features
+        extracted here (notably ``dwell_time`` / ``switching_rate``) are on the
+        same threshold convention as the main analysis and may be compared in
+        one report (Claude review finding #4, fix ①). ``None`` → locked default
+        0.5 (legacy behaviour, only acceptable for standalone morphology
+        exploration).
 
     Returns
     -------
     pd.DataFrame
         One row per trace, with columns prefixed by ``shape_`` for shape
-        descriptors and the 9 SyncPipe feature names.
+        descriptors and the SyncPipe feature names. ``nan_fraction`` (the
+        discontinuity-masked WCC fraction) is included as a data-quality
+        diagnostic.
     """
     rows = []
     for w in wcc_traces:
@@ -351,10 +363,20 @@ def morphology_feature_table(
             continue
         if wcc_window_sec is None:
             wcc_window_sec = len(w) / hz
-        f = extract_dynamic_features(np.asarray(w, float), hz=hz, wcc_window_sec=wcc_window_sec)
-        ms = {k: float(getattr(f, k, np.nan)) for k in ["mean_synchrony", "peak_amplitude",
-            "dwell_time", "switching_rate", "bimodality_coefficient", "synchrony_entropy",
-            "onset_latency", "rise_time", "recovery_time"]}
+        f = extract_dynamic_features(
+            np.asarray(w, float),
+            hz=hz,
+            wcc_window_sec=wcc_window_sec,
+            onset_threshold=onset_threshold,
+        )
+        ms = {
+            k: float(getattr(f, k, np.nan))
+            for k in [
+                "mean_synchrony", "peak_amplitude", "dwell_time", "switching_rate",
+                "bimodality_coefficient", "synchrony_entropy", "onset_latency",
+                "rise_time", "recovery_time", "nan_fraction",
+            ]
+        }
         rows.append({f"shape_{k}": v for k, v in sd.items()} | ms)
     return pd.DataFrame(rows)
 
@@ -593,9 +615,29 @@ class MorphologyAnalyzer:
         )
         return self._method2
 
-    def feature_table(self, prominence: float = 0.1) -> pd.DataFrame:
-        """Return shape descriptors + SyncPipe features per trace."""
-        return morphology_feature_table(self.wcc_traces, hz=self.hz, prominence=prominence)
+    def feature_table(
+        self,
+        prominence: float = 0.1,
+        onset_threshold: Optional[float] = None,
+    ) -> pd.DataFrame:
+        """Return shape descriptors + SyncPipe features per trace.
+
+        Parameters
+        ----------
+        prominence : float
+            Prominence for scalefree_descriptors.
+        onset_threshold : float or None
+            Forwarded to :func:`morphology_feature_table` so the SyncPipe
+            features extracted here share the main pipeline's onset/dwell/
+            switching threshold (finding #4, fix ①). ``None`` keeps the legacy
+            0.5 default — only for standalone morphology exploration.
+        """
+        return morphology_feature_table(
+            self.wcc_traces,
+            hz=self.hz,
+            prominence=prominence,
+            onset_threshold=onset_threshold,
+        )
 
     def diagnostics(
         self,

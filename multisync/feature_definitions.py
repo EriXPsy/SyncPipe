@@ -550,6 +550,14 @@ class DynamicFeatures:
     rise_defined: int = 0
     recovery_defined: int = 0
 
+    # --- Data-quality diagnostic (2026-07-14) ---
+    # Fraction of the WCC series that is NaN (i.e. discontinuity-masked
+    # windows). Reported alongside dwell_time / switching_rate so reviewers
+    # can assess whether missingness correlates with experimental condition —
+    # a confound for the "quality of synchrony" argument built on those two
+    # FDR-family features (Claude review finding #1, mitigation v1b).
+    nan_fraction: float = float("nan")
+
     # --- Meta ---
     notes: str = ""
     params: Dict[str, Any] = field(default_factory=dict)
@@ -586,6 +594,8 @@ class DynamicFeatures:
                 # Exploratory timing descriptors (not in FDR)
                 "inter_peak_cv",
                 "first_peak_time",
+                # Data-quality diagnostic (discontinuity-masked WCC fraction)
+                "nan_fraction",
                 # Explicit ML-only timing imputations
                 "onset_latency_imputed",
                 "rise_time_imputed",
