@@ -42,6 +42,7 @@ Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery
 from __future__ import annotations
 
 import itertools
+import logging
 import warnings
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple, Union
@@ -50,6 +51,8 @@ import numpy as np
 import pandas as pd
 
 from ..batch import _bh_fdr_correction
+
+logger = logging.getLogger(__name__)
 
 
 # ── Re-use the single canonical BH-FDR (batch._bh_fdr_correction) ──────────
@@ -267,6 +270,44 @@ def between_condition_fdr(
     if not feature_cols:
         raise ValueError(f"No feature columns found in df. Looking for: {feature_cols}")
 
+    # ── VIF gate (collinearity diagnostic for the FDR family) ──────────
+    # High-VIF features are statistically redundant and inflate the
+    # effective test count. We do NOT silently drop confirmatory features
+    # (the FDR family is pre-registered); instead we flag severe/concern
+    # collinearity so the analyst can interpret the FDR result honestly.
+    vif_gate: Dict[str, object] = {"passed": True, "skipped": False}
+    try:
+        from ..feature_vif_test import VIF_SEVERE, collinearity_report
+        if len(df.dropna(subset=feature_cols)) >= 4:
+            rep = collinearity_report(df, feature_cols)
+            severe = list(rep.get("vif_severe", []))
+            concern = list(rep.get("vif_concern", []))
+            vif_series = rep.get("vif", {})
+            vif_dict = dict(vif_series) if hasattr(vif_series, "items") else {}
+            vif_gate = {
+                "passed": len(severe) == 0,
+                "skipped": False,
+                "vif_severe": severe,
+                "vif_concern": concern,
+                "vif": {k: float(v) for k, v in vif_dict.items()
+                        if np.isfinite(float(v))},
+            }
+            if severe:
+                logger.warning(
+                    "VIF gate: %d FDR-family feature(s) show SEVERE "
+                    "collinearity (VIF >= %.1f): %s. Their independent "
+                    "significance is questionable and the effective test "
+                    "count m may be inflated.",
+                    len(severe), float(VIF_SEVERE), severe,
+                )
+        else:
+            vif_gate["skipped"] = True
+            vif_gate["reason"] = "insufficient finite rows for VIF"
+    except Exception as exc:  # noqa: BLE001
+        # Diagnostic only — never let the VIF gate break the L2 test.
+        vif_gate = {"passed": True, "skipped": True,
+                    "reason": f"vif computation skipped: {exc}"}
+
     unique_conditions = sorted(df[condition_col].dropna().unique())
 
     if condition_values is None:
@@ -432,6 +473,7 @@ def between_condition_fdr(
         "condition_b": condition_b,
         "n_permutations": n_permutations,
         "summary_df": summary_df,
+        "vif_gate": vif_gate,
     }
 
 
