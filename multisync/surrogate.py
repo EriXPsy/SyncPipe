@@ -50,12 +50,16 @@ def ft_surrogate(
     n = x.size
     X = np.fft.rfft(x)
     magnitudes = np.abs(X)
+    phases = np.angle(X)
 
     # Random phases for non-DC, non-Nyquist bins
     random_phases = rng.uniform(0.0, 2.0 * np.pi, size=magnitudes.size)
-    random_phases[0] = 0.0                     # DC must be real
+    # Preserve DC and Nyquist phases so the surrogate's mean (DC) is not
+    # deterministically sign-flipped. A negative-mean signal must stay
+    # negative under phase randomization. Mirrors iaaft_surrogate (below).
+    random_phases[0] = phases[0]               # preserve DC (gstack Finding 7)
     if n % 2 == 0:
-        random_phases[-1] = 0.0              # Nyquist must be real (even n)
+        random_phases[-1] = phases[-1]         # preserve Nyquist (even n)
 
     X_surr = magnitudes * np.exp(1j * random_phases)
     surr = np.fft.irfft(X_surr, n=n)
