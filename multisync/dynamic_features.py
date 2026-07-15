@@ -805,9 +805,26 @@ def _wcc_level_surrogate_test(
     n_valid = len(wcc_valid)
 
     if n_valid < min_wcc_points:
-        return _empty_result(
-            f"WCC too short ({n_valid} < {min_wcc_points} samples)"
-        )
+        # gstack Finding 6: the early-return path must mirror the NORMAL-path
+        # result shape (L1 keys: p_dwell_time / p_switching_rate + their
+        # null_/obs_ companions). Otherwise downstream consumers that index those
+        # keys (or build DataFrames from the L1 key set) raise KeyError on a short
+        # trace — crashing a whole batch if even one dyad falls below
+        # min_wcc_points. We deliberately do NOT call the shared _empty_result()
+        # here: that helper emits L0-shaped keys (p_mean_synchrony /
+        # p_peak_amplitude / p_bimodality_coefficient) which is correct only for
+        # the signal-level (L0) test that also depends on it.
+        _eff_features = ("dwell_time", "switching_rate") if features is None else tuple(features)
+        return {
+            **{f"p_{f}": 1.0 for f in _eff_features},
+            **{f"null_{f}": np.array([]) for f in _eff_features},
+            **{f"obs_{f}": np.nan for f in _eff_features},
+            "n_surrogates": 0,
+            "null_model": "none",
+            "per_feature_significant": {f: False for f in _eff_features},
+            "alpha": alpha,
+            "notes": f"WCC too short ({n_valid} < {min_wcc_points} samples)",
+        }
 
     if features is None:
         features = ("dwell_time", "switching_rate")

@@ -35,6 +35,33 @@ def test_no_silent_surrogate_cap():
     assert res["n_surrogates"] == 1100
 
 
+# ---- gstack Finding 6: short-WCC early-return shape parity -------------
+def test_l1_short_wcc_early_return_matches_normal_shape():
+    """A WCC shorter than min_wcc_points must still return an L1-shaped dict
+    (p_dwell_time / p_switching_rate present and == 1.0), so downstream
+    consumers that index those keys don't KeyError a whole batch. Regression
+    for gstack Finding 6."""
+    short = np.zeros(10)  # far below default min_wcc_points=30
+    res = _wcc_level_surrogate_test(short, hz=1.0, surrogate_n=50, seed=1)
+    for k in ("p_dwell_time", "p_switching_rate"):
+        assert k in res, f"short-WCC early return missing {k}"
+        assert res[k] == 1.0  # non-significant: no evidence to reject H0
+    for k in ("null_dwell_time", "null_switching_rate"):
+        assert k in res
+    assert res["per_feature_significant"] == {"dwell_time": False, "switching_rate": False}
+    assert np.isnan(res["obs_dwell_time"])
+    assert res["notes"].startswith("WCC too short")
+
+
+def test_l1_short_wcc_via_dispatcher_no_keyerror():
+    """Same guarantee through the public wcc_surrogate_test dispatcher (L1 path,
+    no raw_signals)."""
+    short = np.zeros(10)
+    res = wcc_surrogate_test(short, hz=1.0, surrogate_n=50, seed=1)
+    assert "p_dwell_time" in res and "p_switching_rate" in res
+    assert res["p_dwell_time"] == 1.0
+
+
 # ---- L0 path -------------------------------------------------------------
 def test_l0_emits_per_feature_significant_for_three_features():
     rng = np.random.default_rng(0)
