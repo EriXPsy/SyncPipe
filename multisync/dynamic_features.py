@@ -174,6 +174,16 @@ def sliding_window_wcc(
         Length depends on step_samples:
         - step_samples <= 1: len(x) - window_size + 1
         - step_samples > 1: ceil((len(x) - window_size + 1) / step_samples)
+
+    Window alignment (LEADING, not centered)
+    ----------------------------------------
+    This is a **leading-window** WCC: ``wcc[i]`` is the correlation of the
+    window spanning samples ``[i, i + window_size - 1]`` (i.e. the window
+    *starts* at ``i`` and looks forward).  It is **not** a centered window
+    around ``i``.  Consequence for downstream morphology: an episode peak at
+    WCC index ``i`` reflects coupling that began at sample ``i * step`` and
+    ends at ``(i + window_size - 1) * step``.  Treat the WCC time axis as
+    leading-aligned when relating peaks/onsets back to the raw-signal clock.
     """
     n = len(x)
     if len(y) != n:
