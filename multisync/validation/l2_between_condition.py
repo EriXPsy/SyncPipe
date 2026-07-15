@@ -50,7 +50,7 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from ..batch import _bh_fdr_correction
+from ..batch import _bh_fdr_correction, dedupe_fdr_input
 
 logger = logging.getLogger(__name__)
 
@@ -269,6 +269,13 @@ def between_condition_fdr(
     feature_cols = [c for c in feature_cols if c in df.columns]
     if not feature_cols:
         raise ValueError(f"No feature columns found in df. Looking for: {feature_cols}")
+
+    # ── FDR input guard: refuse duplicate feature keys ────────────────
+    # Entering the same feature twice would inflate the BH test count m
+    # and silently weaken the correction.  Fail loud (Karpathy Rule 12).
+    feature_cols, _ = dedupe_fdr_input(
+        list(feature_cols), [0.0] * len(feature_cols), on_duplicate="raise"
+    )
 
     # ── VIF gate (collinearity diagnostic for the FDR family) ──────────
     # High-VIF features are statistically redundant and inflate the

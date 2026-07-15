@@ -69,6 +69,7 @@ import pandas as pd
 from .recovery import _extract_six_features, ONSET_THRESHOLD_DEFAULT
 from ..dynamic_features import sliding_window_wcc
 from ..synthetic import generate_ground_truth_dyad
+from ..batch import dedupe_fdr_input
 
 
 # ---------------------------------------------------------------------------
@@ -630,6 +631,10 @@ def apply_bh_fdr_within_noise(
     """
     if feature_p_columns is None:
         feature_p_columns = FEATURE_P_COLUMNS
+    # FDR input guard: refuse duplicate p-columns (would inflate m).
+    feature_p_columns, _ = dedupe_fdr_input(
+        list(feature_p_columns), [0.0] * len(feature_p_columns), on_duplicate="raise"
+    )
     out = df.copy()
     reject_cols = [c.replace("p_", "reject_") for c in feature_p_columns]
     for c in reject_cols:

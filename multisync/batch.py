@@ -12,7 +12,7 @@ import json
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -449,6 +449,114 @@ def _bh_fdr_correction(
     p_corrected = np.clip(p_corrected, 0.0, 1.0)
     significant = p_corrected < alpha
     return p_corrected.tolist(), significant.tolist()
+
+
+def dedupe_fdr_input(
+    names: Sequence[str],
+    values: Sequence[float],
+    on_duplicate: str = "raise",
+) -> Tuple[List[str], List[float]]:
+    """Guard an FDR input against duplicate keys (endpoints / features).
+
+    BH-FDR treats the number of tests ``m`` as the length of the input.  If
+    the same endpoint is entered twice (e.g. a caller passes a feature list
+    with a repeated name, or merges two families that share a feature),
+    ``m`` is silently inflated and the correction becomes invalid.  This
+    helper fails loud (or merges) on such duplicates *before* BH runs.
+
+    Parameters
+    ----------
+    names : sequence of str
+        Endpoint / feature identifiers, parallel to ``values``.
+    values : sequence of float
+        The p-values (or any parallel payload) aligned to ``names``.
+    on_duplicate : {"raise", "first", "max"}
+        - "raise": raise ``ValueError`` listing the duplicated keys.
+        - "first": keep the first occurrence of each key.
+        - "max": keep the occurrence with the largest p-value (most
+          conservative — never increases apparent significance).
+
+    Returns
+    -------
+    (names, values) : deduplicated, order-preserving.
+    """
+    if len(names) != len(values):
+        raise ValueError(
+            f"dedupe_fdr_input: names ({len(names)}) and values "
+            f"({len(values)}) length mismatch"
+        )
+
+    seen: Dict[str, int] = {}
+    out_names: List[str] = []
+    out_values: List[float] = []
+
+    for name, value in zip(names, values):
+        if name not in seen:
+            seen[name] = len(out_names)
+            out_names.append(name)
+            out_values.append(float(value))
+        else:
+            dup_idx = seen[name]
+            if on_duplicate == "raise":
+                raise ValueError(
+                    f"dedupe_fdr_input: duplicate FDR key {name!r}. "
+                    f"Entering the same endpoint twice inflates the test "
+                    f"count m and invalidates BH-FDR. Fix the caller to "
+                    f"pass each feature exactly once, or set "
+                    f"on_duplicate='first'/'max' to merge."
+                )
+            elif on_duplicate == "first":
+                continue  # keep first occurrence
+            elif on_duplicate == "max":
+                if float(value) > out_values[dup_idx]:
+                    out_values[dup_idx] = float(value)
+            else:
+                raise ValueError(
+                    f"on_duplicate must be 'raise'/'first'/'max', got {on_duplicate!r}"
+                )
+
+    return out_names, out_values
+
+
+def apply_fdr(
+    names: Sequence[str],
+    p_values: Sequence[float],
+    alpha: float = 0.05,
+    on_duplicate: str = "raise",
+) -> Dict[str, Dict[str, float]]:
+    """Single canonical FDR entry: dedupe -> BH-FDR -> keyed result.
+
+    Consolidates the scattered BH-FDR call sites (batch, l2, pgt1) behind one
+    function that (a) refuses duplicate endpoints and (b) returns a keyed
+    mapping so callers never index raw arrays by position.
+
+    Parameters
+    ----------
+    names : sequence of str
+        Endpoint / feature identifiers (should be unique).
+    p_values : sequence of float
+        Raw p-values, parallel to ``names``.
+    alpha : float
+        BH-FDR significance threshold.
+    on_duplicate : {"raise", "first", "max"}
+        Forwarded to :func:`dedupe_fdr_input`.
+
+    Returns
+    -------
+    dict : name -> {"p_raw", "p_fdr", "significant"}
+    """
+    names_d, p_d = dedupe_fdr_input(
+        list(names), list(p_values), on_duplicate=on_duplicate
+    )
+    p_corrected, significant = _bh_fdr_correction(p_d, alpha=alpha)
+    return {
+        name: {
+            "p_raw": float(p_raw),
+            "p_fdr": float(p_adj),
+            "significant": bool(sig),
+        }
+        for name, p_raw, p_adj, sig in zip(names_d, p_d, p_corrected, significant)
+    }
 
 
 def _extract_metric_arrays(
