@@ -17,7 +17,9 @@ from .dataset import ContextLabel, SynchronyDataset
 from .computation_pipeline import (
     BatchComputationPipeline,
     ComputationPipeline,
+    PairResult,
     batch_compute,
+    compute_pair_pipeline,
     quick_compute,
 )
 from .inference_pipeline import InferencePipeline
@@ -59,6 +61,8 @@ __all__ = [
     # Computation and inference
     "ComputationPipeline",
     "BatchComputationPipeline",
+    "compute_pair_pipeline",
+    "PairResult",
     "quick_compute",
     "batch_compute",
     "InferencePipeline",

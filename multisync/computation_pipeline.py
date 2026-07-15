@@ -7,11 +7,12 @@ This is the "how to compute" layer — users feed in raw time series and get
 back structured feature data ready for analysis or the inference pipeline.
 """
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from dataclasses import dataclass, field
 
 from .dynamic_features import (
     sliding_window_wcc,
@@ -433,7 +434,133 @@ class BatchComputationPipeline:
         return self._threshold_meta
 
 
-# ---- module-level convenience -------------------------------------------
+# ---- canonical per-pair entry point (dual API) -------------------------
+
+@dataclass
+class PairResult:
+    """Stateless result of a single dyad/pair computation.
+
+    Returned by :func:`compute_pair_pipeline`.  Aggregates the coupling
+    series and the extracted feature object so downstream code can reuse a
+    pre-computed WCC without re-running WCC.
+    """
+
+    wcc: np.ndarray
+    features: Any  # dynamic-feature object exposing .to_dict()
+    hz: float
+    window_size: int
+    label: Optional[str] = None
+    discontinuity_mask: Optional[np.ndarray] = None
+    metadata: Dict[str, object] = field(default_factory=dict)
+
+    @property
+    def features_dict(self) -> Dict[str, float]:
+        return self.features.to_dict()
+
+    def to_dataframe(self) -> pd.DataFrame:
+        row: Dict[str, object] = {}
+        if self.label is not None:
+            row["label"] = self.label
+        row.update(self.metadata)
+        row.update(self.features_dict)
+        return pd.DataFrame([row])
+
+
+def compute_pair_pipeline(
+    sig_a: np.ndarray,
+    sig_b: np.ndarray,
+    *,
+    hz: float,
+    window_size: int,
+    onset_threshold: Optional[float] = None,
+    wcc: Optional[np.ndarray] = None,
+    discontinuity_mask: Optional[np.ndarray] = None,
+    label: Optional[str] = None,
+    window_type: str = "rect",
+    normalize: bool = True,
+    backend: str = "wcc",
+    wclr_max_lag_samples: int = 2,
+    wclr_metric: str = "beta",
+    **metadata,
+) -> PairResult:
+    """Compute WCC features for one pair — from signals OR a pre-computed WCC.
+
+    This is the single canonical entry point for per-pair feature
+    extraction.  ``quick_compute`` / ``batch_compute`` delegate here.
+
+    Dual input mode (the "double API"):
+    * ``wcc is None`` — signals are loaded and the WCC coupling series is
+      computed internally, reusing :class:`ComputationPipeline`'s cumsum /
+      WCLR / discontinuity-mask machinery.
+    * ``wcc is not None`` — the supplied coupling series is used directly,
+      skipping WCC recomputation.  Feature extraction is identical to the
+      signals path, so a given WCC always yields the same features.
+
+    Parameters
+    ----------
+    sig_a, sig_b : np.ndarray
+        Aligned time series (only used when ``wcc is None``).
+    hz : float
+        Sampling rate (Hz).
+    window_size : int
+        WCC window size in samples.
+    onset_threshold : float or None
+        Episode onset threshold forwarded to feature extraction; ``None``
+        uses the feature default.
+    wcc : np.ndarray or None
+        Pre-computed coupling series.  When given, ``sig_a``/``sig_b`` are
+        ignored.
+    discontinuity_mask, label, window_type, normalize, backend,
+    wclr_max_lag_samples, wclr_metric : forwarded to WCC computation when
+        ``wcc is None``.
+    **metadata
+        Arbitrary key-value metadata merged into :meth:`PairResult.to_dataframe`.
+
+    Returns
+    -------
+    PairResult
+    """
+    if wcc is None:
+        pipe = ComputationPipeline(
+            hz=hz,
+            window_size=window_size,
+            onset_threshold=onset_threshold,
+            backend=backend,
+            wclr_max_lag_samples=wclr_max_lag_samples,
+            wclr_metric=wclr_metric,
+            window_type=window_type,
+        )
+        pipe.load_signals(
+            sig_a, sig_b, label=label,
+            discontinuity_mask=discontinuity_mask, **metadata,
+        )
+        pipe.compute_wcc()
+        features = pipe.extract_features()
+        wcc_arr = pipe.wcc
+    else:
+        wcc_arr = np.asarray(wcc, dtype=float)
+        extract_kwargs: Dict[str, float] = {}
+        if onset_threshold is not None:
+            extract_kwargs["onset_threshold"] = onset_threshold
+        features = extract_dynamic_features(
+            wcc_arr,
+            hz=hz,
+            wcc_window_sec=window_size / hz,
+            **extract_kwargs,
+        )
+
+    return PairResult(
+        wcc=wcc_arr,
+        features=features,
+        hz=hz,
+        window_size=window_size,
+        label=label,
+        discontinuity_mask=discontinuity_mask,
+        metadata=dict(metadata),
+    )
+
+
+# ---- module-level convenience (thin wrappers over compute_pair_pipeline) -
 
 
 def quick_compute(
@@ -446,30 +573,17 @@ def quick_compute(
 ) -> pd.DataFrame:
     """One-liner: compute WCC and extract features, return DataFrame.
 
-    Parameters
-    ----------
-    sig_a, sig_b : np.ndarray
-        Aligned time series.
-    hz : float
-        Sampling rate.
-    window_size : int
-        WCC window size in samples (default 40 → 10 s at 4 Hz).
-    onset_threshold : float
-        WCC threshold for episode detection.
-    label : str or None
-        Optional label.
-
-    Returns
-    -------
-    pd.DataFrame with one row of features.
+    Delegates to :func:`compute_pair_pipeline` (canonical per-pair entry).
 
     Examples
     --------
     >>> df = quick_compute(eda_person_a, eda_person_b, hz=4.0)
     """
-    pipe = ComputationPipeline(hz=hz, window_size=window_size, onset_threshold=onset_threshold)
-    pipe.run(sig_a, sig_b, label=label)
-    return pipe.to_dataframe()
+    result = compute_pair_pipeline(
+        sig_a, sig_b, hz=hz, window_size=window_size,
+        onset_threshold=onset_threshold, label=label,
+    )
+    return result.to_dataframe()
 
 
 def batch_compute(
@@ -481,12 +595,7 @@ def batch_compute(
 ) -> pd.DataFrame:
     """Compute features for multiple dyads, returning a combined DataFrame.
 
-    Parameters
-    ----------
-    dyad_signals : list of (sig_a, sig_b) tuples
-    hz, window_size, onset_threshold : passed to ComputationPipeline.
-    labels : list of str or None
-        Optional labels for each dyad.
+    Each dyad is delegated to :func:`compute_pair_pipeline`.
 
     Returns
     -------
@@ -495,10 +604,12 @@ def batch_compute(
     if labels is None:
         labels = [None] * len(dyad_signals)
 
-    pipe = ComputationPipeline(hz=hz, window_size=window_size, onset_threshold=onset_threshold)
     frames = []
     for i, ((sig_a, sig_b), label) in enumerate(zip(dyad_signals, labels)):
-        pipe.run(sig_a, sig_b, label=label, dyad_id=i)
-        frames.append(pipe.to_dataframe())
+        result = compute_pair_pipeline(
+            sig_a, sig_b, hz=hz, window_size=window_size,
+            onset_threshold=onset_threshold, label=label, dyad_id=i,
+        )
+        frames.append(result.to_dataframe())
 
     return pd.concat(frames, ignore_index=True)
