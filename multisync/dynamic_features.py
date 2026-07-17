@@ -833,6 +833,7 @@ def _wcc_level_surrogate_test(
             "null_model": "none",
             "per_feature_significant": {f: False for f in _eff_features},
             "alpha": alpha,
+            "applicable": False,
             "notes": f"WCC too short ({n_valid} < {min_wcc_points} samples)",
         }
 
@@ -903,6 +904,7 @@ def _wcc_level_surrogate_test(
 
     result["per_feature_significant"] = per_feature_significant
     result["alpha"] = alpha
+    result["applicable"] = True
     result["notes"] = ""
     return result
 

@@ -57,9 +57,14 @@ class InferencePipeline:
     Examples
     --------
     >>> pipe = InferencePipeline(df, hz=4.0, wcc_window_sec=10.0)
-    >>> pipe.run_l0(sig_a, sig_b)          # per-observation
-    >>> pipe.run_l1(wcc_series)            # per-observation
-    >>> pipe.run_l2("condition", "dyad_id")  # group-level
+    >>> # Per-observation tests (legacy L0/L1/L2 API):
+    >>> l0 = pipe.test_l0_signal(wcc, (sig_a, sig_b), wcc_window_size=40)
+    >>> l1 = pipe.test_l1_structure(wcc, label="dyad_01")
+    >>> l2 = pipe.test_l2_condition(condition_col="condition", dyad_col="dyad_id")
+    >>> # Or run the full v1 evidence chain in three steps:
+    >>> pipe.run_synchrony_existence_audit(raw_signals, wcc_window_size=40)
+    >>> pipe.run_design_control_audit(signal_pairs, wcc_window_size=40)
+    >>> pipe.run_group_condition_inference(condition_col="condition", dyad_col="dyad_id")
     >>> report = pipe.summarize()
     """
 
@@ -609,6 +614,12 @@ class InferencePipeline:
 
             if label in wcc_dict:
                 l1_result = self.test_l1_structure(wcc_dict[label], label=label)
+                # gstack Finding 6 (corrected): a WCC too short for a valid L1
+                # test is NOT "L1 not significant" — it is "test not applicable"
+                # and must be excluded from the denominator (l1_total) so it does
+                # not silently deflate the reported L1 pass rate.
+                if not l1_result.get("applicable", True):
+                    continue
                 l1_total += 1
                 pfs1 = l1_result.get("per_feature_significant", {})
                 for f, sig in pfs1.items():
@@ -671,9 +682,11 @@ class InferencePipeline:
             lines.append("  H0: signals are independent")
 
         if self._l1_results:
-            n_l1 = len(self._l1_results)
+            applicable = [r for r in self._l1_results.values()
+                          if r.get("applicable", True)]
+            n_l1 = len(applicable)
             n_l1_sig = sum(
-                1 for r in self._l1_results.values()
+                1 for r in applicable
                 if r.get("per_feature_significant", {}).get("switching_rate", False)
             )
             lines.append(f"\nL1 (WCC-level IAAFT): {n_l1_sig}/{n_l1} significant")
