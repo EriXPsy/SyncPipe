@@ -198,16 +198,26 @@ def extract_episodes(
     wf = np.where(finite, w, np.nan)
     thr = threshold if threshold_mode == "fixed" else float(np.nanpercentile(wf, percentile))
     above = (wf >= thr) & finite
-    eps, cur = [], []
-    for i, a in enumerate(above):
-        if a:
-            cur.append(i)
-        elif cur:
-            if len(cur) >= min_len:
-                eps.append(wf[cur[0]:cur[-1] + 1])
-            cur = []
-    if len(cur) >= min_len:
-        eps.append(wf[cur[0]:cur[-1] + 1])
+    # Gap-robust episode detection (mirrors feature_definitions fix 1cc5397,
+    # 2026-07-13): run-detection operates on VALID (finite) samples only. A
+    # missing point is excluded, not treated as a below-threshold sample, so
+    # an artifact gap does not split one sustained elevated episode into two
+    # shorter episodes (which would misclassify a genuine "sustained" episode
+    # as "brief" in archetype clustering). The two valid segments of a single
+    # episode are merged into one run; its waveform is the concatenation of the
+    # valid above-threshold samples (gaps dropped).
+    valid_positions = np.where(finite)[0]
+    above_valid = above[finite]
+    padded = np.concatenate(([False], above_valid, [False]))
+    diffs = np.diff(padded.astype(np.int8))
+    starts = np.where(diffs == 1)[0]
+    ends = np.where(diffs == -1)[0]
+    eps = []
+    for s, e in zip(starts, ends):
+        run_valid_pos = valid_positions[s:e]
+        run_above = run_valid_pos[above_valid[s:e]]
+        if len(run_above) >= min_len:
+            eps.append(wf[run_above])
     return [e for e in eps if np.isfinite(e).all()]
 
 

@@ -69,6 +69,32 @@ def test_extract_episodes():
     assert all(len(ep) >= 4 for ep in eps)
 
 
+def test_extract_episodes_gap_robust():
+    """A sustained elevated episode with a short artifact gap in the middle
+    must stay ONE episode, not fragment into two (Finding 10).
+
+    Regression guard for the gap-robust fix that mirrors feature_definitions
+    fix 1cc5397: missing points are excluded, not treated as below-threshold,
+    so an artifact gap no longer splits a single sustained run.
+    """
+    w = np.full(40, 0.9)          # one sustained elevated episode
+    w[15:18] = np.nan             # 3-point artifact gap in the middle
+    eps = extract_episodes(w, threshold=0.5, threshold_mode="fixed", min_len=4)
+    assert len(eps) == 1, (
+        "gap in the middle of a sustained episode must NOT split it; "
+        f"got {len(eps)} episodes"
+    )
+    assert len(eps[0]) == 37, (
+        "merged episode should keep all 37 valid elevated samples"
+    )
+
+    # Sanity: a genuine dip (below threshold, not missing) still splits.
+    w2 = np.full(40, 0.9)
+    w2[15:25] = 0.1               # 10-point real sub-threshold dip
+    eps2 = extract_episodes(w2, threshold=0.5, threshold_mode="fixed", min_len=4)
+    assert len(eps2) == 2
+
+
 def test_episode_archetype_cluster():
     traces = [_make_synthetic_trace(s, seed=i) for i, s in enumerate(
         ["sustained", "single_peak", "oscillatory", "asymmetric"] * 4)]

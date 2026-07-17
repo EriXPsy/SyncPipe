@@ -834,17 +834,10 @@ def run_quality_check(
             all_failures.append(f"[{st.stage}] {st.message}")
         elif st.verdict == StageVerdict.WARN:
             all_warnings.append(f"[{st.stage}] {st.message}")
-        # Surface any detail-level messages carried by the stage.  Stages that
-        # attach a "message" key to their detail dicts get those surfaced here;
-        # stages without per-detail messages are unaffected.
-        for d in st.details:
-            msg = d.get("message") if isinstance(d, dict) else None
-            if not msg:
-                continue
-            if st.verdict == StageVerdict.FAIL:
-                all_failures.append(f"[{st.stage}] {msg}")
-            else:
-                all_warnings.append(f"[{st.stage}] {msg}")
+        # NOTE: per-detail "message" surfacing was removed — no _check_* stage
+        # ever attaches a "message" key to its detail dicts (full-file grep
+        # confirmed), so that loop was dead code (Finding 12). Stage-level
+        # messages above are the only surfaced text.
 
     report = DataQualityReport(
         dyad_id=dyad_id,
