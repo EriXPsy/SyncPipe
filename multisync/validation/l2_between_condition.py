@@ -41,6 +41,7 @@ Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery
 
 from __future__ import annotations
 
+import hashlib
 import itertools
 import logging
 import warnings
@@ -488,6 +489,19 @@ def between_condition_fdr(
 # Convenience: L2 within-modality
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _modality_seed_offset(modality: str, modulus: int = 10000) -> int:
+    """Deterministic, process-stable seed offset for a modality label.
+
+    The built-in ``hash()`` is randomized per Python process by default
+    (``PYTHONHASHSEED``) and is therefore NOT reproducible across runs or
+    machines. Use a cryptographic digest of the modality name instead so
+    that a fixed ``seed`` yields identical per-modality RNG offsets every
+    time the analysis is re-run.
+    """
+    digest = hashlib.md5(str(modality).encode("utf-8")).hexdigest()
+    return int(digest, 16) % modulus
+
+
 def between_condition_by_modality(
     df: pd.DataFrame,
     modality_col: str = "modality",
@@ -529,7 +543,7 @@ def between_condition_by_modality(
                 dyad_col=dyad_col,
                 feature_cols=feature_cols,
                 n_permutations=n_permutations,
-                seed=seed + hash(mod) % 10000,
+                seed=seed + _modality_seed_offset(mod),
                 alpha=alpha,
                 condition_values=condition_values,
             )
