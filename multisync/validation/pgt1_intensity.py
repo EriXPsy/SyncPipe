@@ -69,7 +69,7 @@ import pandas as pd
 from .recovery import _extract_six_features, ONSET_THRESHOLD_DEFAULT
 from ..dynamic_features import sliding_window_wcc
 from ..synthetic import generate_ground_truth_dyad
-from ..batch import dedupe_fdr_input
+from ..batch import apply_fdr, dedupe_fdr_input
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +237,12 @@ def bh_fdr(
     Returns a boolean array indicating which p‑values are rejected at
     FDR level ``q``.  NaN p‑values are treated as **not rejected**.
 
+    This is now a thin wrapper over :func:`multisync.batch.apply_fdr`, the
+    single canonical FDR entry point (BH‑FDR adjusted p‑values).  The two
+    algorithms (step‑up vs adjusted p‑value) yield identical rejection sets,
+    which is enforced by ``tests/test_bh_fdr_consistency.py``.  Unifying here
+    removes the last independent BH reimplementation (gstack #18).
+
     Parameters
     ----------
     p_values : np.ndarray
@@ -251,31 +257,11 @@ def bh_fdr(
     """
     p = np.asarray(p_values, dtype=float)
     n = p.size
-    out = np.zeros(n, dtype=bool)
-
-    finite_mask = np.isfinite(p)
-    if not finite_mask.any():
-        return out
-
-    p_finite = p[finite_mask]
-    order = np.argsort(p_finite)
-    m = p_finite.size
-    thresholds = q * np.arange(1, m + 1) / m
-
-    sorted_p = p_finite[order]
-    below = sorted_p <= thresholds
-
-    if not below.any():
-        return out
-
-    k_max = int(np.max(np.where(below)[0]))
-    cutoff = sorted_p[k_max]
-
-    rejected_finite = p_finite <= cutoff
-    finite_indices = np.where(finite_mask)[0]
-    out[finite_indices[rejected_finite]] = True
-
-    return out
+    if n == 0:
+        return np.zeros(0, dtype=bool)
+    names = [f"__bh_{i}" for i in range(n)]
+    res = apply_fdr(names, p.tolist(), alpha=q, on_duplicate="raise")
+    return np.array([res[name]["significant"] for name in names], dtype=bool)
 
 
 # ---------------------------------------------------------------------------
@@ -641,8 +627,15 @@ def apply_bh_fdr_within_noise(
         out[c] = False
 
     for idx, row in out.iterrows():
-        p_arr = np.array([row[c] for c in feature_p_columns], dtype=float)
-        rej = bh_fdr(p_arr, q=q)
+        res = apply_fdr(
+            list(feature_p_columns),
+            [float(row[c]) for c in feature_p_columns],
+            alpha=q,
+            on_duplicate="first",
+        )
+        rej = np.array(
+            [res[c]["significant"] for c in feature_p_columns], dtype=bool
+        )
         for c, r in zip(reject_cols, rej):
             out.at[idx, c] = bool(r)
 
