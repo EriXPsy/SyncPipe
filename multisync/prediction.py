@@ -7,7 +7,7 @@ to measure *incremental* predictive value of synchrony dynamics beyond autocorre
 Key design choices:
 - TimeSeriesSplit with physical-time-aware gap (prevents sliding-window leakage)
 - AR baseline (mean_synchrony per window) as methodological floor
-- LEAKAGE_DELTA_AUC_THRESHOLD = 0.30 flags potential data leakage
+- LEAKAGE_DELTA_AUC_THRESHOLD = 0.14 flags potential data leakage
 - Ablation: joint model without mean_synchrony verifies shape features have
   independent predictive power
 
@@ -78,11 +78,29 @@ def _compose_warning(existing: Optional[str], extra: Optional[str]) -> Optional[
 
 from .feature_definitions import ONSET_THRESHOLD
 
-LEAKAGE_DELTA_AUC_THRESHOLD: float = 0.30
-"""Threshold for ``mean_delta_auc`` above which prediction pipeline flags
-``warning="leakage_suspected"``.  Calibrated via sine wave (perfectly
-autocorrelated, delta ≈ 0.37) vs random noise (delta ≈ 0).  Provides ~0.07
-margin on both sides.  Re-tuning requires Reversal Protocol (DECISION_LOG.md)."""
+LEAKAGE_DELTA_AUC_THRESHOLD: float = 0.14
+"""Threshold for ``mean_delta_auc`` above which the prediction pipeline flags
+``warning="leakage_suspected"``.
+
+Calibrated via a 30-seed sine-vs-noise sweep (DECISION-10 recalibration,
+2026-07-18) on the CURRENT joint feature set
+``{onset_latency, rise_time, peak_amplitude, recovery_time, dwell_time,
+switching_rate}`` with ``mean_synchrony`` riding its own AR-baseline channel:
+
+  * sine (period 80, controlled amplitude, phase sweep):
+      delta_AUC mean=0.269, median=0.292, p05=0.150, p95=0.383, min=0.144
+  * noise (Gaussian, 30 independent seeds):
+      delta_AUC mean=-0.098, median=-0.101, p95=0.062, max=0.134
+
+The new AR baseline absorbs more of the sine's predictable structure than the
+OLD 6-feature set, so the joint-vs-baseline gap shrank (sine delta dropped
+from ~0.37 to ~0.27).  The threshold 0.14 sits inside the separation gap
+(noise max 0.134 < 0.14 < sine min 0.144), giving TPR(sine)=100% and
+FPR(noise)=0% on the sweep.  This restores the detector's ability to flag the
+canonical perfectly-predictable reference while never flagging structureless
+noise (the old 0.30 rejected all sine, since sine delta ~0.27 < 0.30, which
+silently disabled leakage detection).  Re-tuning requires the Reversal
+Protocol (DECISION_LOG.md)."""
 
 
 logger = logging.getLogger(__name__)
