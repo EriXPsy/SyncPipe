@@ -34,7 +34,7 @@ from sklearn.metrics import adjusted_rand_score, silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 from .dynamic_features import extract_dynamic_features
-from .feature_definitions import ONSET_THRESHOLD
+from .feature_definitions import ONSET_THRESHOLD, _find_runs
 
 
 __all__ = [
@@ -208,10 +208,7 @@ def extract_episodes(
     # valid above-threshold samples (gaps dropped).
     valid_positions = np.where(finite)[0]
     above_valid = above[finite]
-    padded = np.concatenate(([False], above_valid, [False]))
-    diffs = np.diff(padded.astype(np.int8))
-    starts = np.where(diffs == 1)[0]
-    ends = np.where(diffs == -1)[0]
+    starts, ends = _find_runs(above_valid)
     eps = []
     for s, e in zip(starts, ends):
         run_valid_pos = valid_positions[s:e]

@@ -146,7 +146,7 @@ def state_transition_shuffle_surrogate(
     np.ndarray
         Shuffled WCC series.
     """
-    from .feature_definitions import _binarize_with_hysteresis
+    from .feature_definitions import _binarize_with_hysteresis, _find_runs
 
     n = len(wcc)
     if n < 2:
@@ -158,10 +158,7 @@ def state_transition_shuffle_surrogate(
     # Using [not above[0]] / [not above[-1]] as sentinels is wrong: when the trace
     # starts or ends in baseline state, not above[0] = True creates a phantom
     # transition that the diff treats as a real elevated-segment start.
-    padded = np.concatenate(([False], above, [False]))
-    diffs = np.diff(padded.astype(np.int8))
-    starts = np.where(diffs == 1)[0]
-    ends = np.where(diffs == -1)[0]
+    starts, ends = _find_runs(above)
 
     if len(starts) == 0:
         return wcc.copy()  # All baseline

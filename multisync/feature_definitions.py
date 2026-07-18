@@ -224,6 +224,37 @@ def __getattr__(name: str):
 
 
 # ---------------------------------------------------------------------------
+# Private utilities (shared low-level helpers)
+# ---------------------------------------------------------------------------
+
+def _find_runs(mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Find runs of True in a boolean array (shared run-length detector).
+
+    Consolidates the parallel diff-based run detectors that previously lived
+    in ``compute_dwell_time`` (this module), ``extract_episodes``
+    (morphology), ``state_transition_shuffle_surrogate`` (surrogate), and the
+    NaN-gap check (qc).  Given a boolean ``mask``, returns ``(starts, ends)``
+    where ``starts[k]`` is the first ``True`` index of the k-th run and
+    ``ends[k]`` is the one-past-last ``True`` index, so that
+    ``mask[starts[k]:ends[k]]`` is the k-th run and ``ends[k] - starts[k]`` its
+    length.  An empty or all-False mask yields two empty arrays.
+
+    Implementation: pad with ``False`` at both ends and detect
+    ``False->True`` (diff == +1) and ``True->False`` (diff == -1) transitions
+    via ``np.diff``.  The fixed ``[False]`` sentinels are essential — using
+    ``[not mask[0]]`` would inject a phantom transition when the trace starts
+    or ends in the ``True`` state.  This is robust to runs spanning the array
+    boundary and to empty masks.
+    """
+    m = np.asarray(mask, dtype=bool)
+    padded = np.concatenate(([False], m, [False]))
+    diffs = np.diff(padded.astype(np.int8))
+    starts = np.where(diffs == 1)[0]
+    ends = np.where(diffs == -1)[0]
+    return starts, ends
+
+
+# ---------------------------------------------------------------------------
 # Functional tier classification (primary axis)
 # ---------------------------------------------------------------------------
 
@@ -974,10 +1005,7 @@ def compute_dwell_time(
     if not above_valid.any():
         return float("nan")
 
-    padded = np.concatenate(([False], above_valid, [False]))
-    diffs = np.diff(padded.astype(np.int8))
-    starts = np.where(diffs == 1)[0]
-    ends = np.where(diffs == -1)[0]
+    starts, ends = _find_runs(above_valid)
     run_lengths = ends - starts
     if run_lengths.size == 0:
         return float("nan")

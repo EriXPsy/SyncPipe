@@ -19,6 +19,8 @@ import pandas as pd
 
 import logging
 
+from .feature_definitions import _find_runs
+
 logger = logging.getLogger(__name__)
 
 
@@ -400,9 +402,11 @@ def _check_nan_integrity(dataset: Any, config: Dict[str, Any]) -> StageResult:
             # Check for long consecutive NaN gaps
             if n_nan > 0:
                 isnan = np.isnan(vals)
-                # Find runs of consecutive NaN
-                gap_starts = np.where(np.diff(np.concatenate([[0], isnan.astype(int), [0]])) == 1)[0]
-                gap_ends = np.where(np.diff(np.concatenate([[0], isnan.astype(int), [0]])) == -1)[0]
+                # Find runs of consecutive NaN via the shared run detector.
+                # _find_runs(isnan) reproduces the original inline diff-based
+                # snippet (pad-with-False + np.diff==±1) exactly, so gap
+                # lengths are unchanged.
+                gap_starts, gap_ends = _find_runs(isnan)
                 max_gap_samples = max(
                     [(gap_ends[i] - gap_starts[i]) for i in range(len(gap_starts))],
                     default=0,
@@ -685,6 +689,11 @@ def _check_signal_integrity(dataset: Any, config: Dict[str, Any]) -> StageResult
                 continue
 
             # ---- 2. flatline (longest constant run) ----
+            # NOTE: intentionally NOT routed through _find_runs().  This is a
+            # *tolerance-based* constant-run detector (abs(diff) <= tol counts
+            # as "same value"), so a value may repeat non-adjacently across a
+            # tiny excursion and still be merged.  _find_runs() is strict
+            # boolean run detection and would change the flatline lengths.
             tol = max(1e-9, 1e-6 * max(abs(finite.min()), abs(finite.max()), 1.0))
             change = np.abs(np.diff(finite)) > tol
             run_ends = np.where(change)[0] + 1
