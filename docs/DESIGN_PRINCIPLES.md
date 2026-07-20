@@ -68,7 +68,6 @@ Items to verify (or already fixed) when touching the relevant code:
 |------|------|--------|
 | `importer.merge_person_files` | `force_zero_start=True` silently eats `offset_b_sec` | Fixed in `92da615` (offset applied after re-anchor) |
 | `realtest/lerique_2024` default branch | kept only one person's `discontinuity_mask` | Fixed (AND-combined + carried into Dyad) |
-| `prediction.check_cv_feasibility` | false "feasible" on tiny samples | Guarded by `min_window` auto-grow + FSR warning (`92da615`) |
 | `validation/recovery.split_half_icc` | docstring claimed ICC(2,1), computed Pearson | Deprecated + labeled (pre-v1.0) |
 | `feature_definitions._binarize_with_hysteresis` | NaN bridged across seams (docstring said False) | Fixed in `4efc72c` (NaN → hard False) |
 
