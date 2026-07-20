@@ -264,7 +264,7 @@ class DynamicAnalyzer:
         are intentionally handled by ``BatchComputationPipeline`` because one
         ``DynamicAnalyzer`` instance only sees one dyad.
     run_qc : bool, default True
-        Run the 3-stage quality gate before feature extraction.
+        Run the 4-stage quality gate before feature extraction.
     qc_raise_on_fail : bool, default True
         Raise ``DataQualityError`` on QC FAIL. Set False only for exploratory
         inspection where a failed QC report should be exported instead of
@@ -410,6 +410,11 @@ class DynamicAnalyzer:
         _thr_mode = "within_dyad_surrogate" if self._use_surrogate_threshold else "fixed"
         _thr_value = self.onset_threshold  # None if within-dyad surrogate, float if fixed
 
+        # Effective prediction window/gap after the silent minimum floors, so
+        # reported metadata matches what rolling_origin_cv actually consumes.
+        pred_window = max(self.prediction_window, 30)
+        pred_gap = max(self.prediction_gap, pred_window // 4)
+
         results = AnalysisResults(
             dyad_id=dataset.dyad_id,
             parameters={
@@ -421,9 +426,11 @@ class DynamicAnalyzer:
                 "onset_threshold": _thr_value,
                 "onset_threshold_mode": _thr_mode,
                 "threshold_scope": self.threshold_mode,
-                "prediction_window": self.prediction_window,
+                "prediction_window": pred_window,
                 "prediction_horizon": self.prediction_horizon,
-                "prediction_gap": self.prediction_gap,
+                "prediction_gap": pred_gap,
+                "prediction_window_requested": self.prediction_window,
+                "prediction_gap_requested": self.prediction_gap,
                 "hz": hz,
                 "qc": qc_report.to_dict() if qc_report is not None else None,
             },
@@ -476,7 +483,6 @@ class DynamicAnalyzer:
         # rolling-origin CV + LogisticRegression calls, which dominate
         # per-pair runtime. Step 5 (cross-modal prediction) is also
         # skipped entirely when disabled.
-        pred_window = max(self.prediction_window, 30)
 
         names = dataset.modality_names
 
@@ -499,7 +505,7 @@ class DynamicAnalyzer:
                 window_size=pred_window,
                 hz=hz,
                 n_splits=5,
-                gap=max(self.prediction_gap, pred_window // 4),
+                gap=pred_gap,
                 pair_name=src_key,
                 mode="intra",
                 onset_threshold=pred_thr,

@@ -62,7 +62,7 @@ Each CSV holds the two partners' aligned signals for one modality. Provide the
 sampling rate with `--hz` and (optionally) modality names with `-n`.
 
 ### The QC gate (`qc.run_quality_check`)
-Before any analysis, data passes a **3-stage quality gate** (`multisync/qc.py`).
+Before any analysis, data passes a **4-stage quality gate** (`multisync/qc.py`).
 Each stage returns PASS / WARN / FAIL; a FAIL raises `DataQualityError`.
 
 | Stage | Checks | Why it matters |

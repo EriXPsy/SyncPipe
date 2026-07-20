@@ -616,6 +616,50 @@ class TestHighLevelAPI:
             f"empty, got {results.prediction!r}"
         )
 
+    def test_prediction_window_gap_parameters_report_effective(self):
+        """Finding 16 regression: results.parameters must report the EFFECTIVE
+        prediction window/gap that rolling_origin_cv actually consumes (after
+        the silent min-30 / min-window//4 floors), not the raw requested
+        values — and must keep the requested values too, for transparent
+        reproduction.
+        """
+        import multisync as ms
+        from multisync.synthetic import generate_ground_truth_dyad
+        ds = generate_ground_truth_dyad(duration_sec=200, noise_ratio=0.2)
+        ds.align(target_hz=1.0)
+        ds.zscore()
+
+        # Default config: requested 10/5 -> effective 30 / max(5, 30//4=7)
+        analyzer = ms.DynamicAnalyzer(
+            surrogate_n=10, window_size=10,
+            prediction_window=10, prediction_gap=5,
+        )
+        results = analyzer.fit_transform(ds)
+        assert results.parameters["prediction_window"] == 30, (
+            "expected effective window 30, got "
+            f"{results.parameters['prediction_window']}"
+        )
+        assert results.parameters["prediction_gap"] == 7, (
+            "expected effective gap 7, got "
+            f"{results.parameters['prediction_gap']}"
+        )
+        assert results.parameters["prediction_window_requested"] == 10
+        assert results.parameters["prediction_gap_requested"] == 5
+
+        # Explicit larger values: no floor applies, effective == requested
+        analyzer2 = ms.DynamicAnalyzer(
+            surrogate_n=10, window_size=10,
+            prediction_window=50, prediction_gap=3,
+        )
+        results2 = analyzer2.fit_transform(ds)
+        assert results2.parameters["prediction_window"] == 50
+        assert results2.parameters["prediction_gap"] == max(3, 50 // 4), (
+            "expected effective gap 12, got "
+            f"{results2.parameters['prediction_gap']}"
+        )
+        assert results2.parameters["prediction_window_requested"] == 50
+        assert results2.parameters["prediction_gap_requested"] == 3
+
 # ===========================================================================
 # 7. JSON serialization tests
 # ===========================================================================
