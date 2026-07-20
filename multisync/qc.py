@@ -143,6 +143,9 @@ class DataQualityReport:
     n_failures: int = 0
     warnings: List[str] = field(default_factory=list)
     failures: List[str] = field(default_factory=list)
+    notes: List[str] = field(default_factory=list)
+    clock_offset_caveat: str = ""
+    co_start_verified: bool = False
 
     @property
     def passed(self) -> bool:
@@ -171,6 +174,13 @@ class DataQualityReport:
             lines.append("  --- WARNINGS ---")
             for w in self.warnings:
                 lines.append(f"    {w}")
+        if self.clock_offset_caveat:
+            lines.append("  --- CLOCK OFFSET CAVEAT ---")
+            lines.append(f"    {self.clock_offset_caveat}")
+        if self.notes:
+            lines.append("  --- NOTES ---")
+            for n in self.notes:
+                lines.append(f"    {n}")
         return "\n".join(lines)
 
     def suggested_actions(self) -> List[str]:
@@ -228,15 +238,23 @@ DEFAULT_CONFIG = {
 # ---------------------------------------------------------------------------
 
 def _check_temporal_alignment(dataset: Any, config: Dict[str, Any]) -> StageResult:
-    """Check that all modalities share a common, monotonic time axis.
+    """Check that all modalities share a common, internally-consistent time axis.
 
     Verifies:
     1. All modalities have the same number of samples after alignment.
     2. Time vectors are identical (within floating-point tolerance).
     3. No time reversal (monotonicity).
 
-    This is the most critical check: misaligned clocks produce artificial
-    lags in CCF that masquerade as synchrony.
+    Scope limitation (intentional, not a bug): this stage inspects the
+    *already-loaded* time axis. It catches alignment defects introduced by the
+    load/merge pipeline (length mismatch, divergence, non-monotonicity), but it
+    CANNOT detect a true between-file clock offset already absorbed during import —
+    e.g. two relative-time traces that both start at 0.0 yet were never
+    co-triggered are merged at t=0 by construction (see
+    ``DataImporter.merge_external_pair``). Co-start must be verified against
+    external metadata or supplied via ``offset_b_sec``. The resulting caveat is
+    surfaced as a non-blocking NOTE on the ``DataQualityReport``
+    (``clock_offset_caveat`` / ``co_start_verified``), not as a WARN/FAIL here.
     """
     details: List[Dict[str, Any]] = []
     failures: List[str] = []
@@ -848,6 +866,25 @@ def run_quality_check(
         # confirmed), so that loop was dead code (Finding 12). Stage-level
         # messages above are the only surfaced text.
 
+    # Clock-offset / co-start caveat (Finding 13): temporal_alignment verifies
+    # the loaded time axis is internally consistent, but cannot detect a true
+    # between-file offset absorbed at import. Surface this as a non-blocking
+    # NOTE unless the dataset explicitly marks co-start as verified.
+    co_start_verified = bool(getattr(dataset, "co_start_verified", False))
+    clock_offset_caveat = ""
+    notes: List[str] = []
+    if not co_start_verified:
+        clock_offset_caveat = (
+            "Temporal-alignment stage confirms the loaded time axis is internally "
+            "consistent (matching sample counts, identical time vectors, monotonicity), "
+            "but it cannot detect a true between-file clock offset already absorbed at "
+            "import (e.g. two relative-time 0.0 starts that were never co-triggered are "
+            "merged at t=0 by construction). SyncPipe is measurement infrastructure and "
+            "will not invent an unobservable offset. Verify co-start against external "
+            "metadata or supply offset_b_sec before trusting dyad-level synchrony."
+        )
+        notes.append("Clock-offset caveat: co-start not verified; see clock_offset_caveat.")
+
     report = DataQualityReport(
         dyad_id=dyad_id,
         stages=stages,
@@ -855,6 +892,9 @@ def run_quality_check(
         n_failures=len(all_failures),
         warnings=all_warnings,
         failures=all_failures,
+        notes=notes,
+        clock_offset_caveat=clock_offset_caveat,
+        co_start_verified=co_start_verified,
     )
 
     if raise_on_fail and not report.passed:
