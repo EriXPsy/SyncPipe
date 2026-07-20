@@ -157,6 +157,17 @@ def _analyze_all_records(
     )
 
     window_size = max(2, int(round(wcc_window_sec * target_hz)))
+    logger.warning(
+        "DEPRECATED PATH: run_lerique_pilot uses the legacy "
+        "DynamicAnalyzer (per-dyad surrogate threshold) for per-record "
+        "analysis. For confirmatory v1 results, use the canonical "
+        "three-pipeline: "
+        "multisync.pipeline_bridge.records_to_inference_inputs -> "
+        "multisync.inference_pipeline.InferencePipeline."
+        "run_audited_evidence_chain (synchrony-existence audit -> design "
+        "controls -> group inference), which uses a single fixed/pooled "
+        "onset threshold. See scripts/reproduce_lerique_paper.py."
+    )
     analyzer = DynamicAnalyzer(
         window_size=window_size,
         onset_threshold=onset_threshold,

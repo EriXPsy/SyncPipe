@@ -216,6 +216,7 @@ def between_condition_fdr(
     seed: int = 42,
     alpha: float = 0.05,
     condition_values: Optional[Tuple[str, str]] = None,
+    threshold_scope: str = "unknown",
 ) -> Dict[str, Union[List[L2Result], L2Result]]:
     """L2 between-condition permutation test with BH-FDR correction.
 
@@ -277,6 +278,35 @@ def between_condition_fdr(
     feature_cols, _ = dedupe_fdr_input(
         list(feature_cols), [0.0] * len(feature_cols), on_duplicate="raise"
     )
+
+    # ── A11: per-dyad (non-pooled) threshold WARN for structure features ──
+    # dwell_time / switching_rate are derived from an onset threshold. If that
+    # threshold is PER-DYAD (each dyad/condition gets its own surrogate
+    # threshold, as the legacy DynamicAnalyzer path computes), the resulting
+    # descriptor means are NOT comparable across dyads/conditions — a
+    # cross-condition difference may reflect threshold noise, not coupling.
+    # The canonical pipeline_bridge path uses a single fixed (pooled)
+    # onset threshold, so threshold_scope should be "fixed"/"pooled".
+    # We only WARN (never hard-fail): this is advisory governance.
+    _PER_DYAD_THRESHOLD_SCOPES = frozenset(
+        {"within_dyad", "per_dyad", "per_pair", "non_pooled"}
+    )
+    _STRUCTURE_FEATURES = ("dwell_time", "switching_rate")
+    _structure_in_fdr = [f for f in feature_cols if f in _STRUCTURE_FEATURES]
+    if threshold_scope in _PER_DYAD_THRESHOLD_SCOPES and _structure_in_fdr:
+        logger.warning(
+            "L2 structure-feature warning: %s enter the group BH-FDR "
+            "with a per-dyad (non-pooled) onset threshold. Per-dyad "
+            "thresholds are not comparable across dyads/conditions, so "
+            "cross-condition differences in dwell_time / switching_rate may "
+            "reflect threshold noise rather than coupling. Prefer a "
+            "session- or condition-pooled onset threshold (e.g. "
+            "BatchComputationPipeline / ComputationPipeline with a single "
+            "fixed onset_threshold) and always report the per-condition "
+            "definedness rates (L2Result.defined_a / defined_b) "
+            "alongside any significant result.",
+            ", ".join(_structure_in_fdr),
+        )
 
     # ── VIF gate (collinearity diagnostic for the FDR family) ──────────
     # High-VIF features are statistically redundant and inflate the
@@ -512,6 +542,7 @@ def between_condition_by_modality(
     seed: int = 42,
     alpha: float = 0.05,
     condition_values: Optional[Tuple[str, str]] = None,
+    threshold_scope: str = "unknown",
 ) -> Dict[str, Dict]:
     """Run L2 between-condition test split by modality.
 
@@ -546,6 +577,7 @@ def between_condition_by_modality(
                 seed=seed + _modality_seed_offset(mod),
                 alpha=alpha,
                 condition_values=condition_values,
+                threshold_scope=threshold_scope,
             )
         except ValueError as e:
             results[mod] = {"error": str(e)}

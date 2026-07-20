@@ -215,6 +215,43 @@ class ReportGenerator:
     def __init__(self, output_dir: str = "reports/") -> None:
         self.output_dir = Path(output_dir)
 
+    def _claim_ceiling_html(self) -> str:
+        """Append to every report a restrained admissible-claims disclaimer.
+
+        Mirrors the claim-ceiling wording in
+        ``InferencePipeline._build_audited_chain_summary`` so that HTML
+        / viewer reports carry the same audited-evidence stance as the
+        Python API.  These results are audited evidence, not causal proof.
+        """
+        items = [
+            ("Synchrony-existence (L0, signal-level IAAFT)",
+             "Establishes only <em>existence</em> of synchrony beyond "
+             "independent autocorrelated surrogates. It does <strong>not</strong> "
+             "prove dyad-specific interpersonal coupling."),
+            ("WCC-level structure (L1)",
+             "Rules out random temporal organization of the WCC trace. It does "
+             "<strong>not</strong> rule out co-presence / shared-stimulus "
+             "alternatives."),
+            ("Design controls (pseudo-pair / time-shift / across-stimulus)",
+             "Test dyad-specificity and alignment-dependence. A pass narrows, but "
+             "does <strong>not</strong> exhaust, residual alternatives "
+             "(shared stimulus, co-presence) — those still need domain-specific "
+             "controls."),
+            ("Group inference (L2, between-condition + BH-FDR)",
+             "Only condition <em>differences</em> in audited descriptors. It does "
+             "<strong>not</strong> establish direction, mechanism, or causality."),
+        ]
+        lis = "".join(
+            f"<li><strong>{title}</strong>: {text}</li>" for title, text in items
+        )
+        return (
+            "<h2>Claim ceilings — admissible interpretations</h2>\n"
+            "<p class='warning'>These results are <em>audited evidence</em>, not "
+            "causal proof. Interpret every positive finding only within the ceiling "
+            "below:</p>\n"
+            f"<ul>{lis}</ul>\n"
+        )
+
     def single_dyad_report(
         self,
         results: AnalysisResults,
@@ -304,6 +341,7 @@ class ReportGenerator:
             body += "<p>No pipeline warnings.</p>\n"
 
         # Write file
+        body += self._claim_ceiling_html()
         html = _html_wrap(title, body, __version__)
         path = Path(filepath)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -365,6 +403,7 @@ class ReportGenerator:
         body += _html_table(dyad_rows_b)
 
         # Write
+        body += self._claim_ceiling_html()
         html = _html_wrap(title, body, __version__)
         path = Path(filepath)
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -241,6 +241,7 @@ class InferencePipeline:
         n_permutations: int = 10000,
         contrast: Optional[Tuple[str, str]] = None,
         full_family_fdr: bool = False,
+        threshold_scope: str = "unknown",
     ) -> Dict[str, Any]:
         """Step 3: test whether features differentiate experimental conditions."""
         result = self.test_l2_condition(
@@ -251,6 +252,7 @@ class InferencePipeline:
             n_permutations=n_permutations,
             contrast=contrast,
             full_family_fdr=full_family_fdr,
+            threshold_scope=threshold_scope,
         )
         self._group_inference_results = result
         return result
@@ -270,6 +272,7 @@ class InferencePipeline:
         window_type: str = "rect",
         full_family_fdr: bool = False,
         discontinuity_mask: Optional[Dict[str, np.ndarray]] = None,
+        threshold_scope: str = "unknown",
     ) -> Dict[str, Any]:
         """Run the recommended v1 evidence chain end-to-end.
 
@@ -306,6 +309,7 @@ class InferencePipeline:
             fdr_alpha=fdr_alpha,
             n_permutations=n_permutations,
             full_family_fdr=full_family_fdr,
+            threshold_scope=threshold_scope,
         )
         return {
             "evidence_chain_version": "v1",
@@ -345,6 +349,16 @@ class InferencePipeline:
                 f"Group condition inference found {group.get('n_significant', 0)} significant feature(s)."
             )
         parts.append(
+            "Admissible claims per step — "
+            "L0 (signal-level IAAFT): establishes only EXISTENCE of synchrony "
+            "beyond independent autocorrelated surrogates, NOT dyad-specific "
+            "interpersonal coupling. "
+            "Design controls (pseudo-pair / time-shift / across-stimulus): "
+            "pass/fail on dyad-specificity and alignment-dependence, with residual "
+            "alternatives (shared stimulus, co-presence) still requiring "
+            "domain-specific controls. "
+            "L2 (group inference): only condition DIFFERENCES in audited "
+            "descriptors, NOT direction, mechanism, or causality. "
             "Interpret all positive findings as audited evidence, not causal proof; "
             "shared-stimulus and co-presence alternatives require design-specific controls."
         )
@@ -461,6 +475,7 @@ class InferencePipeline:
         n_permutations: int = 10000,
         contrast: Optional[Tuple[str, str]] = None,
         full_family_fdr: bool = False,
+        threshold_scope: str = "unknown",
     ) -> Dict[str, Any]:
         """Run L2 between-condition permutation test with BH-FDR correction.
 
@@ -511,6 +526,7 @@ class InferencePipeline:
             alpha=fdr_alpha,            # was fdr_alpha= (wrong kwarg name)
             n_permutations=n_permutations,
             condition_values=contrast,  # was contrast= (wrong kwarg name)
+            threshold_scope=threshold_scope,
         )
         return self._l2_results
 
@@ -680,6 +696,10 @@ class InferencePipeline:
             lines.append(f"L0 (signal-level IAAFT): {n_l0_sig}/{n_l0} significant")
             lines.append("  Tests: mean_synchrony, peak_amplitude, bimodality_coefficient")
             lines.append("  H0: signals are independent")
+            lines.append(
+                "  Claim ceiling: IAAFT shows synchrony above independent "
+                "autocorrelated surrogates — existence, not dyad-specific coupling."
+            )
 
         if self._l1_results:
             applicable = [r for r in self._l1_results.values()
@@ -692,6 +712,10 @@ class InferencePipeline:
             lines.append(f"\nL1 (WCC-level IAAFT): {n_l1_sig}/{n_l1} significant")
             lines.append("  Tests: dwell_time, switching_rate")
             lines.append("  H0: WCC temporal structure is random")
+            lines.append(
+                "  Claim ceiling: WCC-level structure test rejects random "
+                "temporal organization, not co-presence / shared-stimulus alternatives."
+            )
 
         if self._l2_results:
             n_sig = self._l2_results.get("n_significant", 0)
@@ -706,11 +730,17 @@ class InferencePipeline:
                         f"    {feat.feature}: p_raw={feat.p_raw:.4f}, "
                         f"p_fdr={feat.p_fdr:.4f}, d(perm)={feat.perm_effect_size:.2f}"
                     )
-                if feat.p_definedness < 0.05:
-                    lines.append(
-                        f"    [WARN] {feat.feature} definedness diff: "
-                        f"{feat.defined_a} vs {feat.defined_b} (p={feat.p_definedness:.4f})"
-                    )
+            if feat.p_definedness < 0.05:
+                lines.append(
+                    f"    [WARN] {feat.feature} definedness diff: "
+                    f"{feat.defined_a} vs {feat.defined_b} (p={feat.p_definedness:.4f})"
+                )
+
+            lines.append(
+                "  Claim ceiling: group inference = condition differences in "
+                "audited descriptors; it does not establish direction, mechanism, "
+                "or causality."
+            )
 
         lines.append("")
         lines.append("=" * 60)

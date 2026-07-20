@@ -1,5 +1,10 @@
 # Evidence: "Quality" of Synchrony Is Distinguishable from Its "Quantity"
 
+> ⚠️ MOTIVATIONAL SIMULATION — NOT CONFIRMATORY. The analyses here
+> illustrate why audited synchrony descriptors matter; they are not
+> confirmatory evidence for any psychological "quality of synchrony"
+> construct.
+
 > Status: v1.0 review follow-up (Blind Spot A).
 > Source simulation: `scripts/run_kuramoto_l23_taxonomy.py`
 > Raw numbers: `artifacts/incremental_value/kuramoto_l23_v3_auc.json`

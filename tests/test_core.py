@@ -596,6 +596,26 @@ class TestHighLevelAPI:
                     )
 
 
+    def test_prediction_default_off(self):
+        """A1 regression: DynamicAnalyzer() must NOT run prediction by
+        default. Prediction is a confirmatory-adjacent step and must be
+        explicitly opted in (enable_prediction=True / --prediction).
+        """
+        import multisync as ms
+        from multisync.synthetic import generate_ground_truth_dyad
+        ds = generate_ground_truth_dyad(
+            duration_sec=200, noise_ratio=0.2,
+        )
+        ds.align(target_hz=1.0)
+        ds.zscore()
+        # No enable_prediction arg → must default to False (A1)
+        analyzer = ms.DynamicAnalyzer(surrogate_n=10, window_size=10)
+        results = analyzer.fit_transform(ds)
+        assert results.prediction == {}, (
+            "Prediction must be OFF by default; results.prediction should be "
+            f"empty, got {results.prediction!r}"
+        )
+
 # ===========================================================================
 # 7. JSON serialization tests
 # ===========================================================================

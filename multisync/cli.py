@@ -197,7 +197,7 @@ def cmd_demo(args: argparse.Namespace) -> None:
         surrogate_n=args.surrogates,
         max_lag_sec=30.0,
         seed=42,
-        enable_prediction=not getattr(args, "no_prediction", False),
+        enable_prediction=bool(getattr(args, "prediction", False)),
     )
 
     print("  Running analysis...")
@@ -398,8 +398,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Synthetic dyads used for pseudo-pair/time-shift design controls.",
     )
     p_demo.add_argument(
+        "--prediction", action="store_true",
+        help="Run the rolling-origin prediction CV (OFF by default; opt-in). "
+             "Prediction is a confirmatory-adjacent step and must be "
+             "explicitly requested.",
+    )
+    p_demo.add_argument(
         "--no-prediction", action="store_true",
-        help="Skip rolling-origin prediction CV for a faster methods demo.",
+        help="Deprecated no-op alias kept for backward compatibility "
+             "(prediction is already OFF by default).",
     )
     p_demo.add_argument(
         "--full-family-fdr", action="store_true",

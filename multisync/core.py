@@ -214,6 +214,20 @@ class AnalysisResults:
 
 class DynamicAnalyzer:
     """
+   ======================================================================
+    LEGACY / BACK-COMPATIBILITY ONLY — DO NOT BUILD CONFIRMATORY
+    RESULTS ON TOP OF THIS CLASS.
+   ----------------------------------------------------------------------
+    Canonical v1 public workflow (prefer this):
+        from multisync.pipeline_bridge import records_to_inference_inputs
+        pipe = InferencePipeline(features_df, hz=..., wcc_window_sec=...)
+        chain = pipe.run_audited_evidence_chain(...)
+    i.e.  pipeline_bridge.records_to_inference_inputs
+          -> InferencePipeline.run_audited_evidence_chain
+          (synchrony-existence audit -> design controls -> group inference).
+    DynamicAnalyzer is retained for ad-hoc single-dyad exploration
+    only and is planned for removal in v2.
+   ======================================================================
    The full analysis pipeline.
 
     Parameters
@@ -236,7 +250,7 @@ class DynamicAnalyzer:
         Horizon for prediction labels (in samples).
     prediction_gap : int
         Gap between train and test in prediction CV (in samples).
-    enable_prediction : bool, default True
+    enable_prediction : bool, default False
         If False, skip the prediction CV stages (step 4 + step 5 of
         ``fit_transform``). Use this for descriptive-only workflows
         (surrogate controls, dose-response checks, trial-level slope
@@ -268,7 +282,7 @@ class DynamicAnalyzer:
         prediction_window: int = 10,
         prediction_horizon: int = 5,
         prediction_gap: int = 5,
-        enable_prediction: bool = True,
+        enable_prediction: bool = False,
         threshold_mode: str = "within_dyad",
         run_qc: bool = True,
         qc_raise_on_fail: bool = True,

@@ -12,8 +12,8 @@ Note on ``_FEATURE_CATALOG`` vs SSoT
 The catalog's ``tier`` and ``fdr_member`` fields are kept in sync with
 ``FEATURE_TIER`` and ``FDR_FEATURES`` in the SSoT.  When the SSoT changes,
 this file MUST be updated manually — there is no mechanical derivation,
-because the catalog carries richer human-readable metadata (HKB
-interpretation, typical range, unit) that lives nowhere else.
+    because the catalog carries richer human-readable metadata (typical
+    range, unit) that lives nowhere else.
 """
 
 from typing import Dict, List, Optional
@@ -39,7 +39,6 @@ class FeatureInfo:
         axis: str,
         fdr_member: bool,
         description: str,
-        hkb_interpretation: str,
         unit: str,
         typical_range: str,
     ):
@@ -48,7 +47,6 @@ class FeatureInfo:
         self.axis = axis
         self.fdr_member = fdr_member
         self.description = description
-        self.hkb_interpretation = hkb_interpretation
         self.unit = unit
         self.typical_range = typical_range
 
@@ -67,8 +65,6 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         axis="intensity",
         fdr_member=False,           # reference comparator; NOT in FDR_FEATURES (SSoT 2026-06-29)
         description="Mean WCC value across the epoch — overall coupling strength baseline.",
-        hkb_interpretation="AR(1) baseline: average proximity to the attractor. "
-        "Captures tonic synchrony level independent of phase structure.",
         unit="Pearson r [-1, 1]",
         typical_range="0.0 to 0.6",
     ),
@@ -78,8 +74,6 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         axis="intensity",
         fdr_member=True,            # in FDR_FAMILIES["L0"]
         description="Maximum WCC value at the dominant peak — peak coupling intensity.",
-        hkb_interpretation="Maximum depth of the shared attractor well. "
-        "Higher values indicate stronger momentary coordination.",
         unit="Pearson r [-1, 1]",
         typical_range="0.2 to 0.9",
     ),
@@ -90,8 +84,6 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         fdr_member=False,           # L2 exploratory; not in FDR_FEATURES
         description="Time from epoch start to first above-threshold WCC crossing — "
         "how quickly synchrony emerges.",
-        hkb_interpretation="Time spent waiting near the attractor before convergence. "
-        "Shorter latency = faster mutual entrainment.",
         unit="seconds",
         typical_range="0 to 30 s",
     ),
@@ -101,8 +93,6 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         axis="temporal",
         fdr_member=False,           # L2 exploratory; not in FDR_FEATURES
         description="Time from 25% to 75% of peak amplitude — coordination build-up speed.",
-        hkb_interpretation="Convergence rate toward the shared attractor. "
-        "Faster rise = stronger coupling pull.",
         unit="seconds",
         typical_range="1 to 20 s",
     ),
@@ -112,8 +102,6 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         axis="temporal",
         fdr_member=False,           # L2 exploratory; not in FDR_FEATURES
         description="Time from peak to 50% decay — how long coupling persists after peaking.",
-        hkb_interpretation="Escape rate from the shared attractor. "
-        "Longer recovery = deeper attractor well (slower decay).",
         unit="seconds",
         typical_range="1 to 30 s",
     ),
@@ -123,8 +111,6 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         axis="structure",
         fdr_member=False,
         description="Fraction of finite WCC samples above the synchrony threshold — above-threshold occupancy.",
-        hkb_interpretation="Coverage of the synchronized state, independent of episode ordering. "
-        "Use as an exploratory occupancy descriptor, not a primary endpoint.",
         unit="proportion [0, 1]",
         typical_range="0.0 to 1.0",
     ),
@@ -135,8 +121,6 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         fdr_member=True,            # in FDR_FAMILIES["L1"]
         description="Mean duration of above-threshold intervals — "
         "how long dyads stay in a synchronized state.",
-        hkb_interpretation="Residence time in the synchronized attractor. "
-        "Longer dwells = more stable coordination modes.",
         unit="seconds",
         typical_range="1 to 60 s",
     ),
@@ -147,8 +131,6 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         fdr_member=True,            # in FDR_FAMILIES["L1"]
         description="Number of threshold crossings per minute — "
         "frequency of entering/leaving synchronized states.",
-        hkb_interpretation="Attractor landscape flexibility. "
-        "Higher switching = more frequent mode transitions.",
         unit="crossings/min",
         typical_range="0 to 10",
     ),
@@ -159,8 +141,6 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         fdr_member=False,           # excluded: collinear with mean_synchrony (rho=-0.94)
         description="Shannon entropy of the WCC distribution — "
         "diversity of coupling states visited.",
-        hkb_interpretation="Complexity of the coordination landscape. "
-        "Higher entropy = richer repertoire of coupling configurations.",
         unit="bits",
         typical_range="1 to 5",
     ),
@@ -171,8 +151,6 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         fdr_member=False,           # exploratory descriptor; not in the FDR family
         description="Sarle's bimodality coefficient (BC) of WCC values — "
         "degree to which coupling follows a dual-state (on/off) pattern.",
-        hkb_interpretation="Evidence for two distinct attractor states. "
-        "BC > 0.555 suggests bimodal coupling (synchronized vs. unsynchronized).",
         unit="dimensionless [0, 1]",
         typical_range="0.3 to 0.8",
     ),
@@ -182,8 +160,6 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         axis="temporal",
         fdr_member=False,
         description="Time of the first prominent above-threshold WCC peak.",
-        hkb_interpretation="Exploratory trace-morphology timing descriptor. "
-        "Report only with definedness rates and paradigm restrictions.",
         unit="seconds",
         typical_range="paradigm-dependent",
     ),
@@ -193,8 +169,6 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         axis="temporal",
         fdr_member=False,
         description="Coefficient of variation of intervals between prominent WCC peaks.",
-        hkb_interpretation="Exploratory regularity/irregularity descriptor for multi-peak traces. "
-        "Requires enough defined peaks and is not a v1 confirmatory endpoint.",
         unit="dimensionless",
         typical_range="paradigm-dependent",
     ),

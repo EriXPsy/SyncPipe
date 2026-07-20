@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "syncpipe"
 version = "1.0.0"
-description = "A narrow, validated Python toolkit for extracting episode-based dynamic features from pre-computed synchrony time series"
+description = "SyncPipe: an audited measurement, governance, and inference pipeline for dyadic continuous synchrony (WCC) — standardized computation, surrogate and design-control null models, and a governed descriptor-status table."
 readme = "docs/USER_MANUAL.md"
 license = "MIT"
 requires-python = ">=3.10"
