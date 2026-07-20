@@ -212,7 +212,7 @@ confirmatory"; "more synchrony is always better".
 | `multisync/feature_status.py` | communication single source of truth |
 | `multisync/{computation,feature,inference}_pipeline.py` | the three pipelines |
 | `multisync/design_controls.py` | existence + design-control audits |
-| `multisync/qc.py` | 3-stage data quality gate |
+| `multisync/qc.py` | 4-stage data quality gate |
 | `multisync/session_threshold.py` | pooled surrogate thresholds |
 | `scripts/` | main-trunk result generators (see `docs/SCRIPT_MAP.md`) |
 | `experimental/` | v2 staging: unintegrated / falsified / one-off code |

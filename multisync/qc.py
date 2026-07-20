@@ -783,7 +783,7 @@ def run_quality_check(
     config: Optional[Dict[str, Any]] = None,
     raise_on_fail: bool = False,
 ) -> DataQualityReport:
-    """Run the 3-stage data quality check pipeline.
+    """Run the 4-stage data quality check pipeline.
 
     Parameters
     ----------
