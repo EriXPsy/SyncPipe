@@ -187,6 +187,82 @@ RISE_HIGH_FRAC: float = 0.75
 RECOVERY_FRAC: float = 0.50
 """DECISION-05: half-recovery time (Boucsein 2012; Dawson et al. 2007)."""
 
+# ---------------------------------------------------------------------------
+# B3 eligibility thresholds (frozen 2026-07-21)
+# ---------------------------------------------------------------------------
+
+T_DEF_MIN_WCC_POINTS: int = 3
+"""DECISION-04 hard floor: minimum finite WCC sampling points per dyad.
+
+Episode features — onset_latency, rise_time, recovery_time, first_peak_time,
+inter_peak_cv (Axis D L2) — require a geometrically distinguishable
+onset -> peak -> recovery sequence.  The peak-detection step uses a 3-point
+boxcar (:data:`PEAK_SMOOTHING_WINDOW`, DECISION-04), RISE is interpolated on
+the 25%-75% span (:data:`RISE_LOW_FRAC`/:data:`RISE_HIGH_FRAC`), and RECOVERY
+uses the 50% span (:data:`RECOVERY_FRAC`).  A WCC trajectory with fewer than 3
+finite points cannot support onset + peak + recovery as three *separable*
+points, so episode-feature extraction is mathematically undefined (returns
+NaN + an ineligible flag) rather than silently degenerate.  ``T_def = 3`` is
+a hard floor of the feature definition, NOT a tunable default.
+"""
+
+N_MIN_DYADS_FDR: int = 10
+"""Minimum dyad count for meaningful BH-FDR correction (B3 freeze).
+
+BH-FDR rejection resolution is discrete: with N=10 dyads the smallest
+non-zero p-value is ~0.1, so at alpha=0.05 a group cannot reject the null
+unless p=0 exactly.  The codebase already treats "< 10" as a small-sample
+boundary — :func:`compute_surrogate_threshold` falls back to ONSET_THRESHOLD
+when "fewer than 10 finite surrogate values" are available (degenerate-case
+branch at the surrogate-threshold derivation).  B4 bake-off shows Lerique
+N=31 LOO is 100% stable; the three real datasets have N=176/46/23 — all >10.
+Thus ``n_min = 10`` only excludes absurdly small pilots and constrains no
+real SyncPipe analysis.  Groups below this floor are WARNING-flagged as
+unreliable, never silently accepted.
+"""
+
+
+def check_eligibility(
+    n_wcc_points: int,
+    n_dyads: int,
+) -> Tuple[bool, bool]:
+    """Lightweight eligibility gate for SyncPipe analysis (B3 freeze).
+
+    Pure, dependency-free check of the two frozen B3 floors:
+
+    * ``wcc_points_ok`` — True iff ``n_wcc_points >= T_DEF_MIN_WCC_POINTS``.
+      A dyad whose WCC trajectory has fewer than 3 finite sampling points
+      cannot define episode features (peak/recovery need onset + peak +
+      recovery as three separable points); it is *episode-feature ineligible*.
+    * ``n_dyads_ok`` — True iff ``n_dyads >= N_MIN_DYADS_FDR``.  A group with
+      fewer than 10 dyads yields BH-FDR results of uninterpretable
+      resolution at alpha=0.05; such results are WARNING-flagged as
+      unreliable.
+
+    Parameters
+    ----------
+    n_wcc_points : int
+        Number of finite WCC sampling points for a single dyad.
+    n_dyads : int
+        Number of dyads in the dataset / analysis group.
+
+    Returns
+    -------
+    Tuple[bool, bool]
+        ``(wcc_points_ok, n_dyads_ok)``.
+
+    Examples
+    --------
+    >>> check_eligibility(2, 11)
+    (False, True)
+    >>> check_eligibility(3, 10)
+    (True, True)
+    """
+    wcc_points_ok = n_wcc_points >= T_DEF_MIN_WCC_POINTS
+    n_dyads_ok = n_dyads >= N_MIN_DYADS_FDR
+    return (wcc_points_ok, n_dyads_ok)
+
+
 SWITCHING_HYSTERESIS_DELTA: float = 0.05
 """Hysteresis band for state binarization.
 
@@ -1577,6 +1653,9 @@ __all__ = [
     "RISE_HIGH_FRAC",
     "RECOVERY_FRAC",
     "SWITCHING_HYSTERESIS_DELTA",
+    "T_DEF_MIN_WCC_POINTS",
+    "N_MIN_DYADS_FDR",
+    "check_eligibility",
     "compute_surrogate_threshold",
     # Functional tier (primary classification)
     "FEATURE_TIER",

@@ -19,7 +19,12 @@ import pandas as pd
 
 import logging
 
-from .feature_definitions import _find_runs
+from .feature_definitions import (
+    _find_runs,
+    check_eligibility,
+    T_DEF_MIN_WCC_POINTS,
+    N_MIN_DYADS_FDR,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -800,6 +805,7 @@ def run_quality_check(
     dataset: Any,
     config: Optional[Dict[str, Any]] = None,
     raise_on_fail: bool = False,
+    eligibility: Optional[Dict[str, int]] = None,
 ) -> DataQualityReport:
     """Run the 4-stage data quality check pipeline.
 
@@ -812,6 +818,13 @@ def run_quality_check(
     raise_on_fail : bool
         If True, raise DataQualityError when overall verdict is FAIL.
         Default False (caller inspects the report).
+    eligibility : dict, optional
+        B3 eligibility context.  Keys (all optional) ``n_wcc_points`` (finite
+        WCC sampling points for the dyad under QC) and ``n_dyads`` (size of the
+        analysis group).  When supplied, violations of the frozen B3 floors
+        (:data:`T_DEF_MIN_WCC_POINTS` / :data:`N_MIN_DYADS_FDR`) are surfaced
+        as WARN-level ``notes`` (non-blocking, like the co-start caveat).  Omit
+        to leave existing behaviour unchanged.
 
     Returns
     -------
@@ -884,6 +897,32 @@ def run_quality_check(
             "metadata or supply offset_b_sec before trusting dyad-level synchrony."
         )
         notes.append("Clock-offset caveat: co-start not verified; see clock_offset_caveat.")
+
+    # B3 eligibility gate (WARN-level NOTE injection).  Reuses the existing
+    # `notes` field (non-blocking, exactly like the co-start caveat) and only
+    # fires when the caller supplies per-dyad / per-group context.  It never
+    # touches the 4-stage verdicts or any existing field.
+    if eligibility:
+        n_wcc_points = eligibility.get("n_wcc_points")
+        n_dyads = eligibility.get("n_dyads")
+        wcc_ok, dyads_ok = check_eligibility(
+            n_wcc_points if n_wcc_points is not None else 0,
+            n_dyads if n_dyads is not None else 0,
+        )
+        if n_wcc_points is not None and not wcc_ok:
+            notes.append(
+                f"B3 eligibility: dyad has only {n_wcc_points} finite WCC "
+                f"point(s) (< T_DEF_MIN_WCC_POINTS={T_DEF_MIN_WCC_POINTS}); "
+                f"episode features are mathematically undefined (NaN + "
+                f"ineligible flag)."
+            )
+        if n_dyads is not None and not dyads_ok:
+            notes.append(
+                f"B3 eligibility: analysis group has only {n_dyads} dyad(s) "
+                f"(< N_MIN_DYADS_FDR={N_MIN_DYADS_FDR}); BH-FDR correction "
+                f"resolution is uninterpretable at alpha=0.05 — results "
+                f"WARNING-flagged as unreliable."
+            )
 
     report = DataQualityReport(
         dyad_id=dyad_id,

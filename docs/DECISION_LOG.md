@@ -20,7 +20,7 @@ This file records **current v1 decisions and changes**. Older exploratory or sup
 
 ---
 
-## 2026-07-21 — B4 FDR-family bake-off freeze (evidence-driven)
+## 2026-07-21 — B4 FDR-family bake-off freeze (evidence-driven, ALL-REAL rerun)
 
 **Decision (frozen).** The v1 primary FDR family is confirmed as:
 
@@ -30,20 +30,77 @@ This file records **current v1 decisions and changes**. Older exploratory or sup
 
 `mean_synchrony` remains a **reference** comparator (not corrected). `bimodality_coefficient` and `synchrony_entropy` remain **exploratory** (entering only as secondary descriptors, not as confirmatory FDR tests). This is consistent with the existing "8 confirmatory / FDR m=3" framework (m = 3 corrected family members).
 
-**Evidence.** `scripts/bakeoff_fdr_family.py` ran a Pearson-ρ + VIF bake-off plus leave-one-dyad-out (LOO) stability for N≥23. The Lerique 2024 run is on **real** data (N=31, this run); Gordon/Andersen columns in the new run are **synthetic smoke** (OSF "No license" — B1 blocker), with their **real** VIF evidence drawn from pre-existing `artifacts/vif/*.json`:
+**Evidence.** `scripts/bakeoff_fdr_family.py` ran a Pearson-ρ + VIF bake-off plus leave-one-dyad-out (LOO) stability for N≥23, now **fully on real data** (no synthetic smoke — the earlier B1 OSF "No license" blocker is resolved; real per-dyad data is in-repo). Sources per dataset:
 
-- **Lerique 2024 (REAL, N=31 dyads, recomputed this run):** VIF of all three primary-FDR features is low — `peak_amplitude` 2.62, `dwell_time` 3.06, `switching_rate` 2.48; `mean_synchrony` 2.63. All < VIF_CONCERN (5.0). LOO stability = **100%** (the VIF-qualifying set never changed across 31 dyad removals). These values exactly reproduce the pre-existing `artifacts/vif/lerique_vif_series.csv`, confirming the result.
-- **Gordon / Andersen (REAL, prior run, `artifacts/vif/*.json`):** Gordon all VIF < 4.25 (ok). **Andersen shows SEVERE collinearity** — `mean_synchrony` VIF 35.3, `dwell_time` 50.9, `switching_rate` 18.0 — i.e. the structure features are mutually redundant on that dataset. This is precisely why the family stays *narrow* and `mean_synchrony` is kept as reference only.
+- **Lerique 2024 (REAL, N=31 dyads / 264 records, recomputed this run from `artifacts/realtest/lerique_2024/per_record_features.csv`):** VIF of all three primary-FDR features is low — `peak_amplitude` 2.62, `dwell_time` 3.06, `switching_rate` 2.48; `mean_synchrony` 2.63. All < VIF_CONCERN (5.0). LOO stability = **100%** (the VIF-qualifying set never changed across 31 dyad removals). These values exactly reproduce the pre-existing `artifacts/vif/lerique_vif_series.csv`, confirming the result.
+- **Andersen (REAL, N=300 dyads / 300 traces, recomputed this run from `artifacts/wcc_traces/andersen_wcc_traces.csv`):** **SEVERE collinearity** — `mean_synchrony` VIF 39.35, `dwell_time` 57.88, `switching_rate` 18.81; `bimodality_coefficient` 5.60 (concern), `synchrony_entropy` 4.46. Recomputed VIF drifts ~12–14 % from the frozen `andersen_vif_series.csv` (50.88 / 35.27) but the **SEVERE flags are identical**, so the conclusion is unchanged. LOO stability = **100%** (0/300 folds changed) — the severe classification is robust, not an outlier artefact.
+- **Gordon (REAL, N=366 records, ingested this run from frozen `artifacts/vif/gordon_vif_series.csv` + `gordon_correlation_matrix.csv`):** all VIF < 5 — `peak_amplitude` 4.00, `mean_synchrony` 4.25, `synchrony_entropy` 1.30, `onset_latency` 1.10, `rise_time` 1.11, `recovery_time` 1.05. Gordon's real extracted feature set did **not** include `dwell_time` / `switching_rate`, so it contributes no evidence for those two primary members. (Per-dyad source CSV `gordon_2025_dyads.csv` is not in-repo and present `gordon_wcc_traces.csv` is degenerate at ~82 % NaN/trace, so the values were ingested from the frozen real artifact rather than recomputed; Gordon LOO is N/A.)
 
-**Why this freeze is defensible.** (1) On the only dataset where all three primary members are simultaneously observed with real data (Lerique), none approaches the VIF_SEVERE (10.0) independence threshold, and the membership decision is LOO-stable to 100%. (2) The Andersen severe-collinearity finding shows the *opposite* risk is real and already governed by excluding `mean_synchrony` from correction and keeping `bimodality_coefficient`/`synchrony_entropy` exploratory. (3) The bake-off therefore neither over-expands (no new member justified) nor under-expands (the three core members survive independent-test scrutiny).
+**Why this freeze is defensible.** (1) On the only dataset where all three primary members are simultaneously observed with real data (Lerique), none approaches the VIF_SEVERE (10.0) independence threshold, and the membership decision is LOO-stable to 100%. (2) Andersen's severe collinearity (now recomputed on real re-extracted traces, not just the prior json) confirms the *opposite* risk is real and already governed by excluding `mean_synchrony` from correction and keeping `bimodality_coefficient`/`synchrony_entropy` exploratory — and it shows `dwell_time` / `switching_rate` are **not** universally independent (SEVERE in Andersen). The 3-member family is therefore **dataset-conditional**: safe in Lerique, redundant in Andersen; `peak_amplitude` is the only universally clean primary feature. (3) The bake-off therefore neither over-expands (no new member justified) nor under-expands (the three core members survive independent-test scrutiny where real data observes them together).
 
 **A3 (flag-flip) input.** The frozen family is what `scripts/fdr_family_impact.py` should use as Option B (`{peak_amplitude, dwell_time, switching_rate}`); the Lerique LOO stability 100% means the significance-flip set is robust to single-dyad omission.
 
 **n_min=10 evidence (feeds B3).** Real Lerique LOO at N=31 is 100% stable; all three real datasets have N > 10. This upgrades `n_min=10` from "default recommendation" toward evidence-driven: it is a safe *exclusion floor* (drops only absurdly small pilots), never the binding constraint on any real analysis. B3 still owns the constant hard-coding.
 
-**Reproducibility / limitation.** B4 outputs: `artifacts/bakeoff/fdr_family_bakeoff.csv` (wide VIF + Pearson-ρ matrix, columns = datasets) and `artifacts/bakeoff/fdr_family_loo_stability.csv`. Gordon/Andersen columns in the *new* B4 run are **synthetic pipeline smoke** (OSF is "No license"; raw data not downloaded — B1 blocker, `docs/DATA_ACCESS.md`). Synthetic numbers validate the script/pipeline only and were **not** used as decision evidence; the Gordon/Andersen *real* evidence cited above comes from the pre-existing `artifacts/vif/*.json` artifacts. A full real re-run of all three datasets is pending re-download of the Gordon/Andersen OSF components.
+**Reproducibility / limitation.** B4 outputs: `artifacts/bakeoff/fdr_family_bakeoff.csv` (wide VIF + Pearson-ρ matrix, columns = datasets) and `artifacts/bakeoff/fdr_family_loo_stability.csv`, plus `artifacts/bakeoff/REALDATA_BAKEOFF_ANALYSIS.md`. **All three columns are now REAL** (no synthetic smoke): Lerique + Andersen recomputed from in-repo real data; Gordon ingested from frozen real `artifacts/vif/*` (per-dyad source CSV absent, present `gordon_wcc_traces.csv` degenerate). Gordon LOO is N/A (per-dyad source unavailable); Andersen VIF drifts ~12–14 % from the frozen `andersen_vif_series.csv` but SEVERE flags match. Gordon's real feature set lacks `dwell_time`/`switching_rate`, so it bears no evidence for those two primary members.
 
 **Source of truth.** `multisync/feature_definitions.py`, `multisync/feature_status.py`, `scripts/bakeoff_fdr_family.py`, and `artifacts/bakeoff/`.
+
+---
+
+## 2026-07-21 — B3 eligibility thresholds freeze (evidence-driven)
+
+**Decision (frozen in code).** Two eligibility floors are now hard-coded as
+module-level constants in `multisync/feature_definitions.py` and exported via
+`__all__`:
+
+- `T_DEF_MIN_WCC_POINTS: int = 3` — minimum finite WCC sampling points per dyad.
+- `N_MIN_DYADS_FDR: int = 10` — minimum dyad count for a meaningful BH-FDR correction.
+
+A lightweight pure gate, `check_eligibility(n_wcc_points, n_dyads) ->
+(wcc_points_ok, n_dyads_ok)`, applies both floors. `qc.run_quality_check`
+accepts an optional `eligibility={"n_wcc_points": ..., "n_dyads": ...}`
+context and, when supplied, surfaces any floor violation as a **WARN-level
+NOTE** on `DataQualityReport.notes` (reusing the existing non-blocking `notes`
+field, exactly like the co-start caveat). It never alters the 4-stage
+verdicts or any other field.
+
+**Semantics.**
+
+- *T_def.* A dyad whose WCC trajectory has fewer than 3 finite sampling points
+  cannot define episode features — onset→peak→recovery (Axis D L2) needs three
+  *separable* points. Peak detection already uses a 3-point boxcar
+  (`PEAK_SMOOTHING_WINDOW`, DECISION-04); RISE is interpolated on the 25%–75%
+  span (`RISE_LOW_FRAC`/`RISE_HIGH_FRAC`) and RECOVERY on the 50% span
+  (`RECOVERY_FRAC`). Below 3 points extraction is **mathematically undefined**
+  (returns NaN + an ineligible flag), not silently degenerate. This is a hard
+  floor of the feature definition, not a tunable default.
+- *n_min.* With N=10 dyads the smallest non-zero p-value is ~0.1, so at
+  α=0.05 a group cannot reject the null unless p=0 exactly — BH-FDR resolution
+  is uninterpretable. Such groups are **WARNING-flagged as unreliable**, never
+  silently accepted.
+
+**Evidence.**
+
+- *T_def hard floor.* `feature_definitions.py` DECISION-04 (3-point boxcar
+  peak detection) plus the RISE 25%–75% / RECOVERY 50% fraction definitions
+  make onset+peak+recovery only distinguishable at ≥3 points.
+- *n_min code precedent.* The codebase already treats "< 10" as a small-sample
+  boundary: `compute_surrogate_threshold` falls back to `ONSET_THRESHOLD` when
+  "fewer than 10 finite surrogate values" are available (degenerate-case
+  branch at the surrogate-threshold derivation).
+- *B4 LOO stability.* Per B4, Lerique N=31 LOO is 100% stable and the three
+  real datasets have N=176/46/23 — all >10.
+
+**Conclusion.** `n_min=10` and `T_def=3` are **exclusion floors only**: they
+drop absurdly small pilots (and mathematically undefined dyads) and constrain
+**no** real SyncPipe analysis. No other constant in `feature_definitions.py`
+or elsewhere was changed.
+
+**Source of truth.** `multisync/feature_definitions.py`
+(`T_DEF_MIN_WCC_POINTS`, `N_MIN_DYADS_FDR`, `check_eligibility`);
+`multisync/qc.py` (`run_quality_check` eligibility NOTE);
+`tests/test_eligibility_thresholds.py`.
 
 ---
 
