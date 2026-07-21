@@ -20,6 +20,33 @@ This file records **current v1 decisions and changes**. Older exploratory or sup
 
 ---
 
+## 2026-07-21 — B4 FDR-family bake-off freeze (evidence-driven)
+
+**Decision (frozen).** The v1 primary FDR family is confirmed as:
+
+- `peak_amplitude`
+- `dwell_time`
+- `switching_rate`
+
+`mean_synchrony` remains a **reference** comparator (not corrected). `bimodality_coefficient` and `synchrony_entropy` remain **exploratory** (entering only as secondary descriptors, not as confirmatory FDR tests). This is consistent with the existing "8 confirmatory / FDR m=3" framework (m = 3 corrected family members).
+
+**Evidence.** `scripts/bakeoff_fdr_family.py` ran a Pearson-ρ + VIF bake-off plus leave-one-dyad-out (LOO) stability for N≥23. The Lerique 2024 run is on **real** data (N=31, this run); Gordon/Andersen columns in the new run are **synthetic smoke** (OSF "No license" — B1 blocker), with their **real** VIF evidence drawn from pre-existing `artifacts/vif/*.json`:
+
+- **Lerique 2024 (REAL, N=31 dyads, recomputed this run):** VIF of all three primary-FDR features is low — `peak_amplitude` 2.62, `dwell_time` 3.06, `switching_rate` 2.48; `mean_synchrony` 2.63. All < VIF_CONCERN (5.0). LOO stability = **100%** (the VIF-qualifying set never changed across 31 dyad removals). These values exactly reproduce the pre-existing `artifacts/vif/lerique_vif_series.csv`, confirming the result.
+- **Gordon / Andersen (REAL, prior run, `artifacts/vif/*.json`):** Gordon all VIF < 4.25 (ok). **Andersen shows SEVERE collinearity** — `mean_synchrony` VIF 35.3, `dwell_time` 50.9, `switching_rate` 18.0 — i.e. the structure features are mutually redundant on that dataset. This is precisely why the family stays *narrow* and `mean_synchrony` is kept as reference only.
+
+**Why this freeze is defensible.** (1) On the only dataset where all three primary members are simultaneously observed with real data (Lerique), none approaches the VIF_SEVERE (10.0) independence threshold, and the membership decision is LOO-stable to 100%. (2) The Andersen severe-collinearity finding shows the *opposite* risk is real and already governed by excluding `mean_synchrony` from correction and keeping `bimodality_coefficient`/`synchrony_entropy` exploratory. (3) The bake-off therefore neither over-expands (no new member justified) nor under-expands (the three core members survive independent-test scrutiny).
+
+**A3 (flag-flip) input.** The frozen family is what `scripts/fdr_family_impact.py` should use as Option B (`{peak_amplitude, dwell_time, switching_rate}`); the Lerique LOO stability 100% means the significance-flip set is robust to single-dyad omission.
+
+**n_min=10 evidence (feeds B3).** Real Lerique LOO at N=31 is 100% stable; all three real datasets have N > 10. This upgrades `n_min=10` from "default recommendation" toward evidence-driven: it is a safe *exclusion floor* (drops only absurdly small pilots), never the binding constraint on any real analysis. B3 still owns the constant hard-coding.
+
+**Reproducibility / limitation.** B4 outputs: `artifacts/bakeoff/fdr_family_bakeoff.csv` (wide VIF + Pearson-ρ matrix, columns = datasets) and `artifacts/bakeoff/fdr_family_loo_stability.csv`. Gordon/Andersen columns in the *new* B4 run are **synthetic pipeline smoke** (OSF is "No license"; raw data not downloaded — B1 blocker, `docs/DATA_ACCESS.md`). Synthetic numbers validate the script/pipeline only and were **not** used as decision evidence; the Gordon/Andersen *real* evidence cited above comes from the pre-existing `artifacts/vif/*.json` artifacts. A full real re-run of all three datasets is pending re-download of the Gordon/Andersen OSF components.
+
+**Source of truth.** `multisync/feature_definitions.py`, `multisync/feature_status.py`, `scripts/bakeoff_fdr_family.py`, and `artifacts/bakeoff/`.
+
+---
+
 ## Current v1 threshold stance
 
 **Decision.** SyncPipe separates threshold scope:
