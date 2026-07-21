@@ -16,8 +16,24 @@ References
 Hyndman, R. J., & Athanasopoulos, G. (2018). Forecasting: Principles and
   Practice. OTexts. https://otexts.com/fpp3/
 Koul, A., Grossman, S., & Feldman, R. (2023). Parent-infant synchrony:
-  A bio-behavioral model. Current Opinion in Psychology, 52, 101637.
+    A bio-behavioral model. Current Opinion in Psychology, 52, 101637.
 """
+
+# ---------------------------------------------------------------------------
+# OPT-IN SIDE PATH (A4 routing decision)
+# ---------------------------------------------------------------------------
+# This module is NOT the canonical analysis route.  It is an OPT-IN
+# extension entered only when ``DynamicAnalyzer.enable_prediction=True``
+# (CLI: ``python -m multisync demo --prediction``).  Default is OFF.
+#
+# Parity contract (enforced by tests/test_parity_paths.py):
+#   The dynamic synchrony descriptors consumed here (``FEATURE_NAMES``) MUST
+#   stay byte-identical to the canonical descriptor set produced by
+#   ``multisync.dynamic_features.extract_dynamic_features`` — i.e. the SSoT
+#   ``feature_definitions.extract_features``.  No silent rename,
+#   re-ordering, or re-implementation is permitted.  ``mean_synchrony`` is
+#   intentionally extracted on its own channel (AR baseline only) and is NOT
+#   part of the joint epoch-feature matrix.
 
 from __future__ import annotations
 

@@ -39,6 +39,20 @@ from .feature_definitions import ONSET_THRESHOLD
 from .prediction import FoldResult, PredictionResult, rolling_origin_cv
 from .qc import DataQualityError, run_quality_check
 
+# ---------------------------------------------------------------------------
+# A4 ROUTING DECISION (confirmed by maintainer)
+# ---------------------------------------------------------------------------
+# CANONICAL_PATH : the default / primary analysis route through SyncPipe.
+#                  Reached by the CLI (`analyze`, `demo`) and by
+#                  ``DynamicAnalyzer(enable_prediction=False)`` (the default).
+# OPT_IN_PATH    : the prediction module.  Entered ONLY when
+#                  ``enable_prediction=True`` / CLI ``--prediction``.
+#                  Never runs by default.  ``prediction.FEATURE_NAMES`` must
+#                  stay byte-identical to the canonical dynamic-descriptor set
+#                  (enforced by tests/test_parity_paths.py).
+CANONICAL_PATH = "DynamicAnalyzer.fit_transform"
+OPT_IN_PATH = "prediction.rolling_origin_cv"
+
 
 class Dyad(SynchronyDataset):
     """
@@ -215,18 +229,31 @@ class AnalysisResults:
 class DynamicAnalyzer:
     """
    ======================================================================
-    LEGACY / BACK-COMPATIBILITY ONLY — DO NOT BUILD CONFIRMATORY
-    RESULTS ON TOP OF THIS CLASS.
+    CANONICAL MAIN ANALYSIS PATH (A4 routing decision, confirmed).
    ----------------------------------------------------------------------
-    Canonical v1 public workflow (prefer this):
-        from multisync.pipeline_bridge import records_to_inference_inputs
-        pipe = InferencePipeline(features_df, hz=..., wcc_window_sec=...)
-        chain = pipe.run_audited_evidence_chain(...)
-    i.e.  pipeline_bridge.records_to_inference_inputs
-          -> InferencePipeline.run_audited_evidence_chain
-          (synchrony-existence audit -> design controls -> group inference).
-    DynamicAnalyzer is retained for ad-hoc single-dyad exploration
-    only and is planned for removal in v2.
+    This class is the canonical / default route through SyncPipe.  The CLI
+    entry points (`python -m multisync analyze`, `python -m multisync demo`)
+    call ``fit_transform`` by default.
+
+    SIDE PATH (explicit opt-in, OFF by default):
+        The ``prediction`` module (``rolling_origin_cv`` /
+        ``cross_modal_prediction``) is entered ONLY when
+        ``enable_prediction=True`` (or the CLI ``--prediction`` flag).
+        It must never run silently.  See OPT_IN_PATH.
+
+    Parity contract (enforced by tests/test_parity_paths.py):
+        The dynamic synchrony descriptors produced here (the 6 epoch
+        descriptors in ``DynamicFeatures``) are the SAME descriptors the
+        prediction path consumes — verified to derive from the single
+        source of truth ``feature_definitions.extract_features`` with no
+        silent rename / re-ordering / re-implementation.
+
+    Routing history (honest note): an earlier design marked this class
+    for eventual retirement in favour of ``InferencePipeline``.  The A4
+    routing decision (2026-07-21) REVERSES that plan — DynamicAnalyzer is
+    the canonical main analysis path.  ``InferencePipeline`` remains a
+    supported component (used by ``pipeline_bridge`` / ``report``) but is
+    NOT the default CLI route; ``prediction`` is the opt-in side path.
    ======================================================================
    The full analysis pipeline.
 

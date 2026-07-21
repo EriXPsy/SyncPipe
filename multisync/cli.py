@@ -78,6 +78,9 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         print("Analysis stopped because QC failed. Fix the issues above or use the Python API with qc_raise_on_fail=False for exploratory inspection.", file=sys.stderr)
         sys.exit(2)
 
+    # A4 routing: DynamicAnalyzer is the CANONICAL path. ``enable_prediction``
+    # is intentionally left at its default (False) — prediction is an explicit
+    # opt-in side path and is NOT wired into `analyze`.
     analyzer = DynamicAnalyzer(
         window_size=args.window_size,
         surrogate_n=args.surrogates,
@@ -192,6 +195,8 @@ def cmd_demo(args: argparse.Namespace) -> None:
     ds.add_context(start=0, end=150, label="PreTask")
     ds.add_context(start=150, end=300, label="Task")
 
+    # A4 routing: canonical DynamicAnalyzer path; prediction is opt-in via
+    # --prediction (default OFF) — see OPT_IN_PATH in core.py.
     analyzer = DynamicAnalyzer(
         window_size=10,
         surrogate_n=args.surrogates,
@@ -399,9 +404,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_demo.add_argument(
         "--prediction", action="store_true",
-        help="Run the rolling-origin prediction CV (OFF by default; opt-in). "
-             "Prediction is a confirmatory-adjacent step and must be "
-             "explicitly requested.",
+        help="OPT-IN side path (A4): run the rolling-origin prediction CV. "
+             "DynamicAnalyzer is the CANONICAL analysis path; prediction is "
+             "OFF by default and must be explicitly requested.",
     )
     p_demo.add_argument(
         "--no-prediction", action="store_true",
