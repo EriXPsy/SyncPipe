@@ -104,6 +104,21 @@ or elsewhere was changed.
 
 ---
 
+## 2026-07-22 — Two-layer canonical definition (P1)
+
+**Decision.** The word "canonical" in SyncPipe now carries an explicit layer qualifier. There are two distinct canonical layers that must never be conflated:
+
+- **Descriptor-layer canonical** = ``DynamicAnalyzer.fit_transform`` — the CLI default feature-extraction route (per-dyad threshold, descriptive). This is what the CLI (`analyze`, `demo`) and ``DynamicAnalyzer(enable_prediction=False)`` reach by default. ``CANONICAL_PATH`` / ``CANONICAL_DESCRIPTOR_PATH`` in ``multisync/core.py`` name this layer.
+- **Scientific-layer canonical** = ``pipeline_bridge`` + ``InferencePipeline.run_audited_evidence_chain`` — the ONLY path that produces a defensible, manuscript-grade conclusion (session-pooled threshold + design controls + group FDR). This is the audited evidence chain referenced by README:449 and used by ``scripts/reproduce_lerique_paper.py`` (``three_pipeline_v1``).
+
+**Rule.** In code and docs, "canonical" MUST be written with its layer qualifier (descriptor-layer vs scientific-layer). Flipping or redefining either canonical definition requires explicit user sign-off PLUS an update to this DECISION_LOG entry. No local / session-level optimum may silently override a canonical definition.
+
+**Why this locks the risk.** Earlier narrative treated ``DynamicAnalyzer`` as the "canonical main analysis path" slated to replace / be replaced by ``InferencePipeline`` (retirement / reversal language). That framing let a session-local optimum undo the canonical definition. This entry retires that reversal narrative: both layers are supported, neither retires the other, and they do not compete. The descriptor layer computes feature vectors; the scientific layer computes conclusions.
+
+**Source of truth.** ``multisync/core.py`` (``CANONICAL_PATH``, ``CANONICAL_DESCRIPTOR_PATH``); ``multisync/pipeline_bridge.py`` + ``InferencePipeline.run_audited_evidence_chain``; README SOP; ``scripts/reproduce_lerique_paper.py``.
+
+---
+
 ## Current v1 threshold stance
 
 **Decision.** SyncPipe separates threshold scope:

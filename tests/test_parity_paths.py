@@ -1,27 +1,27 @@
 """
-A4 parity tests — canonical DynamicAnalyzer path vs opt-in prediction path.
+A4 parity tests — descriptor / default CLI DynamicAnalyzer path vs opt-in prediction path.
 
 Parity contract (enforced here):
   The prediction side-path (``prediction.build_feature_matrix`` /
   ``rolling_origin_cv``) consumes the IDENTICAL set of dynamic synchrony
-  descriptors as the canonical DynamicAnalyzer path
+  descriptors as the descriptor / default CLI DynamicAnalyzer path
   (``dynamic_features.extract_dynamic_features`` ->
   ``feature_definitions.extract_features``), with NO silent rename /
   re-ordering / re-implementation.
 
 Concretely verified:
   1. FEATURE_NAME_PARITY    — ``prediction.FEATURE_NAMES`` equals the 6
-     canonical epoch descriptors that DynamicAnalyzer reports
+     descriptor / default-CLI epoch descriptors that DynamicAnalyzer reports
      (``DynamicFeatures`` epoch fields), in the same order.
   2. SSOT_NO_SILENT_TRANSFORM — ``build_feature_matrix``'s per-window feature
      vector equals a direct ``feature_definitions.extract_features`` call on
      the same window slice (proves prediction delegates to the SSoT, not a
      reimplemented copy).
   3. PATH_PARITY (end-to-end) — for identical input WCC + identical window
-     params, the canonical global feature vector equals the prediction
+     params, the descriptor / default-CLI global feature vector equals the prediction
      path's feature matrix (single window): both paths land on the same
      descriptor definitions.
-  4. CLI_ROUTING — ``DynamicAnalyzer`` is the canonical default
+  4. CLI_ROUTING — ``DynamicAnalyzer`` is the descriptor / default-CLI path
      (``enable_prediction=False``); prediction is opt-in only
      (``demo --prediction``; defaults OFF). ``analyze`` never enters it.
 
@@ -43,8 +43,8 @@ from multisync.feature_definitions import (
 from multisync.synthetic import generate_ground_truth_dyad
 from multisync.cli import build_parser
 
-# The 6 canonical epoch descriptors reported by the DynamicAnalyzer path
-# (the DynamicFeatures epoch fields, in canonical order).
+# The 6 descriptor / default-CLI epoch descriptors reported by the DynamicAnalyzer path
+# (the DynamicFeatures epoch fields, in descriptor order).
 CANONICAL_EPOCH_FEATURES = [
     "onset_latency",
     "rise_time",
@@ -88,11 +88,11 @@ def _make_dyad():
 def _assert_descriptor_equal(a, b, ctx):
     """Parity comparison: a and b must agree, INCLUDING NaN-agreement.
 
-    The canonical SSoT legitimately returns NaN for event-locked descriptors
-    whose timing is scientifically undefined (e.g. ``rise_time`` with
+    The descriptor / default-CLI SSoT legitimately returns NaN for event-locked
+    descriptors whose timing is scientifically undefined (e.g. ``rise_time`` with
     ``rise_defined=0``).  The prediction path must NOT fabricate a value where
-    the canonical path says undefined — so NaN must match NaN, and finite
-    values must match numerically.  (``np.isclose(nan, nan)`` is False, hence
+    the descriptor / default-CLI path says undefined — so NaN must match NaN, and
+    finite values must match numerically.  (``np.isclose(nan, nan)`` is False, hence
     the explicit NaN handling.)
     """
     a = float(a)
@@ -108,10 +108,10 @@ def _assert_descriptor_equal(a, b, ctx):
 # ---------------------------------------------------------------------------
 
 def test_feature_name_parity():
-    """prediction.FEATURE_NAMES must equal the canonical 6 epoch descriptors."""
+    """prediction.FEATURE_NAMES must equal the descriptor / default-CLI 6 epoch descriptors."""
     assert pred_mod.FEATURE_NAMES == CANONICAL_EPOCH_FEATURES
     # Every name must map to a real DynamicFeatures epoch field (no made-up
-    # descriptor names that would silently diverge from the canonical path).
+    # descriptor names that would silently diverge from the descriptor / default-CLI path).
     df_fields = set(DynamicFeatures.__dataclass_fields__.keys())
     for name in pred_mod.FEATURE_NAMES:
         assert name in df_fields, f"{name} is not a DynamicFeatures field"
@@ -155,19 +155,19 @@ def test_prediction_delegates_to_ssot_no_transform():
 
 
 # ---------------------------------------------------------------------------
-# 3. End-to-end path parity (canonical global vector == prediction matrix)
+# 3. End-to-end path parity (descriptor / default-CLI global vector == prediction matrix)
 # ---------------------------------------------------------------------------
 
-def test_canonical_and_prediction_agree_on_descriptors():
-    """For identical input WCC + identical window parameters, the canonical
-    global feature vector (``extract_dynamic_features`` over the whole series
-    as one window) equals the prediction path's feature matrix (single
-    window). Proves both paths land on the same descriptor definitions."""
+def test_descriptor_and_prediction_agree_on_descriptors():
+    """For identical input WCC + identical window parameters, the descriptor
+    / default-CLI global feature vector (``extract_dynamic_features`` over the
+    whole series as one window) equals the prediction path's feature matrix
+    (single window). Proves both paths land on the same descriptor definitions."""
     wcc = _make_wcc(n=300, seed=2)
     hz = 1.0
     threshold = 0.5
 
-    # Canonical path: global feature over the whole WCC as a single window.
+    # Descriptor / default-CLI path: global feature over the whole WCC as a single window.
     feat = df.extract_dynamic_features(
         wcc, hz=hz, onset_threshold=threshold, wcc_window_sec=len(wcc) / hz
     )
@@ -196,15 +196,15 @@ def test_cli_demo_prediction_opt_in_defaults_off():
 
 
 def test_cli_analyze_has_no_prediction_path():
-    """``analyze`` is canonical-only: it never exposes/enters the prediction
+    """``analyze`` is descriptor / default-CLI only: it never exposes/enters the prediction
     path (no --prediction toggle wired in)."""
     parser = build_parser()
     args = parser.parse_args(["analyze", "-i", "a.csv,b.csv", "-n", "x,y"])
     assert not hasattr(args, "prediction")
 
 
-def test_dynamic_analyzer_canonical_default_no_prediction():
-    """DynamicAnalyzer default IS the canonical path (enable_prediction=False);
+def test_dynamic_analyzer_default_cli_no_prediction():
+    """DynamicAnalyzer default IS the descriptor / default-CLI path (enable_prediction=False);
     a default fit_transform yields an empty prediction dict, and the routing
     constants document the two paths."""
     ds = _make_dyad()

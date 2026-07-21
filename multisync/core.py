@@ -42,15 +42,24 @@ from .qc import DataQualityError, run_quality_check
 # ---------------------------------------------------------------------------
 # A4 ROUTING DECISION (confirmed by maintainer)
 # ---------------------------------------------------------------------------
-# CANONICAL_PATH : the default / primary analysis route through SyncPipe.
-#                  Reached by the CLI (`analyze`, `demo`) and by
+# CANONICAL_PATH : the CLI default DESCRIPTOR route (descriptor-layer
+#                  canonical) through SyncPipe.  Reached by the CLI
+#                  (`analyze`, `demo`) and by
 #                  ``DynamicAnalyzer(enable_prediction=False)`` (the default).
+#                  This is the DESCRIPTOR layer, NOT the scientific canonical.
+#                  The scientific canonical = the audited evidence chain
+#                  (pipeline_bridge + InferencePipeline.run_audited_evidence_chain),
+#                  e.g. the ``three_pipeline_v1`` path used by
+#                  scripts/reproduce_lerique_paper.py.
 # OPT_IN_PATH    : the prediction module.  Entered ONLY when
 #                  ``enable_prediction=True`` / CLI ``--prediction``.
 #                  Never runs by default.  ``prediction.FEATURE_NAMES`` must
-#                  stay byte-identical to the canonical dynamic-descriptor set
-#                  (enforced by tests/test_parity_paths.py).
+#                  stay byte-identical to the descriptor-layer dynamic feature
+#                  set (enforced by tests/test_parity_paths.py).
 CANONICAL_PATH = "DynamicAnalyzer.fit_transform"
+# Alias for CANONICAL_PATH — descriptor-layer default CLI route. NOT the
+# scientific canonical (that is pipeline_bridge + InferencePipeline.run_audited_evidence_chain).
+CANONICAL_DESCRIPTOR_PATH = CANONICAL_PATH
 OPT_IN_PATH = "prediction.rolling_origin_cv"
 
 
@@ -229,9 +238,9 @@ class AnalysisResults:
 class DynamicAnalyzer:
     """
    ======================================================================
-    CANONICAL MAIN ANALYSIS PATH (A4 routing decision, confirmed).
+    DEFAULT CLI / DESCRIPTOR PATH (A4 routing decision, confirmed). 科学 canonical 见 InferencePipeline + pipeline_bridge（README SOP 与 reproduce_lerique_paper.py 所用证据链）。
    ----------------------------------------------------------------------
-    This class is the canonical / default route through SyncPipe.  The CLI
+    This class is the default / descriptor route through SyncPipe.  The CLI
     entry points (`python -m multisync analyze`, `python -m multisync demo`)
     call ``fit_transform`` by default.
 
@@ -248,12 +257,14 @@ class DynamicAnalyzer:
         source of truth ``feature_definitions.extract_features`` with no
         silent rename / re-ordering / re-implementation.
 
-    Routing history (honest note): an earlier design marked this class
-    for eventual retirement in favour of ``InferencePipeline``.  The A4
-    routing decision (2026-07-21) REVERSES that plan — DynamicAnalyzer is
-    the canonical main analysis path.  ``InferencePipeline`` remains a
-    supported component (used by ``pipeline_bridge`` / ``report``) but is
-    NOT the default CLI route; ``prediction`` is the opt-in side path.
+    Two-layer routing note (honest): ``DynamicAnalyzer`` and
+    ``InferencePipeline`` belong to DIFFERENT abstraction layers.  The former
+    is the DESCRIPTOR / default CLI path (it computes feature vectors per dyad,
+    reached by the CLI).  The latter is the SCIENTIFIC canonical — the audited
+    evidence chain (pipeline_bridge + InferencePipeline.run_audited_evidence_chain)
+    that produces the defensible manuscript conclusion.  Both are supported;
+    there is NO retirement, NO reversal, and they do not compete.  ``prediction``
+    is the opt-in side path.
    ======================================================================
    The full analysis pipeline.
 
