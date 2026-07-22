@@ -217,6 +217,8 @@ def between_condition_fdr(
     alpha: float = 0.05,
     condition_values: Optional[Tuple[str, str]] = None,
     threshold_scope: str = "unknown",
+    modality_col: Optional[str] = "modality",
+    allow_multimodal_pool: bool = False,
 ) -> Dict[str, Union[List[L2Result], L2Result]]:
     """L2 between-condition permutation test with BH-FDR correction.
 
@@ -278,6 +280,30 @@ def between_condition_fdr(
     feature_cols, _ = dedupe_fdr_input(
         list(feature_cols), [0.0] * len(feature_cols), on_duplicate="raise"
     )
+
+    # ── P0-2: refuse silent multimodal pooling ───────────────────────────
+    # If a modality column exists with >1 modality, groupby.mean() over
+    # duplicate (dyad, condition) rows would average EDA+ECG+RESP into one
+    # scalar and can cancel real per-modality effects (diff→0, p→1).
+    # Call test_l2_by_modality / filter one modality, or pass
+    # allow_multimodal_pool=True only with explicit scientific justification.
+    if (
+        modality_col is not None
+        and modality_col in df.columns
+        and not allow_multimodal_pool
+    ):
+        n_mod = df[modality_col].dropna().nunique()
+        if n_mod > 1:
+            mods = sorted(df[modality_col].dropna().astype(str).unique().tolist())
+            raise ValueError(
+                f"between_condition_fdr: found {n_mod} modalities in "
+                f"column {modality_col!r} ({mods}). Pooling modalities by "
+                f"averaging duplicate (dyad, condition) rows is refused by "
+                f"default (P0-2). Filter to one modality, call "
+                f"between_condition_by_modality / test_l2_by_modality, or "
+                f"pass allow_multimodal_pool=True if you intentionally want "
+                f"a pooled contrast (document the justification)."
+            )
 
     # ── A11: per-dyad (non-pooled) threshold WARN for structure features ──
     # dwell_time / switching_rate are derived from an onset threshold. If that
@@ -355,6 +381,14 @@ def between_condition_fdr(
                 f"{unique_conditions}"
             )
         condition_a, condition_b = unique_conditions[0], unique_conditions[1]
+        warnings.warn(
+            f"between_condition_fdr: condition_values not specified; using "
+            f"sorted labels ({condition_a!r}, {condition_b!r}). Difference "
+            f"sign is condition_a - condition_b. Pass condition_values= "
+            f"explicitly for confirmatory analyses.",
+            UserWarning,
+            stacklevel=2,
+        )
     else:
         condition_a, condition_b = condition_values
         for c in (condition_a, condition_b):
@@ -578,6 +612,9 @@ def between_condition_by_modality(
                 alpha=alpha,
                 condition_values=condition_values,
                 threshold_scope=threshold_scope,
+                # Subset is single-modality; disable the multimodal guard.
+                modality_col=None,
+                allow_multimodal_pool=False,
             )
         except ValueError as e:
             results[mod] = {"error": str(e)}

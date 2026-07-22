@@ -1043,11 +1043,18 @@ def _binarize_with_hysteresis(
 # DECISION-06a · dwell_time
 # ---------------------------------------------------------------------------
 
+def _finite_segments(finite: np.ndarray):
+    """Yield (start, end) slices of contiguous finite samples (end exclusive)."""
+    starts, ends = _find_runs(np.asarray(finite, dtype=bool))
+    return zip(starts.tolist(), ends.tolist())
+
+
 def compute_dwell_time(
     wcc: np.ndarray,
     hz: float,
     threshold: float = ONSET_THRESHOLD,
     hysteresis_delta: float = SWITCHING_HYSTERESIS_DELTA,
+    gap_policy: str = "merge_valid",
 ) -> float:
     """DECISION-06a · dwell_time = mean elevated run-length (seconds).
 
@@ -1061,32 +1068,52 @@ def compute_dwell_time(
         Half-width of the hysteresis band.  ``0.0`` recovers legacy
         non-hysteresis binarization.  See
         :data:`SWITCHING_HYSTERESIS_DELTA`.
+    gap_policy : {"segment", "merge_valid"}
+        How missing (NaN) samples affect episode geometry (P1-1, 2026-07-22):
+
+        * ``"merge_valid"`` (default) — drop NaNs then run-length on the
+          compressed boolean series (2026-07-13 behaviour).  Bridges short
+          sensor dropouts *inside* one continuous episode so they do not
+          fabricate structure.  This is the behaviour the unit tests and the
+          FDR-family extraction rely on; it restores the pre-P1-1 default.
+        * ``"segment"`` — split the trace into contiguous *finite* segments and
+          compute elevated runs **within each segment only**.  Opt-in for
+          concatenated paradigms (e.g. Lerique trials) where discontinuity
+          seams must not glue two real-world episodes into one.
 
     Notes
     -----
     Hysteresis eliminates boundary jitter near ``threshold``, producing
     more stable dwell estimates on oscillatory traces.
     """
+    if gap_policy not in ("segment", "merge_valid"):
+        raise ValueError(
+            f"gap_policy must be 'segment' or 'merge_valid', got {gap_policy!r}"
+        )
     finite = np.isfinite(wcc)
     if not finite.any():
         return float("nan")
     above = _binarize_with_hysteresis(wcc, threshold, hysteresis_delta)
-    # Gap-robust (DECISION, 2026-07-13): operate on the valid (finite) points
-    # only.  A missing point is excluded, not treated as a low-state sample, so
-    # an artifact gap (a) does not split one elevated run into two shorter
-    # runs (which would deflate dwell_time) and (b) contributes no dwell time.
-    # Because the forced-False at the gap is dropped here, the two valid
-    # segments of a single episode merge into one run.
-    above_valid = above[finite]
-    if not above_valid.any():
-        return float("nan")
 
-    starts, ends = _find_runs(above_valid)
-    run_lengths = ends - starts
-    if run_lengths.size == 0:
+    run_lengths_list = []
+    if gap_policy == "merge_valid":
+        # 2026-07-13: compress to finite samples (may glue across seams).
+        above_valid = above[finite]
+        if above_valid.any():
+            starts, ends = _find_runs(above_valid)
+            run_lengths_list.extend((ends - starts).tolist())
+    else:
+        # Default: per contiguous finite segment (no cross-seam glue).
+        for s, e in _finite_segments(finite):
+            seg = above[s:e]
+            if not seg.any():
+                continue
+            starts, ends = _find_runs(seg)
+            run_lengths_list.extend((ends - starts).tolist())
+
+    if not run_lengths_list:
         return float("nan")
-    # run_lengths are counts of valid samples; /hz gives valid-time seconds.
-    return float(np.mean(run_lengths)) / hz
+    return float(np.mean(run_lengths_list)) / hz
 
 
 # ---------------------------------------------------------------------------
@@ -1098,6 +1125,7 @@ def compute_switching_rate(
     hz: float,
     threshold: float = ONSET_THRESHOLD,
     hysteresis_delta: float = SWITCHING_HYSTERESIS_DELTA,
+    gap_policy: str = "merge_valid",
 ) -> float:
     """DECISION-06b · switching_rate = state transitions per minute.
 
@@ -1111,6 +1139,12 @@ def compute_switching_rate(
         Half-width of the hysteresis band.  ``0.0`` recovers legacy
         non-hysteresis binarization.  See
         :data:`SWITCHING_HYSTERESIS_DELTA`.
+    gap_policy : {"segment", "merge_valid"}
+        Same semantics as :func:`compute_dwell_time`.  Default
+        ``"merge_valid"`` (2026-07-13 behaviour) counts transitions on the
+        NaN-compressed series so short dropouts inside one episode do not
+        inflate the rate.  ``"segment"`` is opt-in for concatenated paradigms
+        where a discontinuity seam must not inject a fake switch.
 
     Notes
     -----
@@ -1120,20 +1154,27 @@ def compute_switching_rate(
     switching_rate Spearman ρ improved from ~0.22 to substantially
     higher values after this fix.
     """
+    if gap_policy not in ("segment", "merge_valid"):
+        raise ValueError(
+            f"gap_policy must be 'segment' or 'merge_valid', got {gap_policy!r}"
+        )
     finite = np.isfinite(wcc)
     if not finite.any():
         return float("nan")
     above = _binarize_with_hysteresis(wcc, threshold, hysteresis_delta)
-    # Gap-robust (DECISION, 2026-07-13): transitions are counted only between
-    # consecutive valid samples, so a missing point does not manufacture a
-    # spurious False->True / True->False pair (which would inflate
-    # switching_rate).  Duration is valid time only (finite samples), not the
-    # full array length including gaps.
-    above_valid = above[finite]
-    if above_valid.size < 2:
-        return float("nan")
-    transitions = int(np.sum(above_valid[1:] != above_valid[:-1]))
-    duration_min = finite.sum() / hz / 60.0
+
+    transitions = 0
+    if gap_policy == "merge_valid":
+        above_valid = above[finite]
+        if above_valid.size >= 2:
+            transitions = int(np.sum(above_valid[1:] != above_valid[:-1]))
+    else:
+        for s, e in _finite_segments(finite):
+            seg = above[s:e]
+            if seg.size >= 2:
+                transitions += int(np.sum(seg[1:] != seg[:-1]))
+
+    duration_min = float(finite.sum()) / hz / 60.0
     if duration_min == 0:
         return float("nan")
     return float(transitions) / duration_min
@@ -1550,6 +1591,10 @@ def extract_features(
         predictors.
     """
     wcc = np.asarray(wcc, dtype=float)
+    # P1-4: always report discontinuity / missing fraction from SSoT so
+    # callers that bypass extract_dynamic_features still get the diagnostic.
+    _finite_frac = float(np.isfinite(wcc).mean()) if wcc.size else 0.0
+    _nan_fraction = 1.0 - _finite_frac
 
     # Smoothed peak first (DECISION-04) -- anchors rise/recovery indexing
     sm = smoothed_wcc(wcc)
@@ -1634,12 +1679,14 @@ def extract_features(
         onset_defined=int(onset_def),
         rise_defined=int(rise_def),
         recovery_defined=int(rec_def),
+        nan_fraction=float(_nan_fraction),
         notes="; ".join(notes),
         params={
             "threshold": float(threshold),
             "hz": float(hz),
             "wcc_window_sec": float(wcc_window_sec),
             "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN",
+            "gap_policy": "merge_valid",  # default bridges short dropouts (DECISION 2026-07-13); segment is opt-in for concatenated paradigms
         },
     )
 

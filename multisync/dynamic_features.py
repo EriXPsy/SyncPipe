@@ -619,7 +619,11 @@ def _signal_level_surrogate_test(
     degenerating on a particular surrogate draw) does not contaminate or
     misalign the denominator/slicing used for the other two features.
     """
-    from .feature_definitions import compute_bimodality_coefficient
+    from .feature_definitions import (
+        compute_bimodality_coefficient,
+        compute_peak_amplitude,
+        smoothed_wcc,
+    )
 
     # Active guard, not decorative: this function ONLY ever tests
     # {mean_synchrony, peak_amplitude, bimodality_coefficient}. Assert
@@ -658,8 +662,15 @@ def _signal_level_surrogate_test(
             wcc_window_size,
         )
 
+    # P0-1 fix (2026-07-22): L0 peak MUST match SSoT peak_amplitude
+    # (3-point boxcar smoothed argmax), NOT raw np.max.  Using raw max
+    # made existence-audit p-values test a different statistic than the
+    # feature table / L2 / design-control path report under the same name.
     obs_mean = float(np.mean(wcc_valid))
-    obs_peak = float(np.max(wcc_valid))
+    obs_peak, _ = compute_peak_amplitude(smoothed_wcc(wcc))  # full series; NaNs handled inside
+    if not np.isfinite(obs_peak):
+        # Fallback if smoothing path is fully non-finite (should be rare given n_valid gate)
+        obs_peak = float(np.max(wcc_valid)) if wcc_valid.size else float("nan")
     obs_bc = compute_bimodality_coefficient(wcc_valid)
 
     rng = np.random.default_rng(seed)
@@ -686,7 +697,10 @@ def _signal_level_surrogate_test(
         if len(wcc_s_valid) < 10:
             continue  # null_mean[i]/null_peak[i]/null_bc[i] remain NaN
         null_mean[i] = np.mean(wcc_s_valid)
-        null_peak[i] = np.max(wcc_s_valid)
+        # Same peak definition as observed (SSoT smoothed); apply to full
+        # surrogate WCC (with NaN seams) so smoothing neighborhood matches obs.
+        _npk, _ = compute_peak_amplitude(smoothed_wcc(wcc_s))
+        null_peak[i] = _npk if np.isfinite(_npk) else float(np.max(wcc_s_valid))
         null_bc[i] = compute_bimodality_coefficient(wcc_s_valid)
 
     # Each feature gets its OWN finite mask, count, and slice — a

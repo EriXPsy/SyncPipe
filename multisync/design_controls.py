@@ -38,10 +38,49 @@ DEFAULT_AUDIT_FEATURES: Tuple[str, ...] = (
 )
 
 
-def _finite_pair(sig_a: np.ndarray, sig_b: np.ndarray) -> SignalPair:
-    """Return same-length finite arrays for a signal pair."""
+def _finite_pair(
+    sig_a: np.ndarray,
+    sig_b: np.ndarray,
+    *,
+    strict_length: bool = True,
+    on_length_mismatch: str = "warn",
+) -> SignalPair:
+    """Return same-length finite arrays for a signal pair.
+
+    Parameters
+    ----------
+    strict_length : bool, default True
+        If True (default), unequal input lengths are not silently accepted.
+        Behaviour is controlled by ``on_length_mismatch``.
+    on_length_mismatch : {"warn", "raise", "truncate"}
+        - ``"warn"`` (default): emit ``UserWarning``, then truncate to min length.
+        - ``"raise"``: raise ``ValueError`` (recommended for confirmatory audits).
+        - ``"truncate"``: legacy silent truncate (discouraged).
+
+    Notes
+    -----
+    P0-3 fix (2026-07-22): previous versions always truncated to
+    ``min(len(a), len(b))`` with no warning, so design-control statistics
+    could be computed on a hidden sub-interval when one partner's series
+    was shorter.  Joint finite masking still preserves relative alignment
+    of kept samples.
+    """
+    import warnings
+
     a = np.asarray(sig_a, dtype=float)
     b = np.asarray(sig_b, dtype=float)
+    if a.size != b.size:
+        msg = (
+            f"_finite_pair: unequal lengths len(a)={a.size}, len(b)={b.size}. "
+            f"Truncating to min={min(a.size, b.size)} samples from the start — "
+            f"ensure this matches your intended analysis window."
+        )
+        mode = on_length_mismatch if strict_length else "truncate"
+        if mode == "raise":
+            raise ValueError(msg)
+        if mode == "warn":
+            warnings.warn(msg, UserWarning, stacklevel=2)
+        # truncate (warn already emitted, or legacy silent)
     n = min(a.size, b.size)
     a = a[:n]
     b = b[:n]

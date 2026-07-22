@@ -242,18 +242,42 @@ class InferencePipeline:
         contrast: Optional[Tuple[str, str]] = None,
         full_family_fdr: bool = False,
         threshold_scope: str = "unknown",
+        modality_col: str = "modality",
     ) -> Dict[str, Any]:
-        """Step 3: test whether features differentiate experimental conditions."""
-        result = self.test_l2_condition(
-            condition_col=condition_col,
-            dyad_col=dyad_col,
-            feature_cols=feature_cols,
-            fdr_alpha=fdr_alpha,
-            n_permutations=n_permutations,
-            contrast=contrast,
-            full_family_fdr=full_family_fdr,
-            threshold_scope=threshold_scope,
+        """Step 3: test whether features differentiate experimental conditions.
+
+        Multimodal datasets (e.g. EDA/ECG/RESP) are routed to per-modality L2
+        (``test_l2_by_modality``) because pooled L2 across modalities silently
+        averages cross-modality rows and can cancel real effects (P0-2). The
+        returned dict is then keyed by modality. Unimodal data keeps the
+        original single pooled-result shape.
+        """
+        n_mod = (
+            self.df[modality_col].dropna().nunique()
+            if (modality_col in self.df.columns and self.df[modality_col].notna().any())
+            else 1
         )
+        if n_mod > 1:
+            result = self.test_l2_by_modality(
+                modality_col=modality_col,
+                condition_col=condition_col,
+                dyad_col=dyad_col,
+                feature_cols=feature_cols,
+                fdr_alpha=fdr_alpha,
+                n_permutations=n_permutations,
+                full_family_fdr=full_family_fdr,
+            )
+        else:
+            result = self.test_l2_condition(
+                condition_col=condition_col,
+                dyad_col=dyad_col,
+                feature_cols=feature_cols,
+                fdr_alpha=fdr_alpha,
+                n_permutations=n_permutations,
+                contrast=contrast,
+                full_family_fdr=full_family_fdr,
+                threshold_scope=threshold_scope,
+            )
         self._group_inference_results = result
         return result
 
