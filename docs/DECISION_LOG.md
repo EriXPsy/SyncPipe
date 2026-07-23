@@ -221,6 +221,55 @@ regime-awareness.
 
 ---
 
+## 2026-07-23 — P1 residual fixes R1–R4 (review of external patch, dialectical)
+
+External review (post-`08b1883`) flagged four P1 residuals and supplied a
+drop-in patch under `updates/`. Reviewed dialectically — every claim was
+re-derived against `main` before adoption. All four were **real**, the patch
+introduced **no broken symbol references**, and all 56 + 77 regression tests
+pass.
+
+| ID | Issue (confirmed against HEAD) | Fix adopted |
+|---|---|---|
+| **R1** | `run_group_condition_inference` multimodal branch dropped `contrast`/`threshold_scope`/`seed` into `test_l2_by_modality` (params existed, just not forwarded) → multimodal L2 silently used sorted labels; `_build_audited_chain_summary` read `group["n_significant"]` which is absent when `group` is modality-keyed → always reported 0 sig. | Forward the three kwargs; summary sums `n_significant` across modalities. `between_condition_by_modality` already accepted `condition_values`/`threshold_scope`/`seed`, so the forwarding is valid. |
+| **R2** | `ComputationPipeline` already NaN-masks the WCC at seams (`_discontinuity_mask`, line 216) but `extract_features` still used `merge_valid` dwell/switching by default → episodes glued across intentional seams, contradicting the mask. | When `_discontinuity_mask is not None`, pass `gap_policy="segment"`; unmasked pairs keep `merge_valid`. Consistent with DECISION 2026-07-13; does **not** change B4-frozen numbers (those had no mask). |
+| **R3** | `_apply_discontinuity_mask` was applied to the **observed** WCC (existence null) but **not** to the **surrogate** pool in `_generate_surrogate_coupling_matrix`/`compute_session_pooled_threshold` → pooled null inflated by seam-spanning windows. | Thread `discontinuity_mask(s)` through; surrogate traces NaN-gated identically to observed. Per-dyad mask list length-checked. |
+| **R4** | `reproduce_lerique_paper.py` had `OSET_THRESHOLD` typo, TODO MANIFEST, non-pub defaults; `DATA_ACCESS.md` was skeletal. | Typo→`ONSET_THRESHOLD`; real MANIFEST writer (git hash + params + honest OSF `No License` vs preprint `CC-BY`); pub floor `surrogate_n=100`/`n_perm=10000`; full `DATA_ACCESS.md`. |
+
+**Improvements made vs the supplied patch.** Did **not** copy the patch's
+`artifacts/paper_lerique/MANIFEST.json` sample (it baked in `repo_dirty:true`
+and an old commit). Instead regenerated it via `--fast` at runtime, which
+correctly reports the current hash and `dirty` status. Also noted the
+**already-committed** MANIFEST was itself stale (`9e3de62` + `TODO`s) — now
+replaced by the live one.
+
+**Why these were missed in earlier reviews (the meta-lesson).** All four are
+instances of one systemic blind spot, recurring since 发现10 / 发现17:
+
+1. *Fix the guard, trust the callee.* For R1 I added the P0-2
+   `allow_multimodal_pool=False` guard and routed to `test_l2_by_modality`,
+   but never checked that `test_l2_by_modality` forwarded `contrast`/`seed` to
+   `between_condition_by_modality`. The canonical-chain test only exercised the
+   unimodal (`n_mod==1`) branch, so the multimodal branch was never hit.
+2. *Two adjacent, individually-correct changes, never reconciled.* R2:
+   the 2026-07-13 `segment` decision and the separate WCC NaN-masking (line 216)
+   were made independently; nobody connected "WCC is masked at seams" with
+   "dwell default still bridges seams."
+3. *Symmetric-path asymmetry.* R3: observed path gated, null path not —
+   the same class as 发现10 (extract_episodes didn't inherit the dwell fix) and
+   发现17 (restricted model didn't inherit the no-fabrication fix).
+4. *Out-of-core hygiene ignored.* R4 (typo, TODOs, docs) was skipped because
+   attention was on the scientific core.
+
+**Process fix adopted (do this from now on).** Add a *symmetry audit* to every
+change: when I touch one of a pair (observed/null, mask-on/mask-off,
+multimodal/unimodal, segment/merge), grep for the sibling and verify it too;
+and always exercise **both** branches of any conditional I route through.
+
+Commits: `32a1692` (R1–R3 + tests), `65f8b4f` (R4 + manifest). Pushed, ahead=0.
+
+---
+
 ## 2026-07-21 — B3 eligibility thresholds freeze (evidence-driven)
 
 **Decision (frozen in code).** Two eligibility floors are now hard-coded as
