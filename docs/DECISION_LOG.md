@@ -160,6 +160,65 @@ mean (the DC component) cannot capture alone.
 `artifacts/vif/vif_comparison.csv`, `artifacts/bakeoff/REALDATA_BAKEOFF_ANALYSIS.md`,
 `multisync/feature_vif_test.py`, `multisync/validation/l2_between_condition.py`.
 
+### peak_amplitude incremental value — empirical evidence (resolves the "is peak just mean?" worry)
+
+The worry: peak looks stable/independent of mean, but why report both — won't a
+reviewer ask what peak *adds*? Answer from the real data:
+
+**peak~mean redundancy is dataset-conditional, not universal:**
+
+| Dataset (regime) | peak~mean ρ | peak VIF | reading |
+|---|---|---|---|
+| Andersen (saturated/flat-top) | 0.37 | 1.36 | peak decoupled from mean |
+| Lerique (transient/spiky EDA) | 0.56 | 2.62 | peak partly distinct |
+| Gordon (flat-top) | **0.87** | 4.00 | peak ≈ mean (redundant here) |
+
+So peak is *not* a universal proxy for mean. It is most redundant with mean
+exactly where the WCC regime is flat-topped (Gordon), and most distinct where
+episodes are transient spikes (Lerique) — the same regime axis that drives the
+Andersen VIF collapse.
+
+**Decisive L2-style sanity check (Lerique, dyad-level task-vs-rest logistic
+regression, 5-fold CV AUC):**
+- `mean_synchrony` only → AUC **0.588** (near chance)
+- `peak_amplitude` only → AUC **0.780** (strong)
+- `mean + peak` → AUC **0.781** (peak dominates; mean adds ≈0)
+
+i.e. in Lerique the *mean is nearly uninformative* and *peak carries the signal*.
+This is the empirical counter to "peak is mean + noise": peak is the informative
+feature and mean is the diluted one, precisely because transient episodes have
+sharp apexes amid low baseline that mean averages away.
+
+**Smooth theoretical logic for the paper (the "why peak" narrative):**
+1. *Episode = a transient response, not a steady level.* A WCC episode is the
+   homolog of an SCR/ERP — a coordination *event*, not a level. In
+   psychophysiology, SCR/ERP **peak amplitude** (not mean) has been the standard
+   feature for ~60 years because it indexes response *magnitude*. WCC-episode peak
+   is the direct analog: the maximal joint-coherence the dyad *achieved*.
+2. *peak = coordination ceiling; mean = time-averaged coupling.* mean_synchrony is
+   **duration-confounded** — dragged down by the long low-synchrony "dead time"
+   between episodes (mean ≈ peak × duty_cycle). peak is immune to baseline
+   dilution and isolates the *intensity apex* (HKB attractor depth / maximal
+   shared state). Different questions: "how high did they go?" vs "how coordinated
+   on average?"
+3. *peak is orthogonal to episode SHAPE in a different axis than mean.*
+   Lerique peak~dwell = 0.81 but peak~mean = 0.56 — peak carries intensity
+   information partly shared with shape yet distinct from average level. In
+   Gordon peak~dwell = 0.00 & peak~mean = 0.87 — there peak *is* just mean
+   (flat-top), so it correctly becomes companion.
+4. *Reporting peak is required by the project's core thesis* (SCR/ERP morphology →
+   WCC-episode morphology): mean is the DC component; peak is the phasic
+   amplitude. Describing episode *morphology* needs both, and peak is the feature
+   that makes the synchrony trace a *shape* rather than a *level*.
+
+**Reviewer-handling (turn the worry into a strength).** Pre-register peak as the
+primary "coordination ceiling" feature; keep mean_synchrony as REFERENCE (already
+done). Report peak~mean ρ per dataset as a transparency item: "where peak ≈ mean
+(flat-top regimes, e.g. Gordon) peak is companion; where peak >> mean (transient
+regimes, e.g. Lerique) peak is the primary signal carrier." This converts the
+redundancy question from a vulnerability into a demonstration of the tool's
+regime-awareness.
+
 ---
 
 ## 2026-07-21 — B3 eligibility thresholds freeze (evidence-driven)
