@@ -95,6 +95,73 @@ negative-control. No further family-flag change is warranted.
 
 ---
 
+## 2026-07-23 — B4 VIF / dataset-conditional FDR family (direction a close-out)
+
+**Decision (documentation + architectural intent; no code change yet).** Cross-dataset
+VIF (variance-inflation factor) on the real extracted features shows the primary
+FDR family is **not uniformly defensible**:
+
+| Feature | Lerique N=264 | Andersen N=300 | Gordon N=366 | Verdict |
+|---|---|---|---|---|
+| peak_amplitude | 2.62 | 1.36 | 4.00 | **clean everywhere (<5)** |
+| dwell_time | 3.06 | 50.88 SEVERE | n/a¹ | clean in Lerique, SEVERE in Andersen |
+| switching_rate | 2.48 | 17.98 SEVERE | n/a¹ | clean in Lerique, SEVERE in Andersen |
+
+`peak_amplitude` is the **only feature with VIF < VIF_CONCERN (5.0) in all three
+real datasets** → it is the single universally-defensible primary FDR test.
+`dwell_time` / `switching_rate` are clean in Lerique but SEVERE in Andersen, so
+they must be treated as **dataset-conditional** (primary where VIF is low,
+reference/exploratory where VIF is SEVERE), not fixed members of a universal
+family.
+
+**Why only Andersen collapses (root cause, from `artifacts/vif/*_vif_report.json`
++ OSF raw inspection).** In Andersen the `mean_synchrony ↔ synchrony_entropy`
+pair reaches ρ = **−0.93** (vs moderate elsewhere), with `dwell↔entropy` −0.88 and
+`mean↔dwell` +0.81 — the whole episode-feature bloc (mean_sync, dwell, switching,
+entropy, bimodality) collapses onto a **single latent variable** = "how high the
+sync plateau is." This is the signature of a **near-saturated / flat-topped WCC
+regime**: high mean sync comes with a low-entropy (unvarying) trace, so dwell
+(long), switching (rare), peak (≈mean) and entropy all become functions of one
+number. Lerique and Gordon retain richer temporal (spiky-episode) structure, so
+their feature spaces stay multi-dimensional and VIF stays < 5. The severe VIF is
+therefore **not a SyncPipe code bug** (VIF is computed correctly on the extracted
+matrix) and **not pure dataset chance** (LOO stability = 100 %); it is a
+**feature-definition-level mechanical coupling (dwell↔switching by construction;
+mean↔entropy as two moments of one distribution) amplified by Andersen's
+saturated episode regime.** Any dataset with a similarly stereotyped/saturated
+WCC will show the same collapse.
+
+**Known gap (must be closed before claiming dataset-conditional behaviour).** The
+VIF diagnostic in `multisync/validation/l2_between_condition.py` is
+**flag-only**: it attaches a `vif_gate` warning to the result but does **not**
+demote severe features or shrink `m` (`"Diagnostic only — never let the VIF gate
+break the L2 test"`, lines ~337–372). So today `dwell_time`/`switching_rate`
+remain in the fixed `FDR_FEATURES` (m=3) and are tested as independent everywhere,
+including Andersen. The dataset-conditional intent above is **documented but not
+yet enforced at runtime.** Two options:
+- (a-short) keep `FDR_FEATURES` fixed but state explicitly in paper/methods that
+  peak_amplitude is the only universally-defensible primary feature and
+  dwell/switching are dataset-conditional (honest, zero-risk);
+- (b-mid) wire the gate to actually DEMOTE severe features and reduce `m` in
+  high-collinearity datasets (requires care around pre-registration semantics).
+
+**Theoretical dividend (resolves the peak-amplitude incremental-value question).**
+peak_amplitude is the *phasic* complement of mean_synchrony: `mean ≈ peak ×
+duty_cycle`, so mean is duration-confounded while peak isolates *intensity / maximal
+coordination degree* (HKB attractor depth). This dissociation is exactly what makes
+peak informative in Lerique (rich episodes: peak is the most discriminative /
+"canonical Type-I" feature) and exactly why it collapses to mean in Andersen
+(saturated regime) — the same mechanism that drives the severe VIF. Reporting peak
+is therefore not "mean + noise"; it is required to describe episode *morphology*
+(the project's core thesis: SCR/ERP morphology → WCC-episode morphology), which
+mean (the DC component) cannot capture alone.
+
+**Source of truth.** `artifacts/vif/{andersen,lerique,gordon}_vif_report.json`,
+`artifacts/vif/vif_comparison.csv`, `artifacts/bakeoff/REALDATA_BAKEOFF_ANALYSIS.md`,
+`multisync/feature_vif_test.py`, `multisync/validation/l2_between_condition.py`.
+
+---
+
 ## 2026-07-21 — B3 eligibility thresholds freeze (evidence-driven)
 
 **Decision (frozen in code).** Two eligibility floors are now hard-coded as
