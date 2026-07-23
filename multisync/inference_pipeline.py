@@ -578,6 +578,7 @@ class InferencePipeline:
             feature_cols=feature_cols,
             alpha=fdr_alpha,            # was fdr_alpha= (wrong kwarg name)
             n_permutations=n_permutations,
+            seed=self.seed,
             condition_values=contrast,  # was contrast= (wrong kwarg name)
             threshold_scope=threshold_scope,
         )
@@ -649,6 +650,8 @@ class InferencePipeline:
         window_type: str = "rect",
         full_family_fdr: bool = False,
         discontinuity_mask: Optional[Dict[str, np.ndarray]] = None,
+        contrast: Optional[Tuple[str, str]] = None,
+        modality_col: str = "modality",
     ) -> Dict[str, Any]:
         """Run the complete L0 → L1 → L2 cascade.
 
@@ -716,13 +719,17 @@ class InferencePipeline:
                 if pfs1.get(L1_PRIMARY, False):
                     l1_pass += 1
 
-        l2_results = self.test_l2_condition(
+        # Use scientific group router (multimodal per-modality + seed/contrast).
+        l2_results = self.run_group_condition_inference(
             condition_col=condition_col,
             dyad_col=dyad_col,
             feature_cols=feature_cols,
             fdr_alpha=fdr_alpha,
             n_permutations=n_permutations,
+            contrast=contrast,
             full_family_fdr=full_family_fdr,
+            threshold_scope="unknown",
+            modality_col=modality_col,
         )
 
         return {
@@ -755,6 +762,70 @@ class InferencePipeline:
         }
 
     # ---- reporting ------------------------------------------------------
+
+
+    @staticmethod
+    def _format_one_l2_block(l2: Dict[str, Any], *, heading: str) -> List[str]:
+        """Format a single unimodal L2 result dict into summarize() lines."""
+        lines: List[str] = []
+        if not isinstance(l2, dict) or "error" in l2:
+            err = l2.get("error", "unknown") if isinstance(l2, dict) else "invalid"
+            lines.append(f"{heading}: ERROR ({err})")
+            return lines
+        n_sig = int(l2.get("n_significant", 0))
+        n_total = int(l2.get("n_tested", len(FDR_FEATURES)))
+        fam = "all-features" if n_total > len(FDR_FEATURES) else "FDR-family"
+        ca = l2.get("condition_a", "?")
+        cb = l2.get("condition_b", "?")
+        lines.append(
+            f"{heading} [{ca} vs {cb}] (BH-FDR, {fam}): "
+            f"{n_sig}/{n_total} significant"
+        )
+        lines.append("  Method: dyad-paired permutation + BH-FDR correction")
+        lines.append("  Significant features:")
+        any_sig = False
+        for feat in l2.get("per_feature", []) or []:
+            if getattr(feat, "significant_05", False):
+                any_sig = True
+                lines.append(
+                    f"    {feat.feature}: p_raw={feat.p_raw:.4f}, "
+                    f"p_fdr={feat.p_fdr:.4f}, d(perm)={feat.perm_effect_size:.2f}"
+                )
+            p_def = getattr(feat, "p_definedness", 1.0)
+            if p_def is not None and float(p_def) < 0.05:
+                lines.append(
+                    f"    [WARN] {feat.feature} definedness diff: "
+                    f"{getattr(feat, 'defined_a', '?')} vs "
+                    f"{getattr(feat, 'defined_b', '?')} (p={float(p_def):.4f})"
+                )
+        if not any_sig:
+            lines.append("    (none)")
+        lines.append(
+            "  Claim ceiling: group inference = condition differences in "
+            "audited descriptors; it does not establish direction, mechanism, "
+            "or causality."
+        )
+        return lines
+
+    @classmethod
+    def _format_l2_summary_lines(cls, l2_display: Dict[str, Any]) -> List[str]:
+        """Format unimodal or modality-keyed L2 results for summarize()."""
+        if not isinstance(l2_display, dict):
+            return ["L2: (unavailable)"]
+        if "per_feature" in l2_display or "n_significant" in l2_display:
+            return cls._format_one_l2_block(
+                l2_display, heading="L2 (between-condition + BH-FDR)"
+            )
+        lines: List[str] = ["L2 (between-condition + BH-FDR, per-modality):"]
+        for mod in sorted(l2_display.keys(), key=lambda x: str(x)):
+            sub = l2_display[mod]
+            lines.extend(
+                cls._format_one_l2_block(
+                    sub if isinstance(sub, dict) else {"error": "invalid"},
+                    heading=f"  [{mod}]",
+                )
+            )
+        return lines
 
     def summarize(self) -> str:
         """Return a human-readable summary of all test results."""
@@ -790,30 +861,14 @@ class InferencePipeline:
                 "temporal organization, not co-presence / shared-stimulus alternatives."
             )
 
-        if self._l2_results:
-            n_sig = self._l2_results.get("n_significant", 0)
-            n_total = self._l2_results.get("n_tested", len(FDR_FEATURES))
-            fam = "all-features" if n_total > len(FDR_FEATURES) else "FDR-family"
-            lines.append(f"\nL2 (between-condition + BH-FDR, {fam}): {n_sig}/{n_total} significant")
-            lines.append("  Method: dyad-paired permutation + BH-FDR correction")
-            lines.append("  Significant features:")
-            for feat in self._l2_results.get("per_feature", []):
-                if feat.significant_05:
-                    lines.append(
-                        f"    {feat.feature}: p_raw={feat.p_raw:.4f}, "
-                        f"p_fdr={feat.p_fdr:.4f}, d(perm)={feat.perm_effect_size:.2f}"
-                    )
-            if feat.p_definedness < 0.05:
-                lines.append(
-                    f"    [WARN] {feat.feature} definedness diff: "
-                    f"{feat.defined_a} vs {feat.defined_b} (p={feat.p_definedness:.4f})"
-                )
-
-            lines.append(
-                "  Claim ceiling: group inference = condition differences in "
-                "audited descriptors; it does not establish direction, mechanism, "
-                "or causality."
-            )
+        # Scientific path stores results in _group_inference_results (unimodal
+        # dict OR {modality: dict}). test_l2_condition alone fills _l2_results.
+        _l2_display = self._group_inference_results
+        if _l2_display is None:
+            _l2_display = self._l2_results
+        if _l2_display:
+            lines.append("")
+            lines.extend(self._format_l2_summary_lines(_l2_display))
 
         lines.append("")
         lines.append("=" * 60)
@@ -841,18 +896,50 @@ class InferencePipeline:
             "group_inference_results": self._group_inference_results,
         }
 
-        def _convert(obj):
-            if isinstance(obj, (np.integer,)):
-                return int(obj)
-            if isinstance(obj, (np.floating,)):
-                return float(obj)
-            if isinstance(obj, np.ndarray):
-                return obj.tolist()
-            if isinstance(obj, pd.DataFrame):
-                return obj.to_dict(orient="records")
-            return str(obj)
+        def _sanitize(o):
+            """Recursively convert results to JSON-safe structures.
 
-        json_str = json.dumps(payload, default=_convert, indent=2, ensure_ascii=False)
+            Critical: dataclasses (L2Result) must become dicts — the previous
+            default=str path serialized them as unusable repr strings (release bug).
+            Non-finite floats become null (strict JSON).
+            """
+            if o is None or isinstance(o, (str, bool)):
+                return o
+            if isinstance(o, dict):
+                return {str(k): _sanitize(v) for k, v in o.items()}
+            if isinstance(o, (list, tuple)):
+                return [_sanitize(v) for v in o]
+            if isinstance(o, (int, np.integer)) and not isinstance(o, bool):
+                return int(o)
+            if isinstance(o, (float, np.floating)):
+                x = float(o)
+                if x != x or x in (float("inf"), float("-inf")):
+                    return None
+                return x
+            if isinstance(o, np.ndarray):
+                return _sanitize(o.tolist())
+            if isinstance(o, pd.DataFrame):
+                return _sanitize(o.to_dict(orient="records"))
+            if isinstance(o, pd.Series):
+                return _sanitize(o.to_dict())
+            try:
+                from dataclasses import is_dataclass, asdict
+                if is_dataclass(o) and not isinstance(o, type):
+                    return _sanitize(asdict(o))
+            except Exception:
+                pass
+            if hasattr(o, "to_dict") and callable(getattr(o, "to_dict")):
+                try:
+                    return _sanitize(o.to_dict())
+                except Exception:
+                    pass
+            raise TypeError(
+                f"Object of type {type(o).__name__} is not JSON serializable"
+            )
+
+        json_str = json.dumps(
+            _sanitize(payload), indent=2, ensure_ascii=False, allow_nan=False,
+        )
 
         if path:
             Path(path).write_text(json_str, encoding="utf-8")
@@ -870,12 +957,25 @@ def _build_cascade_summary(
     """Build a narrative summary of the L0→L1→L2 cascade."""
     l0_rate = l0_pass / max(l0_total, 1)
     l1_rate = l1_pass / max(l1_total, 1)
-    n_l2_sig = l2_results.get("n_significant", 0)
-    n_l2_total = l2_results.get("n_tested", len(FDR_FEATURES))
-    # Family label: the pre-registered 3-feature FDR family is the primary
-    # endpoint; full_family_fdr=True enters all 12 features into one BH-FDR
-    # step (reviewer-proof against "cherry-picking 3/12").
-    fam = "all-features" if n_l2_total > len(FDR_FEATURES) else "FDR-family"
+    if (
+        isinstance(l2_results, dict)
+        and "n_significant" not in l2_results
+        and "per_feature" not in l2_results
+    ):
+        n_l2_sig = 0
+        n_l2_total = 0
+        for _sub in l2_results.values():
+            if isinstance(_sub, dict) and "error" not in _sub:
+                n_l2_sig += int(_sub.get("n_significant", 0))
+                n_l2_total += int(_sub.get("n_tested", 0))
+        fam = "per-modality"
+    else:
+        n_l2_sig = l2_results.get("n_significant", 0)
+        n_l2_total = l2_results.get("n_tested", len(FDR_FEATURES))
+        # Family label: the pre-registered 3-feature FDR family is the primary
+        # endpoint; full_family_fdr=True enters all 12 features into one BH-FDR
+        # step (reviewer-proof against "cherry-picking 3/12").
+        fam = "all-features" if n_l2_total > len(FDR_FEATURES) else "FDR-family"
 
     parts = []
 

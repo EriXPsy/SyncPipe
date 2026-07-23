@@ -1602,6 +1602,20 @@ def extract_features(
     _finite_frac = float(np.isfinite(wcc).mean()) if wcc.size else 0.0
     _nan_fraction = 1.0 - _finite_frac
 
+    # Empty / fully non-finite WCC: return structured NaNs (do not raise inside
+    # scipy peak helpers with "v cannot be empty").
+    if wcc.size == 0 or not np.isfinite(wcc).any():
+        return DynamicFeatures(
+            nan_fraction=float(_nan_fraction),
+            notes="empty_or_nonfinite_wcc",
+            params={
+                "threshold": float(threshold),
+                "hz": float(hz),
+                "wcc_window_sec": float(wcc_window_sec),
+                "gap_policy": gap_policy if gap_policy is not None else "merge_valid",
+            },
+        )
+
     # Smoothed peak first (DECISION-04) -- anchors rise/recovery indexing
     sm = smoothed_wcc(wcc)
     peak_value, peak_idx = compute_peak_amplitude(sm)

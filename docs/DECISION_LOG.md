@@ -480,3 +480,25 @@ transparent WCC trace, a governed feature table, signal- and design-level null
 models, and exported artifacts — rather than a single synchrony score or a
 broad metric zoo.
 
+---
+
+## 2026-07-23 — P2 release-hygiene pack close-out (post-`bbda3fd` re-audit)
+
+**Decision.** Adopt the 6-fix "release hygiene" pack from the external
+`updates/` drop (post-tip `bbda3fd`), after dialectical review. Each fix was
+verified against live code (real diff + symbol grep), not trusted on the
+README's "68 passed" claim. Net effect: v1.0 reporting/export honesty closes
+remaining gaps left by P1.
+
+**Evidence (per-fix verdict).**
+- **P2-A** (`summarize()` multimodal L2 text): confirmed — `summarize()` only read `_l2_results`; now reads `_group_inference_results` (modality-keyed) via `_format_l2_summary_lines`. Real gap, correct fix.
+- **P2-JSON** (`to_json` L2Result → repr strings): confirmed — added recursive `_sanitize` that `asdict`s dataclasses and maps non-finite → `null`. Prior `default=str` would have serialized `L2Result` as unusable repr. Real gap, correct fix.
+- **P2-B** (`test_l2_condition` ignored `seed`): confirmed — call site now forwards `seed=self.seed` into `between_condition_fdr`. This is the *same* symmetry blind spot as Finding-17: P1 fixed restricted/AR baselines to NaN but left the **naive** baseline fabricating `0.5`.
+- **P2-C** (`run_full_cascade` bypassed multimodal router): confirmed — swapped `test_l2_condition` → `run_group_condition_inference(contrast=, threshold_scope="unknown", modality_col=)`; return dict still keys `l2_results`. Restores R1 guarantees on the legacy cascade path.
+- **P2-empty** (`extract_features([])` raised scipy `v cannot be empty`): confirmed — early-return structured `DynamicFeatures` (NaN) inside `extract_features` itself. Defensive, correct.
+- **P2-pred** (naive baseline still set `baseline_auc = 0.5` on exception): confirmed and applied in **both** `cross_modal_prediction` and `rolling_origin_cv`. This is the residual of Finding-17's symmetry miss — the naive baseline was never covered by P1. Now `float("nan")` + `dtype=float` on `baseline_prob`.
+
+**Why it matters.** These are not cosmetic: P2-A/P2-JSON mean reviewers/users see empty L2 text and unusable JSON exports today; P2-pred is a methodological-honesty hole (fabricated chance-level AUC) that contradicts v1.0's "audited measurement infrastructure" claim. All 6 are low-risk, behaviour-local, and pass the curated regression set (66 passed, 0 regression; full-suite re-run pending).
+
+**Source of truth.** `multisync/inference_pipeline.py`, `multisync/prediction.py`, `multisync/feature_definitions.py`; guarded by `tests/test_p2_release_hygiene.py`.
+

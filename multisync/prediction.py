@@ -881,10 +881,11 @@ def rolling_origin_cv(
         # Baseline: predict constant = training set positive rate
         # This is a NAIVE baseline (not using any features)
         try:
-            baseline_prob = np.full_like(y_test, y_train.mean())
+            baseline_prob = np.full_like(y_test, y_train.mean(), dtype=float)
             baseline_auc = roc_auc_score(y_test, baseline_prob)
         except Exception:
-            baseline_auc = 0.5
+            # Do not fabricate chance-level AUC; leave NaN so delta stays honest.
+            baseline_auc = float("nan")
 
         # AR baseline (restricted model): use mean_synchrony only.
         # This measures whether the full epoch-feature model adds
@@ -1500,10 +1501,11 @@ def cross_modal_prediction(
 
         # --- Naive baseline (constant prediction) ---
         try:
-            baseline_prob = np.full_like(y_test, y_train.mean())
+            baseline_prob = np.full_like(y_test, y_train.mean(), dtype=float)
             baseline_auc = roc_auc_score(y_test, baseline_prob)
         except Exception:
-            baseline_auc = 0.5
+            # Do not fabricate chance-level AUC; leave NaN so delta stays honest.
+            baseline_auc = float("nan")
 
         # Delta = joint - max(naive, restricted)
         delta_auc = joint_auc - max(baseline_auc, restricted_auc)
