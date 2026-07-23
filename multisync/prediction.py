@@ -927,13 +927,19 @@ def rolling_origin_cv(
         except ValueError:
             pass  # mean_synchrony unavailable — fall back to naive baseline
         except Exception:
-            ar_auc = 0.5
+            # DECISION (Finding 17): a failed AR (single-feature) baseline
+            # must NOT be fabricated as 0.5. Leave NaN so delta_auc and the
+            # mean_delta aggregate stay honest (same discipline as the
+            # cross-modal restricted baseline).
+            ar_auc = float("nan")
 
         # --- Parallel nonlinear baselines (critique E) ---
         # Score RandomForest / SVM-RBF on the SAME scaled train/test split so
         # their delta_AUC is directly comparable to the linear model. A NaN
         # AUC (failed fit) is simply dropped from that model's aggregation.
-        base_ref = max(baseline_auc, ar_auc)
+        base_ref = (
+            baseline_auc if np.isnan(ar_auc) else max(baseline_auc, ar_auc)
+        )
         nl_aucs.setdefault("linear_logreg", []).append(dynamic_auc)
         nl_deltas.setdefault("linear_logreg", []).append(dynamic_auc - base_ref)
         for _n, _factory in nl_factories.items():
@@ -973,7 +979,7 @@ def rolling_origin_cv(
 
     mean_dynamic = np.mean([f.dynamic_auc for f in folds])
     mean_baseline = np.mean([f.baseline_auc for f in folds])
-    mean_delta = np.mean([f.delta_auc for f in folds])
+    mean_delta = np.nanmean([f.delta_auc for f in folds])
 
     avg_coefs = feature_coefs_sum / valid_folds
     importance = {
@@ -1446,7 +1452,11 @@ def cross_modal_prediction(
                 y_test, clf_restricted.predict_proba(X_target_test_s)[:, 1]
             )
         except Exception:
-            restricted_auc = 0.5
+            # DECISION (Finding 17): a failed restricted (target-only + AR)
+            # baseline must NOT be fabricated as a 0.5 AUC. Leave it NaN so
+            # this fold's delta_auc and the mean_restricted aggregate stay
+            # honest -- mirroring how joint / ablation failures are handled.
+            restricted_auc = float("nan")
 
         # --- Joint model (source + target + both ARs) ---
         joint_auc = float("nan")
@@ -1505,7 +1515,14 @@ def cross_modal_prediction(
             ablation_delta = float("nan")
 
         # --- Parallel nonlinear baselines on the joint feature space (E) ---
-        base_ref = max(baseline_auc, restricted_auc)
+        # DECISION (Finding 17): if the restricted baseline failed (NaN),
+        # fall back to the naive baseline for the nonlinear comparison
+        # instead of contaminating it with NaN.
+        base_ref = (
+            baseline_auc
+            if np.isnan(restricted_auc)
+            else max(baseline_auc, restricted_auc)
+        )
         nl_aucs.setdefault("linear_logreg", []).append(joint_auc)
         nl_deltas.setdefault("linear_logreg", []).append(delta_auc)
         for _n, _factory in nl_factories.items():
@@ -1548,8 +1565,8 @@ def cross_modal_prediction(
 
     mean_joint = np.mean([f.dynamic_auc for f in folds])
     mean_baseline = np.mean([f.baseline_auc for f in folds])
-    mean_restricted = np.mean([f.ar_baseline_auc for f in folds])
-    mean_delta = np.mean([f.delta_auc for f in folds])
+    mean_restricted = np.nanmean([f.ar_baseline_auc for f in folds])
+    mean_delta = np.nanmean([f.delta_auc for f in folds])
 
     # Bootstrap 95% confidence intervals
     dynamic_vals = [f.dynamic_auc for f in folds]
@@ -1874,9 +1891,11 @@ def threshold_sensitivity(
     threshold : float
         Label threshold for "high synchrony".
     onset_thresholds : list of float, optional
-        Threshold values to sweep.  If None, uses a sensible default range
-        of [-0.5, 0.0, 0.2, 0.3, 0.5, 0.7, 1.0] (in SD units for Z-scored
-        WCC).  These represent deviations from the mean synchrony level.
+        Threshold values to sweep.  If None, uses the default range
+        [0.3, 0.4, 0.5, 0.6, 0.7] (in SD units for Z-scored WCC), anchored
+        at 0.5.  Zero/negative thresholds are excluded because they make
+        every positive WCC value count as "synchrony" and inflate
+        dwell/switching to noise.
     max_iter : int
         Max iterations for LogisticRegression.
     pair_name : str
