@@ -1,35 +1,57 @@
 {
   "schema": "syncpipe.paper_manifest/v1",
-  "paper": "Lerique et al. (2024) reproduction",
+  "paper": "ECSU-PCE / Lerique OSF 47n3p reproduction scaffold",
   "canonical_path": "three_pipeline_v1",
+  "mode": "fast",
   "git": {
-    "commit": "9e3de62",
+    "commit": "08b1883d3bdfc03e9a35b75971851879d5a08dbf",
     "repo_dirty": true
   },
   "package_version": "1.0.0",
-  "generated_utc": "TODO: set by scripts/reproduce_lerique_paper.py at run time",
+  "generated_utc": "2026-07-23T14:04:40Z",
   "data_source": {
-    "osf_component_url": "TODO: insert OSF component URL for Lerique-47n3p (do not fabricate)",
-    "license": "TODO: insert data license / access terms (do not fabricate)",
-    "local_path": "TODO: provided to scripts/reproduce_lerique_paper.py via --data-root"
+    "osf_project_url": "https://osf.io/47n3p/",
+    "osf_project_title": "Perceptual Crossing Dataset Paper",
+    "access": "public_download",
+    "license_metadata_on_osf": "No License",
+    "preprint": {
+      "url": "https://osf.io/preprints/osf/6hjfy",
+      "doi": "10.31219/osf.io/6hjfy",
+      "license": "CC-BY 4.0 (preprint manuscript; does not automatically license raw .mat)"
+    },
+    "local_path": null,
+    "note": "SyncPipe does not redistribute raw physiological files. See docs/DATA_ACCESS.md."
   },
   "canonical_pipeline": {
     "bridge": "multisync.pipeline_bridge.records_to_inference_inputs",
     "inference": "multisync.inference_pipeline.InferencePipeline.run_audited_evidence_chain",
     "evidence_chain": [
-      "L0_synchrony_existence",
-      "L1_wcc_structure",
-      "design_controls",
-      "L2_between_condition_BH_FDR"
+      "synchrony_existence_signal_level_IAAFT",
+      "design_controls_pseudo_pair_time_shift",
+      "group_condition_BH_FDR"
     ]
   },
   "parameters": {
-    "target_hz": "TODO: lock in --pub run",
-    "wcc_window_sec": "TODO: lock in --pub run",
-    "onset_threshold": "TODO: lock in --pub run (canonical pipeline uses a single fixed/pooled threshold, NOT per-dyad)",
-    "surrogate_n": "TODO: lock in --pub run",
-    "n_permutations": "TODO: lock in --pub run",
-    "fdr_alpha": 0.05
+    "target_hz": 1.0,
+    "wcc_window_sec": 30.0,
+    "window_size_samples": 30,
+    "onset_threshold": 0.5,
+    "threshold_scope": "fixed",
+    "surrogate_n": 10,
+    "n_permutations": 200,
+    "fdr_alpha": 0.05,
+    "design_condition": "trials",
+    "contrast": [
+      "rest",
+      "trials"
+    ],
+    "publication_floor": {
+      "surrogate_n_min": 100,
+      "n_permutations_min": 10000
+    }
   },
-  "status": "SKELETON — this is NOT a results manifest. It records the canonical pipeline, data-source placeholders, and locked parameter slots. Populated / extended by scripts/reproduce_lerique_paper.py (--pub uses OSF data; --fast uses a synthetic proxy and needs no OSF access). No OSF data values or license text are fabricated here."
+  "outputs": {
+    "n_feature_rows": 12
+  },
+  "status": "FAST_SMOKE_ONLY"
 }
