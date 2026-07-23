@@ -48,6 +48,53 @@ This file records **current v1 decisions and changes**. Older exploratory or sup
 
 ---
 
+## 2026-07-22 — A3 FDR-family flag-flip close-out (Option B already live)
+
+**Decision (verified, no code change required).** The primary-FDR family flag
+(`FDR_FEATURES` in `multisync/feature_definitions.py`) already equals **Option B**
+= `{peak_amplitude, dwell_time, switching_rate}` (m = 3), with `mean_synchrony`
+carried as a *reference* comparator and `bimodality_coefficient` / `synchrony_entropy`
+kept exploratory. A3 therefore required **no code flip** — the flag, the SSoT
+module, `docs/FEATURE_TABLE.csv`, and `FDR_FEATURES` were all already aligned to
+Option B before this close-out note was written. A3's deliverable is the impact
+evidence below plus this close-out.
+
+**Evidence (`scripts/fdr_family_impact.py`, re-run 2026-07-22 on the frozen
+Lerique 2024 MAIN contrast `artifacts/realtest/lerique_2024/group_contrasts_paired.csv`).**
+Re-applies Benjamini–Hochberg FDR to the existing per-feature `p_raw` under three
+family definitions:
+
+- **STATUS QUO** (`{mean_synchrony, peak, dwell, switching}`, m varies): ECG & EDA
+  all four significant; RESP only `peak_amplitude` significant.
+- **OPTION A** (`{peak_amplitude}` only, m=1): only `peak_amplitude` significant in
+  all three modalities; `dwell_time` / `switching_rate` not corrected (None).
+- **OPTION B** (current code, `{peak, dwell, switching}`, m=3): ECG
+  `peak`/`dwell`/`switching` all significant; EDA all three significant; RESP only
+  `peak_amplitude` significant (`dwell_time` p=0.375 → False, `switching_rate`
+  p=0.2165 → False).
+
+**Significance flips (Option A → Option B), per modality × feature:**
+ECG `dwell_time` / `switching_rate`: None → **True**; EDA `dwell_time` /
+`switching_rate`: None → **True**; RESP `dwell_time` / `switching_rate`: None →
+**False** (raw p not small enough once m grows). The ECG/EDA flips are expected:
+growing the family from m=1 to m=3 loosens the BH step-up, promoting the two
+extra primary members to significance where their raw p was already marginal.
+RESP's `dwell`/`switching` stay non-significant because their raw p (0.375 /
+0.2165) is far above α even before correction — consistent with RESP as an
+effective negative-control modality.
+
+**Conclusion.** Option B is the defensible v1 primary family: it is the narrowest
+set that (a) reproduces the canonical `peak_amplitude` result everywhere, (b)
+recovers `dwell_time`/`switching_rate` significance on the modalities where those
+descriptors are real (ECG/EDA), and (c) correctly withholds them on RESP, the
+negative-control. No further family-flag change is warranted.
+
+**Source of truth.** `multisync/feature_definitions.py` (`FDR_FEATURES`,
+`FDR_FAMILIES`); `scripts/fdr_family_impact.py`; the frozen input CSV
+`artifacts/realtest/lerique_2024/group_contrasts_paired.csv`.
+
+---
+
 ## 2026-07-21 — B3 eligibility thresholds freeze (evidence-driven)
 
 **Decision (frozen in code).** Two eligibility floors are now hard-coded as
