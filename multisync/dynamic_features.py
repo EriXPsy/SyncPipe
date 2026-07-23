@@ -1162,6 +1162,7 @@ def extract_dynamic_features(
     aggregation: str = "mean",
     return_raw_profiles: bool = False,
     wcc_window_sec: float = 1.0,
+    gap_policy: Optional[str] = None,
 ) -> Any:
     """Extract features from a WCC series via the SSoT.
 
@@ -1260,6 +1261,7 @@ def extract_dynamic_features(
         hz=hz,
         wcc_window_sec=wcc_window_sec,
         threshold=threshold,
+        gap_policy=gap_policy,
     )
     # Discontinuity-masked WCC fraction: mandatory diagnostic for
     # dwell_time / switching_rate confound assessment (Claude review #1 v1b).

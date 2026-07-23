@@ -31,7 +31,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from .dynamic_features import sliding_window_wcc
+from .dynamic_features import sliding_window_wcc, _apply_discontinuity_mask
 from .feature_definitions import compute_surrogate_threshold, ONSET_THRESHOLD
 from .surrogate import iaaft_surrogate, ft_surrogate
 from .wclr import wclr_coupling_trace
@@ -63,6 +63,7 @@ def _generate_surrogate_coupling_matrix(
     surrogate_method: str = "iaaft",
     backend: str = "wcc",
     wclr_max_lag_samples: int = 2,
+    discontinuity_mask: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Generate (surrogate_n, n_coupling_points) matrix of surrogate coupling values.
 
@@ -71,6 +72,11 @@ def _generate_surrogate_coupling_matrix(
     backend : {"wcc", "wclr"}
         If "wcc", compute sliding-window cross-correlation on surrogate pairs.
         If "wclr", compute windowed cross-lagged regression on surrogate pairs.
+    discontinuity_mask : np.ndarray of bool or None
+        Optional per-sample boundary mask (signal resolution). When set, the
+        same seam windows are NaN-gated on every surrogate coupling trace as
+        on the observed WCC (P1-R3), so the pooled null threshold is not
+        inflated by discontinuity-spanning windows.
     """
     rng = np.random.default_rng(seed)
     _gen = iaaft_surrogate if surrogate_method == "iaaft" else ft_surrogate
@@ -86,12 +92,21 @@ def _generate_surrogate_coupling_matrix(
                 hz=hz,
                 max_lag_samples=wclr_max_lag_samples,
             )
+            # WCLR path: mask application is best-effort on length match only.
+            if discontinuity_mask is not None:
+                coup_s = _apply_discontinuity_mask(
+                    coup_s, discontinuity_mask, window_size
+                )
         else:
             coup_s = sliding_window_wcc(
                 a_surr, b_surr,
                 window_size=window_size,
                 hz=hz,
             )
+            if discontinuity_mask is not None:
+                coup_s = _apply_discontinuity_mask(
+                    coup_s, discontinuity_mask, window_size
+                )
         surrogate_couplings.append(coup_s)
 
     return np.vstack(surrogate_couplings)
@@ -108,6 +123,7 @@ def compute_session_pooled_threshold(
     backend: str = "wcc",
     wclr_max_lag_samples: int = 2,
     fallback_threshold: float = ONSET_THRESHOLD,
+    discontinuity_masks: Optional[List[Optional[np.ndarray]]] = None,
 ) -> Tuple[float, Dict]:
     """Compute a single surrogate threshold pooled across all dyads.
 
@@ -167,9 +183,17 @@ def compute_session_pooled_threshold(
             "n_dyads_used": 0,
         }
 
+    if discontinuity_masks is not None and len(discontinuity_masks) != len(dyad_signals):
+        raise ValueError(
+            "discontinuity_masks must be None or a sequence with the same "
+            f"length as dyad_signals (got {len(discontinuity_masks)} masks for "
+            f"{len(dyad_signals)} dyads)."
+        )
+
     pooled_values: List[np.ndarray] = []
     n_excluded_nonfinite = 0
     n_excluded_length_mismatch = 0
+    n_masks_applied = 0
     for i, (sig_a, sig_b) in enumerate(dyad_signals):
         sig_a = np.asarray(sig_a, dtype=float)
         sig_b = np.asarray(sig_b, dtype=float)
@@ -179,6 +203,9 @@ def compute_session_pooled_threshold(
         if len(sig_a) != len(sig_b):
             n_excluded_length_mismatch += 1
             continue
+        mask_i = None if discontinuity_masks is None else discontinuity_masks[i]
+        if mask_i is not None:
+            n_masks_applied += 1
         coup_matrix = _generate_surrogate_coupling_matrix(
             sig_a, sig_b, hz, wcc_window_size,
             surrogate_n=surrogate_n,
@@ -186,6 +213,7 @@ def compute_session_pooled_threshold(
             surrogate_method=surrogate_method,
             backend=backend,
             wclr_max_lag_samples=wclr_max_lag_samples,
+            discontinuity_mask=mask_i,
         )
         pooled_values.append(coup_matrix)
 
@@ -245,6 +273,7 @@ def compute_session_pooled_threshold(
         "surrogate_method": surrogate_method,
         "backend": backend,
         "fallback_used": not is_surrogate,
+        "n_discontinuity_masks_applied": n_masks_applied,
     }
     return threshold, meta
 

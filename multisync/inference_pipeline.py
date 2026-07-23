@@ -258,6 +258,9 @@ class InferencePipeline:
             else 1
         )
         if n_mod > 1:
+            # P1-R1: forward contrast / threshold_scope / seed — previously
+            # dropped, so multimodal scientific path ignored caller contrast
+            # and fell back to sorted condition labels.
             result = self.test_l2_by_modality(
                 modality_col=modality_col,
                 condition_col=condition_col,
@@ -265,7 +268,10 @@ class InferencePipeline:
                 feature_cols=feature_cols,
                 fdr_alpha=fdr_alpha,
                 n_permutations=n_permutations,
+                contrast=contrast,
                 full_family_fdr=full_family_fdr,
+                threshold_scope=threshold_scope,
+                seed=self.seed,
             )
         else:
             result = self.test_l2_condition(
@@ -297,6 +303,8 @@ class InferencePipeline:
         full_family_fdr: bool = False,
         discontinuity_mask: Optional[Dict[str, np.ndarray]] = None,
         threshold_scope: str = "unknown",
+        contrast: Optional[Tuple[str, str]] = None,
+        modality_col: str = "modality",
     ) -> Dict[str, Any]:
         """Run the recommended v1 evidence chain end-to-end.
 
@@ -332,8 +340,10 @@ class InferencePipeline:
             feature_cols=feature_cols,
             fdr_alpha=fdr_alpha,
             n_permutations=n_permutations,
+            contrast=contrast,
             full_family_fdr=full_family_fdr,
             threshold_scope=threshold_scope,
+            modality_col=modality_col,
         )
         return {
             "evidence_chain_version": "v1",
@@ -369,9 +379,28 @@ class InferencePipeline:
         if group is None:
             parts.append("Group condition inference was not run.")
         else:
-            parts.append(
-                f"Group condition inference found {group.get('n_significant', 0)} significant feature(s)."
-            )
+            # P1-R1: multimodal path returns {modality: l2_dict}; unimodal
+            # returns a single l2_dict with top-level n_significant.
+            if "n_significant" in group:
+                n_sig = int(group.get("n_significant", 0))
+                parts.append(
+                    f"Group condition inference found {n_sig} significant feature(s)."
+                )
+            else:
+                n_sig = 0
+                mod_bits = []
+                for mod, sub in group.items():
+                    if not isinstance(sub, dict) or "error" in sub:
+                        mod_bits.append(f"{mod}=error")
+                        continue
+                    k = int(sub.get("n_significant", 0))
+                    n_sig += k
+                    mod_bits.append(f"{mod}:{k}")
+                parts.append(
+                    "Group condition inference (per-modality) found "
+                    f"{n_sig} significant feature-test(s) "
+                    f"[{', '.join(mod_bits)}]."
+                )
         parts.append(
             "Admissible claims per step — "
             "L0 (signal-level IAAFT): establishes only EXISTENCE of synchrony "
@@ -564,16 +593,33 @@ class InferencePipeline:
         n_permutations: int = 10000,
         window_type: str = "rect",
         full_family_fdr: bool = False,
+        contrast: Optional[Tuple[str, str]] = None,
+        threshold_scope: str = "unknown",
+        seed: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Run L2 tests separately for each modality.
 
         Useful for multimodal datasets (EDA/ECG/RESP) where synchrony
         patterns may differ by physiological channel.
 
+        Parameters
+        ----------
+        contrast : tuple of (cond_a, cond_b) or None
+            Forwarded as ``condition_values`` to each per-modality L2 test.
+            If None, each modality falls back to sorted unique labels (with
+            warning). Must be forwarded from the scientific path (P1-R1).
+        threshold_scope : str
+            Forwarded for structure-feature threshold governance warnings.
+        seed : int or None
+            Base RNG seed. Defaults to ``self.seed`` so multimodal runs are
+            reproducible under the pipeline seed (not a hard-coded 42).
+
         Returns dict mapping modality → L2 results.
         """
         if feature_cols is None:
             feature_cols = get_fdr_features(full_family_fdr)
+        if seed is None:
+            seed = self.seed
 
         return between_condition_by_modality(
             self.df,
@@ -583,6 +629,9 @@ class InferencePipeline:
             feature_cols=feature_cols,
             alpha=fdr_alpha,            # was fdr_alpha= (wrong kwarg name)
             n_permutations=n_permutations,
+            seed=seed,
+            condition_values=contrast,
+            threshold_scope=threshold_scope,
         )
 
     # ---- full cascade ---------------------------------------------------

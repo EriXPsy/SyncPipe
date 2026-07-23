@@ -241,6 +241,11 @@ class ComputationPipeline:
         kwargs = {}
         if self.onset_threshold is not None:
             kwargs["onset_threshold"] = self.onset_threshold
+        # P1-R2: when a discontinuity mask gated this pair's WCC, do not glue
+        # elevated runs across seams (use segment gap policy). Unmasked pairs
+        # keep the SSoT default merge_valid (short dropout bridging).
+        if self._discontinuity_mask is not None:
+            kwargs["gap_policy"] = "segment"
 
         self._features = extract_dynamic_features(
             self._wcc,

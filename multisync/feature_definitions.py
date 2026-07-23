@@ -1551,6 +1551,7 @@ def extract_features(
     wcc_window_sec: float,
     threshold: float = ONSET_THRESHOLD,
     paradigm: str = "auto",
+    gap_policy: Optional[str] = None,
 ) -> DynamicFeatures:
     """Compute features + diagnostics from a WCC series.
 
@@ -1581,6 +1582,11 @@ def extract_features(
         compatibility; prefer explicitly specifying "event" or
         "continuous" in new code.
         DECISION-16 (2026-06-03).
+    gap_policy : {"segment", "merge_valid"} or None
+        Forwarded to dwell_time / switching_rate.  ``None`` (default) leaves
+        those functions on their own default (``merge_valid``).  Pass
+        ``"segment"`` when the WCC was gated by a discontinuity mask so
+        episodes are not glued across seams (P1-R2).
 
     Returns
     -------
@@ -1627,8 +1633,11 @@ def extract_features(
     else:
         rise_t, rise_def, rec_t, rec_def = float("nan"), 0, float("nan"), 0
 
-    dwell = compute_dwell_time(wcc, hz=hz, threshold=threshold)
-    switch = compute_switching_rate(wcc, hz=hz, threshold=threshold)
+    _dwell_kwargs = {"hz": hz, "threshold": threshold}
+    if gap_policy is not None:
+        _dwell_kwargs["gap_policy"] = gap_policy
+    dwell = compute_dwell_time(wcc, **_dwell_kwargs)
+    switch = compute_switching_rate(wcc, **_dwell_kwargs)
 
     mean_s = compute_mean_synchrony(wcc)
     frac_above = compute_fraction_above_threshold(wcc, threshold=threshold)
@@ -1686,7 +1695,7 @@ def extract_features(
             "hz": float(hz),
             "wcc_window_sec": float(wcc_window_sec),
             "timing_imputation_rule": "undefined event timing -> wcc_window_sec; continuous event-only timing -> NaN",
-            "gap_policy": "merge_valid",  # default bridges short dropouts (DECISION 2026-07-13); segment is opt-in for concatenated paradigms
+            "gap_policy": gap_policy if gap_policy is not None else "merge_valid",  # default bridges short dropouts (DECISION 2026-07-13); segment is opt-in for concatenated paradigms
         },
     )
 
