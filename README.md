@@ -74,7 +74,8 @@ See `docs/LIMITATIONS.md` for the full scope statement and `docs/DECISION_LOG.md
 for positioning relative to related tools (SyncPy, multiSyncPy, SUSY, rMEA).
 
 ---
-
+<img width="1376" height="768" alt="image" src="https://github.com/user-attachments/assets/17d3eaa0-215b-418d-88aa-5e87b8373c14" />
+---
 ## Conceptual architecture
 
 SyncPipe has five infrastructure layers.
