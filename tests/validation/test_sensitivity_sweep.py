@@ -8,6 +8,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+pytestmark = [pytest.mark.slow]
+
 from multisync.feature_definitions import FDR_FEATURES
 
 

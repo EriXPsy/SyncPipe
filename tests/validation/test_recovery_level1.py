@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+pytestmark = [pytest.mark.slow]
+
 from multisync.validation import (
     Level1Config,
     run_level1_grid,

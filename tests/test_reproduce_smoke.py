@@ -23,6 +23,7 @@ SCRIPT = ROOT / "scripts" / "reproduce_lerique_paper.py"
 OUT_CSV = ROOT / "artifacts" / "paper_lerique" / "reproduce_fast_features.csv"
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(
     not SCRIPT.exists(),
     reason="reproduce_lerique_paper.py not present",

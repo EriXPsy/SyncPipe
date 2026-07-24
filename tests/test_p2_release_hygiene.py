@@ -152,3 +152,101 @@ def test_run_full_cascade_accepts_contrast_and_multimodal_df():
     assert "EDA" in l2 and "ECG" in l2
     assert l2["EDA"]["condition_a"] == "rest"
     assert "per-modality" in out["cascade_summary"] or "L2" in out["cascade_summary"]
+
+
+# ===========================================================================
+# P1 regression guard: naive-baseline failure must NOT be fabricated as 0.5
+# ===========================================================================
+# Background (2026-07-24 reconcile, Finding class "fixed the primary model,
+# forgot the adjacent baseline"): the restricted / joint baseline failure
+# paths are already guarded (test_prediction_failed_fold.py,
+# test_prediction_finding17.py), but the *naive* baseline failure path in
+# multisync.prediction had NO assertion. On failure prediction.py leaves the
+# naive baseline AUC as NaN ("Do not fabricate chance-level AUC", intra L888 /
+# cross_modal L1508). This guard locks that behavior so nobody can silently
+# revert it to the old hard-coded ``baseline_auc = 0.5`` -- a fabricated
+# chance-level result that would falsely flatter delta_AUC honesty.
+import math
+
+import multisync.prediction as pred_mod
+from sklearn.metrics import roc_auc_score as _real_roc_auc
+
+
+def _make_wcc(n=4000, seed=0):
+    """Oscillating 1-D synchrony series -> both label classes present."""
+    rng = np.random.default_rng(seed)
+    t = np.linspace(0, 80, n)
+    return np.sin(t) + rng.normal(0, 0.15, n)
+
+
+def _make_signals(n=3000, seed=0):
+    """Moderately coupled source/target signals for cross-modal prediction."""
+    rng = np.random.default_rng(seed)
+    t = np.linspace(0, 60, n)
+    src = np.sin(t) + rng.normal(0, 0.1, n)
+    tgt = np.cos(t) + rng.normal(0, 0.1, n)
+    return src, tgt
+
+
+class _FailFirstNaiveBaseline:
+    """Force the *naive baseline* roc_auc_score call to raise.
+
+    The naive baseline scores a constant predictor
+    (``np.full_like(y_test, y_train.mean())``); its y_score is therefore
+    constant (``ptp == 0``). Every *other* roc_auc_score call inside the CV
+    loop (primary model, AR / restricted baseline) passes a non-constant
+    score. We raise only on the first constant-score call -- which is exactly
+    the naive baseline of fold 0 in BOTH rolling_origin_cv (intra) and
+    cross_modal_prediction -- exercising the "Do not fabricate chance-level
+    AUC" path without dropping the fold (the primary model still fits, so the
+    fold is kept and its NaN baseline is observable).
+    """
+
+    _hit = {"done": False}
+
+    def __call__(self, y_true, y_score, **kw):
+        ys = np.asarray(y_score)
+        if ys.ndim > 1:
+            ys = ys[:, 1] if ys.shape[1] > 1 else ys.ravel()
+        is_constant = bool(np.ptp(ys) == 0)
+        if is_constant and not _FailFirstNaiveBaseline._hit["done"]:
+            _FailFirstNaiveBaseline._hit["done"] = True
+            raise ValueError("forced naive-baseline AUC failure")
+        return _real_roc_auc(y_true, y_score, **kw)
+
+
+class TestNaiveBaselineNaN:
+    """Naive baseline failure must stay NaN, never a fabricated 0.5."""
+
+    def test_intra_naive_baseline_failure_not_fabricated(self, monkeypatch):
+        _FailFirstNaiveBaseline._hit["done"] = False
+        monkeypatch.setattr(pred_mod, "roc_auc_score", _FailFirstNaiveBaseline())
+        wcc = _make_wcc()
+        res = pred_mod.rolling_origin_cv(
+            wcc, window_size=30, n_splits=4, pair_name="p", seed=1,
+        )
+        # Primary model fit succeeded -> fold 0 was kept (not dropped).
+        assert res.n_failed_folds == 0, res.n_failed_folds
+        assert len(res.folds) >= 1
+        # Fold 0's naive baseline failed -> stored as NaN, never 0.5.
+        assert math.isnan(res.folds[0].baseline_auc), res.folds[0].baseline_auc
+        assert res.folds[0].baseline_auc != 0.5
+        # Aggregate must NOT be a fabricated 0.5; NaN propagation is honest.
+        assert math.isnan(res.mean_baseline_auc), res.mean_baseline_auc
+
+    def test_cross_modal_naive_baseline_failure_not_fabricated(self, monkeypatch):
+        _FailFirstNaiveBaseline._hit["done"] = False
+        monkeypatch.setattr(pred_mod, "roc_auc_score", _FailFirstNaiveBaseline())
+        src, tgt = _make_signals()
+        res = pred_mod.cross_modal_prediction(
+            src, tgt, window_size=30, n_splits=4,
+            source_name="s", target_name="t",
+        )
+        # Joint model succeeded -> fold 0 was kept (not dropped).
+        assert res.n_failed_folds == 0, res.n_failed_folds
+        assert len(res.folds) >= 1
+        # Fold 0's naive baseline failed -> stored as NaN, never 0.5.
+        assert math.isnan(res.folds[0].baseline_auc), res.folds[0].baseline_auc
+        assert res.folds[0].baseline_auc != 0.5
+        # Aggregate must NOT be a fabricated 0.5; NaN propagation is honest.
+        assert math.isnan(res.mean_baseline_auc), res.mean_baseline_auc
