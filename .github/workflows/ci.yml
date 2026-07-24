@@ -5,8 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Nightly full-suite run (includes the slow validation layer).
+  schedule:
+    - cron: "17 4 * * *"
 
 jobs:
+  # PR / push gate: everything EXCEPT the slow validation layer.
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -18,7 +22,19 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
-      - run: python -m pytest tests/ -q --tb=short
+      - run: pytest tests/ -m "not slow" -q --tb=short
+
+  # Full suite (slow validation layer included). Runs only on push to main
+  # or the nightly schedule -- never on ordinary PRs.
+  test-full:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/ -q --tb=short
 
   demo:
     runs-on: ubuntu-latest
