@@ -75,7 +75,7 @@ for positioning relative to related tools (SyncPy, multiSyncPy, SUSY, rMEA).
 
 ---
 <img width="1376" height="768" alt="image" src="https://github.com/user-attachments/assets/17d3eaa0-215b-418d-88aa-5e87b8373c14" />
----
+
 ## Conceptual architecture
 
 SyncPipe has five infrastructure layers.
@@ -248,6 +248,7 @@ by_mod = pipe.test_l2_by_modality(
     feature_cols=list(FDR_FEATURES), n_permutations=10000,
 )
 ```
+<img width="1376" height="768" alt="image" src="https://github.com/user-attachments/assets/6feccbfe-c42c-4807-8155-f969d4c05fe4" />
 
 The chain is three steps: (1) signal-level IAAFT **synchrony-existence** audit;
 (2) **design-control** audit (pseudo-pair + time-shift); (3) dyad-paired
