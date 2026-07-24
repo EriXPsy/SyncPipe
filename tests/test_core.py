@@ -324,26 +324,6 @@ class TestPrediction:
                     f"not a dynamic feature name"
                 )
 
-    @pytest.mark.xfail(
-        reason=(
-            "DECISION-10 RECALIBRATED 2026-07-18 (COMPLETED): the 30-seed "
-            "sine-vs-noise sweep on the NEW joint feature set "
-            "{onset_latency, rise_time, peak_amplitude, recovery_time, "
-            "dwell_time, switching_rate} (mean_synchrony moved to its own "
-            "AR baseline) found sine delta_AUC median=0.292 (p05=0.150, "
-            "min=0.144) and noise delta_AUC median=-0.101 (max=0.134). "
-            "LEAKAGE_DELTA_AUC_THRESHOLD was recalibrated from 0.30 to 0.14, "
-            "which sits inside the separation gap (noise max 0.134 < 0.14 < "
-            "sine min 0.144) giving TPR(sine)=100% and FPR(noise)=0% on the "
-            "sweep. The old 0.30 rejected the canonical perfectly-predictable "
-            "sine (delta ~0.27 < 0.30), silently disabling leakage detection. "
-            "This xfail is retained as a regression guard: the sine must "
-            "still clear the (now lower) threshold. strict=False so the "
-            "resolved test reports XPASS rather than XFAIL."
-        ),
-        strict=False,  # resolved via 30-seed sweep (2026-07-18): sine now
-                       # clears 0.14; XPASS is expected, not a failure.
-    )
     def test_leakage_audit_autocorrelated(self):
         """
         Leakage audit: feed a pure sine wave (perfectly autocorrelated).

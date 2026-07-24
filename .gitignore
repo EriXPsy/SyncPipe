@@ -41,3 +41,16 @@ scripts/_timing_probe.py
 # Transient audit logs / test captures (kept out of version control)
 artifacts/reviewer_audit/pytest_*.txt
 artifacts/reviewer_audit/run_log.txt
+
+# --- Phase-0 cleanup: generated repo/run artifacts (not version controlled) ---
+# Graphify tool outputs (repo root + package dir)
+graphify-out/
+multisync/graphify-out/
+# Pytest text capture at repo root (note: *_output.txt / *_summary.txt already
+# covered above; pytest_out.txt ends in _out.txt so needs its own entry)
+pytest_out.txt
+# Generated analysis artifacts under artifacts/ (reproducible from scripts;
+# distinct from the intentionally-tracked paper snapshots in artifacts/paper_lerique/)
+artifacts/bakeoff/
+artifacts/figures/
+artifacts/incremental_value/
