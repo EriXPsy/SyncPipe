@@ -306,12 +306,17 @@ class ComputationPipeline:
 
 
 class BatchComputationPipeline:
-    """Batch computation with a shared, session-level surrogate threshold.
+    """Batch computation with a per-modality pooled surrogate threshold.
 
     This pipeline addresses the cross-dyad comparability problem of per-dyad
-    surrogate thresholds. It first pools all surrogate WCC values across all
-    dyads, computes a single percentile threshold, and then extracts features
-    for every dyad using that shared threshold.
+    surrogate thresholds. With the canonical default ``onset_threshold=
+    "session_pooled"`` it groups dyads by modality, pools each modality's
+    surrogate WCC values, and computes one percentile threshold per modality
+    (per-modality null distribution). Features are then extracted for every
+    dyad using its modality's shared threshold.
+
+    ``self._thresholds`` is a ``modality -> value`` mapping (one pooled
+    surrogate threshold per modality); see :meth:`_compute_threshold`.
 
     Parameters
     ----------
@@ -321,7 +326,10 @@ class BatchComputationPipeline:
         WCC window size in samples.
     onset_threshold : float, str, or None
         Either a fixed numeric threshold (e.g. 0.5), or "session_pooled" to
-        compute a session-level pooled surrogate threshold (default).
+        compute a per-modality pooled surrogate threshold (canonical default).
+        With "session_pooled" each modality gets its own pooled surrogate
+        threshold; a fixed numeric value applies the same threshold to every
+        modality.
     surrogate_n : int
         Number of surrogates per dyad when threshold is pooled.
     surrogate_percentile : float

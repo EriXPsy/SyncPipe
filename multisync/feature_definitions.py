@@ -1512,13 +1512,21 @@ def compute_surrogate_threshold(
 
     Notes
     -----
-    **Session-level pooling** (DECISION-01r): pool ALL timepoints across ALL
-    surrogate replicates before computing the quantile.  This gives a single
-    threshold per session, preserving cross-condition comparability.  Use
-    ``multisync.session_threshold`` for pooled thresholds.
+    **Per-modality pooled surrogate threshold is the canonical v1 default.**
+    In the pipeline, thresholds are computed by
+    ``multisync.session_threshold.compute_session_pooled_thresholds_by_modality``,
+    which pools the surrogate null *within* each modality so slow/smooth and
+    fast/spiky signals each get a modality-appropriate cut-off (cross-modal
+    comparability preserved, threshold calibrated to each modality's null).
+    This ``compute_surrogate_threshold`` function is the single-dyad primitive
+    that the pooled paths build on.
 
-    For condition-level thresholds (sensitivity analysis), call this function
-    separately for each condition's surrogate WCC slice.
+    **Session-level / all-dyad pooling is an OPTIONAL granularity**, not the
+    default: pool ALL timepoints across ALL surrogate replicates and ALL dyads
+    before computing the quantile for a single shared threshold (use
+    ``multisync.session_threshold``).  Condition-level thresholds (sensitivity
+    analysis) can be obtained by calling this function separately for each
+    condition's surrogate WCC slice.
     """
     wcc_surrogates = np.asarray(wcc_surrogates, dtype=float)
     if wcc_surrogates.ndim == 1:
@@ -1545,7 +1553,7 @@ def compute_surrogate_threshold(
             "compute_surrogate_threshold: derived threshold %.3f exceeds "
             "sanity ceiling %.2f — likely a periodicity/autocorrelation "
             "artifact of IAAFT surrogates. Falling back to fixed "
-            "ONSET_THRESHOLD=%s for this dyad/session.",
+            "ONSET_THRESHOLD=%s for this modality/session.",
             derived, SURROGATE_THRESHOLD_MAX, ONSET_THRESHOLD,
         )
         return ONSET_THRESHOLD, False

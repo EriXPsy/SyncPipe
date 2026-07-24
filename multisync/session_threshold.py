@@ -4,6 +4,12 @@ Session-level pooled surrogate thresholding.
 Provides a single threshold shared across all dyads in a session (or condition),
 addressing the cross-dyad comparability problem of per-dyad surrogate thresholds.
 
+**Canonical default — per-modality pooled.** :func:`compute_session_pooled_thresholds_by_modality`
+pools the surrogate null *within* each modality and returns one threshold per
+modality; this is the normative v1 onset-threshold default (cross-modal
+comparability preserved while each modality's threshold is calibrated to its own
+null).  The session/condition helpers below are OPTIONAL granularities.
+
 Rationale
 ---------
 Per-dyad thresholds adapt to each dyad's own null distribution. This is useful for
@@ -32,7 +38,11 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from .dynamic_features import sliding_window_wcc, _apply_discontinuity_mask
-from .feature_definitions import compute_surrogate_threshold, ONSET_THRESHOLD
+from .feature_definitions import (
+    compute_surrogate_threshold,
+    ONSET_THRESHOLD,
+    SURROGATE_THRESHOLD_MAX,
+)
 from .surrogate import iaaft_surrogate, ft_surrogate
 from .wclr import wclr_coupling_trace
 
@@ -276,6 +286,27 @@ def compute_session_pooled_threshold(
         "fallback_used": not is_surrogate,
         "n_discontinuity_masks_applied": n_masks_applied,
     }
+
+    # Label the *cause* of any fallback so the per-modality warning below (and
+    # any downstream consumer of ``meta``) is not mislabeled "degenerate null"
+    # when the real cause is the periodicity / strong-autocorrelation ceiling
+    # (BUG-3).  ``compute_surrogate_threshold`` returns only
+    # (threshold, is_surrogate_derived); the same pooled values it inspected are
+    # re-checked here to set an accurate ``reason``.
+    if not is_surrogate:
+        finite = pooled[np.isfinite(pooled)]
+        if finite.size < 10:
+            meta["reason"] = "degenerate_null"
+        else:
+            derived = float(np.percentile(finite, percentile))
+            meta["reason"] = (
+                "periodicity_ceiling"
+                if derived > SURROGATE_THRESHOLD_MAX
+                else "degenerate_null"
+            )
+    else:
+        meta["reason"] = "surrogate_derived"
+
     return threshold, meta
 
 
@@ -334,6 +365,12 @@ def compute_session_pooled_thresholds_by_modality(
     and session-pooled paths (``compute_surrogate_threshold`` on IAAFT surrogates),
     but groups by modality instead of by session/condition. It is the symmetry
     partner of :func:`compute_condition_pooled_thresholds` (group-by-condition).
+
+    **Periodicity / strong-autocorrelation guard (BUG-3).** When a modality's
+    derived threshold exceeds ``SURROGATE_THRESHOLD_MAX`` (0.9), the modality
+    falls back to ``ONSET_THRESHOLD`` (0.5) and a fail-loud warning is emitted
+    (``meta["reason"] == "periodicity_ceiling"``) rather than silently using a
+    contaminated cut-off.
     """
     if len(modalities) != len(dyad_signals):
         raise ValueError(
