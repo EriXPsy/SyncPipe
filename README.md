@@ -1,4 +1,5 @@
 # SyncPipe
+<img width="1376" height="768" alt="image" src="https://github.com/user-attachments/assets/a9709211-74e4-485c-9da9-b9c60411461c" />
 
 > **Measurement infrastructure for dyadic, continuous low-frequency multimodal interpersonal synchrony.**  
 > SyncPipe is not intended to be merely a feature-profile generator. Its v1 goal is to provide a standardized, auditable measurement procedure for dyadic synchrony: from aligned signals, to WCC traces, to interpretable descriptors, to null-model audits, to design-specific confound checks, to group-level inference.
