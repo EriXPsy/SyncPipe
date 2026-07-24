@@ -49,6 +49,7 @@ SURROGATE_POOLED_MEM_GUARD_BYTES = 512 * 1024 * 1024  # 512 MiB
 
 __all__ = [
     "compute_session_pooled_threshold",
+    "compute_session_pooled_thresholds_by_modality",
     "compute_condition_pooled_thresholds",
 ]
 
@@ -276,6 +277,108 @@ def compute_session_pooled_threshold(
         "n_discontinuity_masks_applied": n_masks_applied,
     }
     return threshold, meta
+
+
+def compute_session_pooled_thresholds_by_modality(
+    dyad_signals: List[Tuple[np.ndarray, np.ndarray]],
+    modalities: List[str],
+    hz: float,
+    wcc_window_size: int,
+    surrogate_n: int = 200,
+    percentile: float = 95.0,
+    seed: int = 42,
+    surrogate_method: str = "iaaft",
+    backend: str = "wcc",
+    wclr_max_lag_samples: int = 2,
+    fallback_threshold: float = ONSET_THRESHOLD,
+    discontinuity_masks: Optional[List[Optional[np.ndarray]]] = None,
+) -> Dict[str, float]:
+    """Compute one surrogate threshold per modality (per-modality pooled null).
+
+    Unlike :func:`compute_session_pooled_threshold` (which pools *all* dyads
+    across modalities into a single global null), this pools *within* each
+    modality so slow/smooth signals (e.g. EDA, low WCC amplitude) and
+    fast/spiky signals (e.g. ECG, high WCC amplitude) each get a
+    modality-appropriate threshold. This is the canonical v1 onset-threshold
+    default: cross-modal comparability is preserved (every dyad of a given
+    modality shares one threshold) while the threshold itself is calibrated to
+    that modality's null distribution — solving the cross-modality non-uniformity
+    problem that a single global pool cannot.
+
+    Parameters
+    ----------
+    dyad_signals : list of (sig_a, sig_b) tuples
+        All dyad signal pairs, in the same order as ``modalities``.
+    modalities : list of str
+        Modality label for each dyad (same length/order as ``dyad_signals``),
+        e.g. ``["EDA", "EDA", "ECG", "ECG"]``. A ``None`` entry is grouped
+        under the sentinel key ``"None"``.
+    hz, wcc_window_size, surrogate_n, percentile, seed, surrogate_method,
+    backend, wclr_max_lag_samples, fallback_threshold
+        Forwarded to :func:`compute_session_pooled_threshold` per modality.
+    discontinuity_masks : list of optional masks, optional
+        Aligned with ``dyad_signals``; only the masks whose modality is pooled
+        are forwarded to that modality's pooled-null call.
+
+    Returns
+    -------
+    Dict[str, float]
+        Mapping ``modality -> threshold``. If a modality has too few dyads to
+        build a stable null (degenerate pooled distribution), that modality's
+        threshold falls back to ``fallback_threshold`` (default 0.5) and a
+        warning is logged (fail-loud). A modality with zero dyads is not emitted.
+
+    Notes
+    -----
+    This reuses the exact same surrogate-threshold null machinery as the per-dyad
+    and session-pooled paths (``compute_surrogate_threshold`` on IAAFT surrogates),
+    but groups by modality instead of by session/condition. It is the symmetry
+    partner of :func:`compute_condition_pooled_thresholds` (group-by-condition).
+    """
+    if len(modalities) != len(dyad_signals):
+        raise ValueError(
+            "modalities must have the same length as dyad_signals "
+            f"(got {len(modalities)} modalities for {len(dyad_signals)} dyads)."
+        )
+
+    # Group dyad indices by modality. None -> "None" sentinel so a batch that
+    # never records modality still pools consistently (matches the no-modality
+    # BatchComputationPipeline path).
+    by_modality: Dict[str, List[int]] = {}
+    for i, mod in enumerate(modalities):
+        mod_key = str(mod) if mod is not None else "None"
+        by_modality.setdefault(mod_key, []).append(i)
+
+    results: Dict[str, float] = {}
+    for mod_key, idxs in by_modality.items():
+        mod_signals = [dyad_signals[i] for i in idxs]
+        mod_masks = (
+            [discontinuity_masks[i] for i in idxs]
+            if discontinuity_masks is not None
+            else None
+        )
+        threshold, meta = compute_session_pooled_threshold(
+            mod_signals,
+            hz=hz,
+            wcc_window_size=wcc_window_size,
+            surrogate_n=surrogate_n,
+            percentile=percentile,
+            seed=seed,
+            surrogate_method=surrogate_method,
+            backend=backend,
+            wclr_max_lag_samples=wclr_max_lag_samples,
+            fallback_threshold=fallback_threshold,
+            discontinuity_masks=mod_masks,
+        )
+        if meta.get("fallback_used", False):
+            logger.warning(
+                "compute_session_pooled_thresholds_by_modality: modality %r "
+                "fell back to fixed threshold %.3f (%s). n_dyads_used=%s of %s.",
+                mod_key, threshold, meta.get("reason", "degenerate null"),
+                meta.get("n_dyads_used"), meta.get("n_dyads_input"),
+            )
+        results[mod_key] = float(threshold)
+    return results
 
 
 def compute_condition_pooled_thresholds(

@@ -431,11 +431,19 @@ def run_dataset(name: str, records: List[RawRecord], cfg: Dict[str, Any]) -> Dic
     }
     try:
         inputs = records_to_inference_inputs(
-            records, hz=hz, window_size=window, onset_threshold=0.5,
+            records, hz=hz, window_size=window, onset_threshold="session_pooled",
             design_condition=cfg.get("design_condition"),
         )
         res["n_feature_rows"] = int(len(inputs.features_df))
         res["modalities"] = sorted(inputs.features_df["modality"].unique().tolist())
+        # Self-evidencing: record the onset-threshold policy actually used and
+        # the resolved per-modality thresholds so the run is auditable.
+        res["onset_threshold_policy"] = "session_pooled"
+        res["onset_thresholds_by_modality"] = (
+            inputs.thresholds_by_modality
+            if inputs.thresholds_by_modality is not None
+            else {}
+        )
 
         pipe = InferencePipeline(inputs.features_df, hz=hz,
                                 wcc_window_sec=float(window) / hz,

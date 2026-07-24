@@ -48,6 +48,7 @@ from .design_controls import (
 from .session_threshold import (
     compute_condition_pooled_thresholds,
     compute_session_pooled_threshold,
+    compute_session_pooled_thresholds_by_modality,
 )
 
 __all__ = [
@@ -89,5 +90,6 @@ __all__ = [
     "extract_pair_features",
     "synchrony_existence_audit",
     "compute_session_pooled_threshold",
+    "compute_session_pooled_thresholds_by_modality",
     "compute_condition_pooled_thresholds",
 ]

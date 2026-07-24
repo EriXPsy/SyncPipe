@@ -149,10 +149,21 @@ import numpy as np
 
 ONSET_THRESHOLD: float = 0.5
 """
-**Primary analysis now uses surrogate-derived threshold** (see
-:func:`compute_surrogate_threshold`).  This constant is retained as the
-fallback for callers that do not supply an empirical threshold, and for
-the sensitivity sweep [0.3, 0.7] .
+**Canonical v1 onset threshold = per-modality pooled IAAFT surrogate
+threshold** (see :func:`compute_session_pooled_thresholds_by_modality`).
+
+The primary scientific path (``records_to_inference_inputs`` /
+``BatchComputationPipeline`` with ``onset_threshold="session_pooled"``) derives
+one surrogate threshold *per modality* by pooling IAAFT surrogates across all
+dyads of that modality. This calibrates the episode threshold to each
+modality's null distribution — slow/smooth signals (e.g. EDA, low WCC
+amplitude) and fast/spiky signals (e.g. ECG, high WCC amplitude) therefore get
+different, modality-appropriate thresholds, while every dyad of a modality
+still shares one threshold for cross-dyad comparability.
+
+This constant (0.5) is the **fallback / sensitivity value only**: it is used
+when a modality's pooled null is degenerate (too few dyads), and as the fixed
+baseline in sensitivity sweeps such as [0.3, 0.7] and paper reproductions.
 """
 
 SURROGATE_THRESHOLD_PERCENTILE: float = 95.0

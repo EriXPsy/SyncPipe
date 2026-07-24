@@ -24,8 +24,10 @@ from .importer import DataImporter
 from .wclr import wclr_coupling_trace
 from .session_threshold import (
     compute_session_pooled_threshold,
+    compute_session_pooled_thresholds_by_modality,
     compute_condition_pooled_thresholds,
 )
+from .feature_definitions import ONSET_THRESHOLD
 
 
 class ComputationPipeline:
@@ -358,7 +360,9 @@ class BatchComputationPipeline:
 
         self._dyad_signals: List[Tuple[np.ndarray, np.ndarray]] = []
         self._labels: List[Optional[str]] = []
+        self._modalities: List[Optional[str]] = []
         self._metadata: List[Dict[str, object]] = []
+        self._thresholds: Dict[str, float] = {}
         self._threshold: Optional[float] = None
         self._threshold_meta: Optional[Dict] = None
 
@@ -367,24 +371,52 @@ class BatchComputationPipeline:
         sig_a: np.ndarray,
         sig_b: np.ndarray,
         label: Optional[str] = None,
+        modality: Optional[str] = None,
         **metadata,
     ):
-        """Add one dyad to the batch."""
+        """Add one dyad to the batch.
+
+        Parameters
+        ----------
+        modality : str, optional
+            Modality label for this dyad (e.g. "EDA", "ECG"). When
+            ``onset_threshold="session_pooled"`` dyads are grouped by modality
+            so each modality gets its own pooled surrogate threshold. Dyads
+            added without a modality are grouped under a single shared key.
+        """
         self._dyad_signals.append((np.asarray(sig_a, dtype=float),
                                    np.asarray(sig_b, dtype=float)))
         self._labels.append(label)
+        self._modalities.append(modality)
         self._metadata.append(metadata)
 
+    def _modality_of(self, i: int) -> str:
+        """Resolve the grouping key for dyad ``i`` (None -> "None" sentinel)."""
+        mod = self._modalities[i] if i < len(self._modalities) else None
+        return str(mod) if mod is not None else "None"
+
     def _compute_threshold(self) -> float:
-        """Compute the shared threshold for the batch."""
+        """Compute the shared threshold(s) for the batch.
+
+        Populates ``self._thresholds`` (modality-key -> threshold). For a fixed
+        or ``None`` onset threshold every modality key maps to the same value;
+        for ``"session_pooled"`` each modality gets its own pooled surrogate
+        threshold (per-modality null distribution).
+        """
         if isinstance(self.onset_threshold, (int, float)):
-            self._threshold = float(self.onset_threshold)
-            self._threshold_meta = {"mode": "fixed", "threshold": self._threshold}
+            value = float(self.onset_threshold)
+            self._thresholds = {
+                self._modality_of(i): value for i in range(len(self._dyad_signals))
+            }
+            self._threshold = value
+            self._threshold_meta = {"mode": "fixed", "threshold": value}
             return self._threshold
 
         if self.onset_threshold == "session_pooled":
-            threshold, meta = compute_session_pooled_threshold(
+            modalities = [self._modality_of(i) for i in range(len(self._dyad_signals))]
+            self._thresholds = compute_session_pooled_thresholds_by_modality(
                 self._dyad_signals,
+                modalities,
                 hz=self.hz,
                 wcc_window_size=self.window_size,
                 surrogate_n=self.surrogate_n,
@@ -394,13 +426,30 @@ class BatchComputationPipeline:
                 backend=self.backend,
                 wclr_max_lag_samples=self.wclr_max_lag_samples,
             )
-            self._threshold = threshold
-            self._threshold_meta = meta
+            # A surrogate-derived threshold landing exactly on the fallback is
+            # astronomically unlikely (continuous percentile), so equality is a
+            # reliable fallback proxy for the loud warning already emitted
+            # inside compute_session_pooled_thresholds_by_modality.
+            fb = ONSET_THRESHOLD
+            any_fallback = any(
+                abs(thr - fb) < 1e-12 for thr in self._thresholds.values()
+            )
+            self._threshold = next(iter(self._thresholds.values()), ONSET_THRESHOLD)
+            self._threshold_meta = {
+                "mode": "session_pooled_by_modality",
+                "backend": self.backend,
+                "fallback_used": any_fallback,
+                "thresholds_by_modality": dict(self._thresholds),
+                "n_modalities": len(self._thresholds),
+            }
             return self._threshold
 
         if self.onset_threshold is None:
-            from .feature_definitions import ONSET_THRESHOLD
             self._threshold = ONSET_THRESHOLD
+            self._thresholds = {
+                self._modality_of(i): ONSET_THRESHOLD
+                for i in range(len(self._dyad_signals))
+            }
             self._threshold_meta = {"mode": "default_fallback"}
             return self._threshold
 
@@ -411,11 +460,18 @@ class BatchComputationPipeline:
         if not self._dyad_signals:
             raise ValueError("No dyads added. Call add_dyad() first.")
 
-        threshold = self._compute_threshold()
+        self._compute_threshold()
+        fb = ONSET_THRESHOLD
+        fallback_by_modality = {
+            k: (abs(v - fb) < 1e-12)
+            for k, v in self._thresholds.items()
+        }
         frames = []
         for i, ((sig_a, sig_b), label, meta) in enumerate(
             zip(self._dyad_signals, self._labels, self._metadata)
         ):
+            mod_key = self._modality_of(i)
+            threshold = self._thresholds.get(mod_key, ONSET_THRESHOLD)
             pipe = ComputationPipeline(
                 hz=self.hz,
                 window_size=self.window_size,
@@ -428,7 +484,10 @@ class BatchComputationPipeline:
             row = pipe.to_dataframe()
             row["threshold_mode"] = self._threshold_meta.get("mode", "unknown")
             row["threshold_value"] = threshold
-            row["threshold_fallback"] = self._threshold_meta.get("fallback_used", False)
+            row["threshold_fallback"] = fallback_by_modality.get(
+                mod_key, self._threshold_meta.get("fallback_used", False)
+            )
+            row["modality"] = self._modalities[i] if i < len(self._modalities) else None
             frames.append(row)
 
         return pd.concat(frames, ignore_index=True)
