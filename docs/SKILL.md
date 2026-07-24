@@ -63,8 +63,9 @@ sp.design_control_audit(signal_pairs, hz=4.0, window_size=40)        # step 2
 # step 3 = InferencePipeline (dyad-paired permutation + BH-FDR)
 
 # Surrogate thresholds
-sp.compute_session_pooled_threshold(...)        # between-dyad comparability
-sp.compute_condition_pooled_thresholds(...)
+sp.compute_session_pooled_thresholds_by_modality(...)  # CANONICAL default: per-modality IAAFT
+sp.compute_session_pooled_threshold(...)        # optional coarser global pool
+sp.compute_condition_pooled_thresholds(...)    # optional per-condition pool
 
 # Feature surface
 sp.FDR_FEATURES        # ('peak_amplitude','dwell_time','switching_rate')
@@ -74,7 +75,7 @@ sp.explain_feature("dwell_time")
 ```
 
 ## Key constants
-- `sp.ONSET_THRESHOLD` = 0.5 (episode = WCC above threshold).
+- `sp.ONSET_THRESHOLD` = 0.5 — **fallback / sensitivity constant only** (forwarded unchanged for sensitivity sweeps & paper reproduction; also the fallback when a modality's pooled null is degenerate). The scientific canonical default onset threshold is **per-modality pooled** (`compute_session_pooled_thresholds_by_modality`): one IAAFT-derived cut-off per modality, so EDA and ECG get different, calibrated thresholds while every dyad of a modality still shares one. Surrogate-derived thresholds are hard-capped at `SURROGATE_THRESHOLD_MAX = 0.9` (periodicity / strong-autocorrelation protection).
 - `SURROGATE_THRESHOLD_PERCENTILE` = 95 (per-dyad surrogate cut-off).
 - Primary FDR family size = 3 → BH multiplicity denominator m = 3.
 

@@ -212,7 +212,7 @@ rec = recommend_features("general")
 ```python
 from multisync.pipeline_bridge import records_to_inference_inputs
 inputs = records_to_inference_inputs(
-    records, hz=1.0, window_size=30, onset_threshold=0.5,
+    records, hz=1.0, window_size=30, onset_threshold="session_pooled",
     design_condition="trials_concat",
 )
 inputs.features_df     # one row per (dyad, modality, condition) + all descriptors
@@ -222,7 +222,7 @@ inputs.design_pairs   # "dyad__mod"        -> (sig_a, sig_b)  for design control
 
 Under the hood: `ComputationPipeline.load_signals → compute_wcc → extract_features
 → to_dataframe` per record. WCC uses an O(n) cumsum backend; thresholds can be
-session-pooled for cross-dyad comparability.
+per-modality session-pooled for cross-dyad comparability.
 
 ### Stage 3 — Audited evidence chain (Pipeline 3)
 

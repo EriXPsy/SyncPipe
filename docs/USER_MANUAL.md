@@ -136,8 +136,16 @@ Key facts (v1.0):
 - **Exploratory / secondary** (reported with definedness, never confirmatory):
   `bimodality_coefficient`, `synchrony_entropy`, `fraction_above_threshold`,
   `first_peak_time`, `inter_peak_cv`, and the event-only morphology descriptors.
-- **Onset threshold** (`ONSET_THRESHOLD`) = 0.5 by default; episodes are
-  segments above threshold.
+- **Onset threshold.** The scientific pipeline derives the onset cut-off
+  **per modality** from a pooled IAAFT surrogate null (§8,
+  `records_to_inference_inputs(onset_threshold="session_pooled")`): EDA and ECG
+  therefore get *different*, modality-calibrated thresholds while every dyad of a
+  modality still shares one cut-off for cross-dyad comparability. `ONSET_THRESHOLD
+  = 0.5` is the **fallback / sensitivity constant only** (used when a modality's
+  pooled null is degenerate, and as the fixed baseline in sensitivity sweeps) —
+  it is **not** the scientific default. Surrogate-derived thresholds are
+  hard-capped at `SURROGATE_THRESHOLD_MAX = 0.9` and fall back to 0.5 above that
+  ceiling.
 
 Always read a descriptor's row in the status table before reporting it: it tells
 you the paradigm restriction (e.g. event-only), the main risk, and whether it
@@ -152,25 +160,47 @@ values as measured latencies.
 
 ---
 
-## 8. Surrogate thresholds: two grounded cut-offs
+## 8. Surrogate thresholds: grounded cut-offs by granularity
 
 SyncPipe does not use an arbitrary r-value anchor for "what counts as
-synchrony". It derives the threshold from a null distribution (lineage: Lykken &
-Venables 1971; Ben-Shakhar 1985):
+synchrony". It derives every onset threshold from an IAAFT surrogate null
+distribution (lineage: Lykken & Venables 1971; Ben-Shakhar 1985), at one of
+three granularities.
 
-- **Per-dyad surrogate threshold** (`compute_surrogate_threshold`,
-  `SURROGATE_THRESHOLD_PERCENTILE` = 95). The 95th percentile of *that dyad's
-  own* IAAFT-surrogate WCC values — "the WCC level this dyad would reach by
-  chance". **Use for within-dyad existence**; it adapts to each dyad's null.
-- **Session-/condition-pooled threshold** (`compute_session_pooled_threshold`,
-  `compute_condition_pooled_thresholds`, `multisync/session_threshold.py`). One
-  threshold pooled across all dyads (or per condition). **Use for between-dyad
-  comparability** of episode features (dwell_time, switching_rate): if every
-  dyad used its own threshold, the very definition of "episode" would differ per
-  dyad and group comparisons would be confounded.
+**Canonical scientific default — per-modality pooled.**
+`compute_session_pooled_thresholds_by_modality` (`multisync/session_threshold.py`)
+derives *one* threshold **per modality** by pooling IAAFT surrogates across all
+dyads of that modality. This is the default used by the audited evidence chain
+(`records_to_inference_inputs(onset_threshold="session_pooled")`,
+`BatchComputationPipeline`): it preserves **cross-modal comparability** (every
+dyad of a modality shares one threshold) *and* **within-modality calibration** —
+slow/smooth signals (e.g. EDA, low WCC amplitude) and fast/spiky signals (e.g.
+ECG, high WCC amplitude) get *different*, modality-appropriate cut-offs instead
+of being forced onto a single global value that fits neither. If a modality's
+pooled null is degenerate (too few dyads), that modality falls back to
+`ONSET_THRESHOLD = 0.5` with a fail-loud warning.
 
-Rule of thumb: per-dyad for "does this dyad show synchrony?"; pooled for "do
-these groups/conditions differ in synchrony structure?".
+**Optional — per-dyad surrogate threshold.** `compute_surrogate_threshold`
+(`SURROGATE_THRESHOLD_PERCENTILE` = 95) returns the 95th percentile of *that
+dyad's own* IAAFT-surrogate WCC values — "the WCC level this dyad would reach
+by chance". Use for within-dyad existence; it adapts to each dyad's null.
+
+**Optional — session-/condition-pooled threshold.**
+`compute_session_pooled_threshold` / `compute_condition_pooled_thresholds` pool
+*all* dyads (or per condition) into a single global null. Use when
+modality-specific calibration is not needed.
+
+**Sensitivity / fallback constant — `ONSET_THRESHOLD = 0.5`.** A fixed value
+forwarded unchanged for sensitivity sweeps and paper reproductions; also the
+fallback when a pooled null is degenerate. It is **not** the scientific default.
+All surrogate-derived thresholds are hard-capped at `SURROGATE_THRESHOLD_MAX =
+0.9` (periodicity / strong-autocorrelation protection): above 0.9 a derived
+cut-off is treated as an artifact and falls back to 0.5.
+
+Rule of thumb: per-dyad for "does this dyad show synchrony?"; **per-modality
+pooled** for the canonical group/condition pipeline; coarser session/condition
+pooling when modality calibration is unwanted; fixed 0.5 for sensitivity
+analysis.
 
 ---
 

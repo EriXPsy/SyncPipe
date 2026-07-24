@@ -331,7 +331,7 @@ or elsewhere was changed.
 **Decision.** The word "canonical" in SyncPipe now carries an explicit layer qualifier. There are two distinct canonical layers that must never be conflated:
 
 - **Descriptor-layer canonical** = ``DynamicAnalyzer.fit_transform`` — the CLI default feature-extraction route (per-dyad threshold, descriptive). This is what the CLI (`analyze`, `demo`) and ``DynamicAnalyzer(enable_prediction=False)`` reach by default. ``CANONICAL_PATH`` / ``CANONICAL_DESCRIPTOR_PATH`` in ``multisync/core.py`` name this layer.
-- **Scientific-layer canonical** = ``pipeline_bridge`` + ``InferencePipeline.run_audited_evidence_chain`` — the ONLY path that produces a defensible, manuscript-grade conclusion (session-pooled threshold + design controls + group FDR). This is the audited evidence chain referenced by README:449 and used by ``scripts/reproduce_lerique_paper.py`` (``three_pipeline_v1``).
+- **Scientific-layer canonical** = ``pipeline_bridge`` + ``InferencePipeline.run_audited_evidence_chain`` — the ONLY path that produces a defensible, manuscript-grade conclusion (per-modality pooled threshold + design controls + group FDR). This is the audited evidence chain referenced by README:449 and used by ``scripts/reproduce_lerique_paper.py`` (``three_pipeline_v1``).
 
 **Rule.** In code and docs, "canonical" MUST be written with its layer qualifier (descriptor-layer vs scientific-layer). Flipping or redefining either canonical definition requires explicit user sign-off PLUS an update to this DECISION_LOG entry. No local / session-level optimum may silently override a canonical definition.
 
@@ -343,13 +343,89 @@ or elsewhere was changed.
 
 ## Current v1 threshold stance
 
-**Decision.** SyncPipe separates threshold scope:
+**Decision.** SyncPipe separates threshold scope, with a **per-modality pooled IAAFT surrogate threshold as the canonical default**:
 
-- `within_dyad` / per-pair signal-level surrogate threshold: for single-dyad descriptive and synchrony-existence workflows.
-- `session_pooled` threshold: for between-dyad or group-comparable episode descriptors, implemented in `BatchComputationPipeline` / `session_threshold.py`.
-- `fixed` threshold: for sensitivity analysis and explicit user-specified comparisons.
+- **`per-modality pooled` (canonical default)** — `compute_session_pooled_thresholds_by_modality` (`session_threshold.py`): derives *one* surrogate threshold **per modality** by pooling IAAFT surrogates across all dyads of that modality. This is the default used by `records_to_inference_inputs(onset_threshold="session_pooled")` and `BatchComputationPipeline`. It preserves **cross-modal comparability** (every dyad of a modality shares one threshold) *and* **within-modality calibration** — slow/smooth signals (e.g. EDA, low WCC amplitude) and fast/spiky signals (e.g. ECG, high WCC amplitude) get *different*, modality-appropriate cut-offs, rather than being forced onto one global value that fits neither.
+- `within_dyad` / per-pair signal-level surrogate threshold (`compute_surrogate_threshold`): for single-dyad descriptive and synchrony-existence workflows.
+- `session_pooled` / `compute_session_pooled_threshold` (coarser optional granularity): pools *all* dyads across modalities into a single global null — use when modality-specific calibration is not needed.
+- `compute_condition_pooled_thresholds` (optional granularity): per-experimental-condition pooling.
+- `fixed` threshold: a forwarded `float` (e.g. `ONSET_THRESHOLD = 0.5`) for sensitivity analysis and explicit user-specified comparisons.
 
-**Rationale.** Per-dyad thresholds adapt to each dyad's null distribution but make group comparisons of episode features harder to interpret. Pooled thresholds preserve a shared episode definition across dyads/conditions.
+**Rationale.** A single global pooled threshold is wrong when modalities have structurally different WCC nulls (EDA ≠ ECG): forcing both onto one cutoff either over-thresholds the spiky modality or under-thresholds the smooth one. Per-modality pooling solves this while keeping every dyad of a modality on a shared definition for group comparison. `ONSET_THRESHOLD = 0.5` is the **fallback / sensitivity constant only**: it is used when a modality's pooled null is degenerate (too few dyads) and as the fixed baseline in sensitivity sweeps. All surrogate-derived thresholds are hard-capped at `SURROGATE_THRESHOLD_MAX = 0.9` (periodicity / strong-autocorrelation protection) and fall back to 0.5 above that ceiling.
+
+---
+
+## 2026-07-24 — Per-modality pooled onset threshold as the normative default (5c078a0)
+
+**Decision (frozen in code).** The canonical v1 onset-threshold strategy is now
+**per-modality pooled IAAFT**: `records_to_inference_inputs` and
+`BatchComputationPipeline` derive one surrogate threshold *per modality*
+(`compute_session_pooled_thresholds_by_modality`) by pooling IAAFT surrogates
+across all dyads of that modality. The previously-documented single
+`session_pooled` (global) threshold is retained as an optional coarser
+granularity, not the default.
+
+**Rationale.** Modalities have structurally different WCC null distributions.
+EDA (slow/smooth, low WCC amplitude) and ECG (fast/spiky, high WCC amplitude)
+therefore need *different* episode thresholds; a single global pool fits
+neither and would systematically mis-classify episodes in one modality.
+Per-modality pooling keeps cross-modal comparability (every dyad of a modality
+shares one threshold) while calibrating each modality's cut-off to its own null.
+
+`ONSET_THRESHOLD = 0.5` is now explicitly the **fallback / sensitivity
+constant only**: it is used (a) as the fallback when a modality's pooled null
+is degenerate (too few dyads, fail-loud warning) and (b) as the fixed baseline
+in sensitivity sweeps and paper reproductions. It is **not** the scientific
+default. Surrogate-derived thresholds are hard-capped at
+`SURROGATE_THRESHOLD_MAX = 0.9` — the 0.9 ceiling is retained (not raised); a
+derived cut-off above 0.9 is treated as a periodicity / strong-autocorrelation
+artifact and falls back to 0.5.
+
+**Impact.** The audited evidence chain (`records_to_inference_inputs(
+onset_threshold="session_pooled")`, `BatchComputationPipeline`,
+`InferencePipeline.run_audited_evidence_chain`) now calibrates onset per
+modality end-to-end. Scripts that passed a fixed `onset_threshold=0.5` still
+work (forwarded unchanged) but are now explicitly sensitivity/fallback usage.
+`docs/USER_MANUAL.md` §8, `docs/SKILL.md`, and `README.md` were updated to
+describe per-modality pooled as the canonical default.
+
+**Source of truth.** `multisync/feature_definitions.py` (`ONSET_THRESHOLD`,
+`SURROGATE_THRESHOLD_MAX`); `multisync/session_threshold.py`
+(`compute_session_pooled_thresholds_by_modality`);
+`multisync/pipeline_bridge.py` (`records_to_inference_inputs`,
+`onset_threshold="session_pooled"` default);
+`multisync/computation_pipeline.py` (`BatchComputationPipeline`).
+
+---
+
+## 2026-07-24 — sklearn 1.10 / 1.11 deprecation fixes (aa3fefa, 4f85f87)
+
+**Decision (verified, code change landed).** Two sklearn deprecation breaks
+were cleared in `multisync/prediction.py`:
+
+- **`SVC(probability=True)` → `CalibratedClassifierCV(SVC(...), ensemble=False)`**
+  (commit `4f85f87`). `probability` was deprecated in sklearn 1.9 and removed
+  in 1.11; the calibrated-wrapped SVC is the supported replacement and yields
+  calibrated `predict_proba` for the `svm_rbf` nonlinear baseline.
+- **Remove the `penalty=` keyword from `LogisticRegression`** (commit
+  `aa3fefa`). `penalty` was deprecated in 1.8 and removed in 1.10. The L1
+  regularization is now expressed directly via `l1_ratio=1.0` with
+  `solver="saga"` (the elastic-net L1 special case), with no `penalty=`
+  argument — matching the prior `penalty='elasticnet'` / `'l1'` behaviour
+  without the removed keyword.
+
+**Rationale.** Both changes remove the only remaining sklearn deprecation
+warnings from the prediction path so the package imports and runs cleanly on
+sklearn 1.10 and 1.11. No modelling behaviour changed: the regularization
+strength (L1) and the calibrated SVM probability outputs are preserved.
+
+**Impact.** `pytest` no longer emits `FutureWarning: 'penalty' was deprecated`
+or `FutureWarning: The 'probability' parameter was deprecated` from
+`prediction.py`. The linear and nonlinear prediction baselines behave as
+before. No API surface or default changed for callers.
+
+**Source of truth.** `multisync/prediction.py` (`_nonlinear_model_factories`,
+`LogisticRegression` sites); guarded by `tests/test_prediction*.py`.
 
 ---
 
