@@ -155,7 +155,6 @@ def compute_incremental_auc(
             y_train, y_test = y[train_idx], y[test_idx]
 
             clf = LogisticRegression(
-                penalty="l2",
                 C=1.0,
                 solver="lbfgs",
                 max_iter=2000,

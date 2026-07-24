@@ -102,7 +102,7 @@ def stair_auc(X_all: pd.DataFrame, y: np.ndarray, order: list[str],
         folds = []
         for tr, te in skf.split(X_s, y):
             clf = LogisticRegression(
-                penalty="l2", C=1.0, solver="lbfgs",
+                C=1.0, solver="lbfgs",
                 max_iter=2000, random_state=RANDOM_STATE,
             )
             clf.fit(X_s[tr], y[tr])

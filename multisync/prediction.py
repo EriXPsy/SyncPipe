@@ -863,7 +863,7 @@ def rolling_origin_cv(
             X_test_scaled = scaler.transform(X_test)
 
             clf = LogisticRegression(
-                penalty="elasticnet", l1_ratio=1.0,
+                l1_ratio=1.0,
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
@@ -1457,7 +1457,7 @@ def cross_modal_prediction(
         # --- Restricted model (target shape + target AR) ---
         try:
             clf_restricted = LogisticRegression(
-                penalty="elasticnet", l1_ratio=1.0,
+                l1_ratio=1.0,
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
@@ -1478,7 +1478,7 @@ def cross_modal_prediction(
         joint_auc = float("nan")
         try:
             clf_joint = LogisticRegression(
-                penalty="elasticnet", l1_ratio=1.0,
+                l1_ratio=1.0,
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
@@ -1500,7 +1500,7 @@ def cross_modal_prediction(
         ablation_auc = float("nan")
         try:
             clf_abl = LogisticRegression(
-                penalty="elasticnet", l1_ratio=1.0,
+                l1_ratio=1.0,
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",

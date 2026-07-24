@@ -154,7 +154,7 @@ def compute_incremental_auc(
         fold_aucs = []
         for train_idx, test_idx in skf.split(X_scaled, y):
             clf = LogisticRegression(
-                penalty="l2", C=1.0, solver="lbfgs",
+                C=1.0, solver="lbfgs",
                 max_iter=2000, random_state=RANDOM_STATE,
             )
             clf.fit(X_scaled[train_idx], y[train_idx])
