@@ -75,6 +75,7 @@ for positioning relative to related tools (SyncPy, multiSyncPy, SUSY, rMEA).
 
 ---
 <img width="1376" height="768" alt="image" src="https://github.com/user-attachments/assets/17d3eaa0-215b-418d-88aa-5e87b8373c14" />
+<img width="1376" height="768" alt="image" src="https://github.com/user-attachments/assets/6feccbfe-c42c-4807-8155-f969d4c05fe4" />
 
 ## Conceptual architecture
 
@@ -85,7 +86,7 @@ SyncPipe has five infrastructure layers.
 | 1. Data/QC layer | Are the signals aligned, finite, and sampled consistently? | aligned dyadic time series | quality report / diagnostics |
 | 2. Trace layer | What is the moment-to-moment synchrony substrate? | WCC trace | WCC arrays per dyad/modality/condition |
 | 3. Descriptor layer | What aspects of the WCC trace are being summarized? | WCC-derived features | feature table |
-| 4. Audit/inference layer | What nuisance explanations have been ruled out? | null and design-control tests | evidence-chain report |
+| 4. Evidence/inference layer | What nuisance explanations have been ruled out? | null and design-control tests | evidence-chain report |
 | 5. Governance/export layer | Can the analysis be reproduced and inspected? | SSoT, method log, artifacts | JSON/CSV/Markdown outputs |
 
 The descriptor layer and the inference layer are deliberately separated. A feature can be useful descriptively without being a primary confirmatory endpoint.
@@ -248,8 +249,6 @@ by_mod = pipe.test_l2_by_modality(
     feature_cols=list(FDR_FEATURES), n_permutations=10000,
 )
 ```
-<img width="1376" height="768" alt="image" src="https://github.com/user-attachments/assets/6feccbfe-c42c-4807-8155-f969d4c05fe4" />
-
 The chain is three steps: (1) signal-level IAAFT **synchrony-existence** audit;
 (2) **design-control** audit (pseudo-pair + time-shift); (3) dyad-paired
 permutation + **BH-FDR** **group-condition** inference.
