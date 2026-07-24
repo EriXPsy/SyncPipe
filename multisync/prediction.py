@@ -172,6 +172,7 @@ def _nonlinear_model_factories(seed: int = 42) -> Dict[str, Any]:
     pipeline's reproducible RNG state (BUG-7: seed was previously hard-coded
     to 42 and never propagated from ``SyncPipe.seed``).
     """
+    from sklearn.calibration import CalibratedClassifierCV
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.svm import SVC
 
@@ -180,9 +181,9 @@ def _nonlinear_model_factories(seed: int = 42) -> Dict[str, Any]:
             n_estimators=200, random_state=seed,
             class_weight="balanced", n_jobs=1,
         ),
-        "svm_rbf": lambda: SVC(
-            kernel="rbf", probability=True, random_state=seed,
-            class_weight="balanced",
+        "svm_rbf": lambda: CalibratedClassifierCV(
+            SVC(kernel="rbf", random_state=seed, class_weight="balanced"),
+            ensemble=False,
         ),
     }
 
@@ -862,7 +863,7 @@ def rolling_origin_cv(
             X_test_scaled = scaler.transform(X_test)
 
             clf = LogisticRegression(
-                penalty="l1",
+                penalty="elasticnet", l1_ratio=1.0,
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
@@ -1302,7 +1303,21 @@ def cross_modal_prediction(
     diagnostics = {}
     high_corr_pairs = []
     try:
-        corr_matrix = np.corrcoef(X_source.T)
+        # Guard zero-variance (constant) source columns: np.corrcoef produces
+        # NaN correlations for constant columns, which then propagate into
+        # false multicollinearity signals and downstream NaN divides. Drop
+        # constant columns from the correlation computation, then reconstruct
+        # a full-size matrix so source_feature_names indexing is preserved
+        # (constant-column correlations are set to 0 — no spurious signal).
+        _src_std = np.std(X_source, axis=0, ddof=0)
+        _const_mask = _src_std == 0
+        if _const_mask.any():
+            _nonconst_idx = np.where(~_const_mask)[0]
+            _corr_sub = np.corrcoef(X_source[:, _nonconst_idx].T)
+            corr_matrix = np.zeros((X_source.shape[1], X_source.shape[1]))
+            corr_matrix[np.ix_(_nonconst_idx, _nonconst_idx)] = _corr_sub
+        else:
+            corr_matrix = np.corrcoef(X_source.T)
         for i in range(len(source_feature_names)):
             for j in range(i + 1, len(source_feature_names)):
                 if abs(corr_matrix[i, j]) > 0.9:
@@ -1442,7 +1457,7 @@ def cross_modal_prediction(
         # --- Restricted model (target shape + target AR) ---
         try:
             clf_restricted = LogisticRegression(
-                penalty="l1",
+                penalty="elasticnet", l1_ratio=1.0,
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
@@ -1463,7 +1478,7 @@ def cross_modal_prediction(
         joint_auc = float("nan")
         try:
             clf_joint = LogisticRegression(
-                penalty="l1",
+                penalty="elasticnet", l1_ratio=1.0,
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
@@ -1485,7 +1500,7 @@ def cross_modal_prediction(
         ablation_auc = float("nan")
         try:
             clf_abl = LogisticRegression(
-                penalty="l1",
+                penalty="elasticnet", l1_ratio=1.0,
                 solver="saga",
                 max_iter=max(max_iter, 500),
                 class_weight="balanced",
