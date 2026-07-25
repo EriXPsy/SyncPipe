@@ -17,9 +17,14 @@
 ## 0. One-line scientific object
 
 > SyncPipe v1 provides an **auditable measurement and inference procedure**
-> for **continuous low-frequency same-modality dyadic synchrony** under a
-> **pre-specified two-condition paired design** — not a validated measure of
-> the psychological construct "synchrony quality".
+> for **continuous low-frequency same-modality dyadic synchrony** — not a
+> validated measure of the psychological construct "synchrony quality".
+>
+> The **validated confirmatory claim** of v1 is a pre-specified two-condition
+> dyad-paired contrast. The **measurement core, the L0/L1 existence & structure
+> audits, and the predictive mode are design-agnostic** and provide first-class
+> support for single-condition, free-play, and continuous synchrony designs
+> (see §1).
 
 ---
 
@@ -27,9 +32,19 @@
 
 - **Atomic observation:** one zero-lag WCC trace (length `n_wcc_points`) for a
   single dyad within a single condition and modality.
-- **Primary estimand:** a **contrast** between two pre-specified conditions for
-  the *same* dyad (dyad-paired). The dyad is the pairing unit; condition is the
-  within-dyad factor.
+- **Primary confirmatory estimand:** a **contrast** between two pre-specified
+  conditions for the *same* dyad (dyad-paired). The dyad is the pairing unit;
+  condition is the within-dyad factor. This is the *validated confirmatory
+  claim* of v1 — not the only capability of the tool.
+- **Design-agnostic core (no condition required):** for any aligned same-modality
+  dyad — including a single continuous free-play session — SyncPipe produces the
+  WCC trace, interpretable descriptors, and the L0 (signal-level existence) and
+  L1 (WCC-level structure) audits. These are legitimate first-class results for
+  free-play / continuous designs that do not posit a between-condition contrast.
+- **Predictive mode:** `prediction.py` (cross-modal prediction, AR baseline,
+  ΔAUC) supports "does dyadic synchrony predict an outcome?" — a regression
+  family, distinct from the contrast family, and not part of the confirmatory
+  FDR claim.
 - **Modality family:** EDA / ECG / RESP / motion-energy are analyzed as
   *separate* families. v1 does **not** build a unified cross-modal psychological
   construct.
@@ -117,15 +132,19 @@ same dyad
 + explicit contrast = (condition_a, condition_b)
 ```
 
-**Out of v1 confirmatory scope** (may exist as exploratory API / future version,
-never in the v1 main claim):
+**Out of the v1 confirmatory FDR claim** (never promoted to confirmatory without a
+new Gate-0 freeze), but several are **supported as exploratory / diagnostic
+modes** and may appear labeled as such:
 
-- unpaired group comparison;
-- mixed-effects models;
-- arbitrary covariate formulas;
-- continuous predictors;
-- multi-condition omnibus inference;
-- unified cross-modal models.
+- unpaired group comparison — out of scope (exploratory only);
+- mixed-effects models — out of scope (exploratory only);
+- arbitrary covariate formulas — out of scope (exploratory only);
+- **continuous predictors / outcomes** — supported via `prediction.py`
+  (regression family; exploratory, not in the confirmatory FDR set);
+- **multi-condition / phased designs** (e.g., early-vs-late, baseline-vs-task) —
+  expressible by labeling the phase as a condition and reusing the L2 machinery
+  (exploratory-to-contrasting, subject to pre-specification);
+- unified cross-modal models — out of scope (diagnostic only).
 
 ---
 
@@ -160,7 +179,8 @@ unequal trials is impossible.
 | `switching_rate` | conditional exploratory structure descriptor | WCC state-transition frequency *when* definedness sufficient & threshold policy explicit |
 | `onset_latency` / `rise_time` / `recovery_time` | event/morphology exploratory | WCC trace morphology only; **not** participant lead-lag |
 | `bimodality_coefficient` / entropy | diagnostic explorer | existence audit; **not** in FDR family |
-| prediction / morphology clustering | **not in v1 core** | v2 or appendix only |
+| prediction (via `prediction.py`) | exploratory regression family | implemented (cross-modal prediction, AR baseline, ΔAUC); **not** in the confirmatory FDR claim |
+| morphology clustering | **not in v1** | v2 or appendix only |
 
 > **Core principle:** v1 *computes* structural features, but does **not** wrap
 > them into a universal psychological "synchrony quality" construct.

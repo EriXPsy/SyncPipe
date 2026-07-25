@@ -30,6 +30,11 @@ Concretely, v1 may claim:
    which results are excluded from confirmatory claims.
 5. That the same manifest+config yields **identical** results through the Python
    API and the CLI (parity).
+6. For free-play / continuous designs **without** a between-condition contrast, a
+   **design-agnostic measurement + L0/L1 existence & structure audit** as a
+   legitimate first-class result. The two-condition contrast is the *validated
+   confirmatory* claim of v1, not the only capability — single-condition and
+   continuous studies are first-class, supported users of the tool.
 
 ---
 
