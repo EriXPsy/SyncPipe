@@ -1272,6 +1272,78 @@ def extract_dynamic_features(
     return features
 
 
+def iter_dyad_pairs(dataset, cross_modal: bool = False):
+    """Yield (src_key, name_a, name_b, col_a, col_b, x, y) for each valid pair.
+
+    SINGLE SOURCE OF TRUTH for dyad pairing — every pairing site
+    (``DynamicAnalyzer._iter_pairs``, ``extract_features_all_pairs``,
+    ``extract_features_segmented``) must call this so the WCC cache, the
+    descriptor features, and the segmented features stay key-consistent
+    (one dyad = one key). This closes the "divergent pairing paths" gap.
+
+    DEFAULT (cross_modal=False): SAME-MODALITY dyad pairing. For each modality
+    with >=2 feature columns, pair its feature columns against each other
+    (e.g. ``person_a`` vs ``person_b``). Mirrors the scientific canonical
+    record (pipeline_bridge: one record = person_a vs person_b of a single
+    modality) and is the v1 default for the CLI ``analyze`` / ``DynamicAnalyzer``
+    descriptor path.
+
+    Two-file fallback: if no within-modality pair is found AND the dataset has
+    exactly two modalities each with exactly one feature column, pair them. This
+    covers the common "two CSVs, two people, one signal" CLI layout — still a
+    same-modality dyad, just represented as two modalities.
+
+    OPT-IN (cross_modal=True): legacy cross-modality pairing — every feature
+    column of one modality against every feature column of another modality.
+    Retained only for exploratory cross-modal description.
+    """
+    feat_cols = dataset.feature_columns
+    names = dataset.modality_names
+
+    if cross_modal:
+        for i, name_a in enumerate(names):
+            for name_b in names[i + 1:]:
+                for col_a in feat_cols[name_a]:
+                    for col_b in feat_cols[name_b]:
+                        x = dataset.get_aligned_array(name_a, col_a)
+                        y = dataset.get_aligned_array(name_b, col_b)
+                        if x is None or y is None:
+                            continue
+                        yield (
+                            f"{name_a}_{col_a}__{name_b}_{col_b}",
+                            name_a, name_b, col_a, col_b, x, y,
+                        )
+        return
+
+    # SAME-MODALITY default: pair feature columns WITHIN each modality.
+    yielded = 0
+    for name in names:
+        cols = feat_cols[name]
+        for i, col_a in enumerate(cols):
+            for col_b in cols[i + 1:]:
+                x = dataset.get_aligned_array(name, col_a)
+                y = dataset.get_aligned_array(name, col_b)
+                if x is None or y is None:
+                    continue
+                yielded += 1
+                yield (
+                    f"{name}_{col_a}__{name}_{col_b}",
+                    name, name, col_a, col_b, x, y,
+                )
+
+    # Two-file fallback for the common 2-single-column-CSV layout.
+    if yielded == 0 and len(names) == 2:
+        ca, cb = feat_cols[names[0]], feat_cols[names[1]]
+        if len(ca) == 1 and len(cb) == 1:
+            x = dataset.get_aligned_array(names[0], ca[0])
+            y = dataset.get_aligned_array(names[1], cb[0])
+            if x is not None and y is not None:
+                yield (
+                    f"{names[0]}_{ca[0]}__{names[1]}_{cb[0]}",
+                    names[0], names[1], ca[0], cb[0], x, y,
+                )
+
+
 def extract_features_all_pairs(
     dataset: "SynchronyDataset",  # noqa: F821
     window_size: int = 10,
@@ -1283,6 +1355,7 @@ def extract_features_all_pairs(
     surrogate_n: int = 200,
     surrogate_seed: int = 42,
     discontinuity_mask: Optional[np.ndarray] = None,
+    cross_modal: bool = False,
 ) -> Tuple[Dict[str, DynamicFeatures], Dict[str, Dict[str, Any]]]:
     """
     Compute WCC + dynamic features for all modality pairs.
@@ -1333,56 +1406,50 @@ def extract_features_all_pairs(
         dataset, "discontinuity_mask", None
     )
 
-    for i, name_a in enumerate(names):
-        for name_b in names[i + 1:]:
-            for col_a in feat_cols[name_a]:
-                for col_b in feat_cols[name_b]:
-                    x = dataset.get_aligned_array(name_a, col_a)
-                    y = dataset.get_aligned_array(name_b, col_b)
-                    if x is None or y is None:
-                        continue
+    for src_key, name_a, name_b, col_a, col_b, x, y in iter_dyad_pairs(
+        dataset, cross_modal=cross_modal
+    ):
+        key = src_key
 
-                    key = f"{name_a}_{col_a}__{name_b}_{col_b}"
+        # --- Resolve threshold ---
+        if use_surrogate_threshold:
+            thr, is_surr = compute_surrogate_threshold_from_signals(
+                x, y,
+                hz=hz,
+                wcc_window_size=window_size,
+                surrogate_n=surrogate_n,
+                seed=surrogate_seed,
+                discontinuity_mask=dm,
+            )
+            threshold_meta[key] = {
+                "threshold": thr,
+                "mode": "within_dyad_surrogate",
+                "scope": "within_dyad",
+                "is_surrogate_derived": is_surr,
+                "surrogate_n": surrogate_n,
+                "surrogate_percentile": SURROGATE_THRESHOLD_PERCENTILE,
+            }
+        else:
+            thr = (
+                ONSET_THRESHOLD
+                if onset_threshold is None
+                else float(onset_threshold)
+            )
+            threshold_meta[key] = {
+                "threshold": thr,
+                "mode": "fixed",
+                "scope": "fixed",
+                "is_surrogate_derived": False,
+            }
 
-                    # --- Resolve threshold ---
-                    if use_surrogate_threshold:
-                        thr, is_surr = compute_surrogate_threshold_from_signals(
-                            x, y,
-                            hz=hz,
-                            wcc_window_size=window_size,
-                            surrogate_n=surrogate_n,
-                            seed=surrogate_seed,
-                            discontinuity_mask=dm,
-                        )
-                        threshold_meta[key] = {
-                            "threshold": thr,
-                            "mode": "within_dyad_surrogate",
-                            "scope": "within_dyad",
-                            "is_surrogate_derived": is_surr,
-                            "surrogate_n": surrogate_n,
-                            "surrogate_percentile": SURROGATE_THRESHOLD_PERCENTILE,
-                        }
-                    else:
-                        thr = (
-                            ONSET_THRESHOLD
-                            if onset_threshold is None
-                            else float(onset_threshold)
-                        )
-                        threshold_meta[key] = {
-                            "threshold": thr,
-                            "mode": "fixed",
-                            "scope": "fixed",
-                            "is_surrogate_derived": False,
-                        }
-
-                    wcc = sliding_window_wcc_masked(
-                        x, y, window_size, hz, discontinuity_mask=dm
-                    )
-                    feat = extract_dynamic_features(
-                        wcc, hz, thr, onset_k,
-                        wcc_window_sec=wcc_window_sec,
-                    )
-                    results[key] = feat
+        wcc = sliding_window_wcc_masked(
+            x, y, window_size, hz, discontinuity_mask=dm
+        )
+        feat = extract_dynamic_features(
+            wcc, hz, thr, onset_k,
+            wcc_window_sec=wcc_window_sec,
+        )
+        results[key] = feat
 
     return results, threshold_meta
 
@@ -1399,6 +1466,7 @@ def extract_features_segmented(
     surrogate_n: int = 200,
     surrogate_seed: int = 42,
     discontinuity_mask: Optional[np.ndarray] = None,
+    cross_modal: bool = False,
 ) -> Tuple[Dict[str, Dict[str, DynamicFeatures]], Dict[str, Dict[str, Any]]]:
     """
     Compute WCC + dynamic features per CONTEXT segment.
@@ -1455,46 +1523,41 @@ def extract_features_segmented(
     dyad_thresholds: Dict[str, float] = {}
     threshold_meta: Dict[str, Dict[str, Any]] = {}
 
-    for i, name_a in enumerate(names):
-        for name_b in names[i + 1:]:
-            for col_a in feat_cols[name_a]:
-                for col_b in feat_cols[name_b]:
-                    key = f"{name_a}_{col_a}__{name_b}_{col_b}"
-                    x = dataset.get_aligned_array(name_a, col_a)
-                    y = dataset.get_aligned_array(name_b, col_b)
-                    if x is None or y is None:
-                        continue
-                    if use_surrogate_threshold:
-                        thr, is_surr = compute_surrogate_threshold_from_signals(
-                            x, y,
-                            hz=hz,
-                            wcc_window_size=window_size,
-                            surrogate_n=surrogate_n,
-                            seed=surrogate_seed,
-                            discontinuity_mask=dm,
-                        )
-                        dyad_thresholds[key] = thr
-                        threshold_meta[key] = {
-                            "threshold": thr,
-                            "mode": "within_dyad_surrogate",
-                            "scope": "within_dyad",
-                            "is_surrogate_derived": is_surr,
-                            "surrogate_n": surrogate_n,
-                            "surrogate_percentile": SURROGATE_THRESHOLD_PERCENTILE,
-                        }
-                    else:
-                        thr = (
-                            ONSET_THRESHOLD
-                            if onset_threshold is None
-                            else float(onset_threshold)
-                        )
-                        dyad_thresholds[key] = thr
-                        threshold_meta[key] = {
-                            "threshold": thr,
-                            "mode": "fixed",
-                            "scope": "fixed",
-                            "is_surrogate_derived": False,
-                        }
+    for src_key, name_a, name_b, col_a, col_b, x, y in iter_dyad_pairs(
+        dataset, cross_modal=cross_modal
+    ):
+        key = src_key
+        if use_surrogate_threshold:
+            thr, is_surr = compute_surrogate_threshold_from_signals(
+                x, y,
+                hz=hz,
+                wcc_window_size=window_size,
+                surrogate_n=surrogate_n,
+                seed=surrogate_seed,
+                discontinuity_mask=dm,
+            )
+            dyad_thresholds[key] = thr
+            threshold_meta[key] = {
+                "threshold": thr,
+                "mode": "within_dyad_surrogate",
+                "scope": "within_dyad",
+                "is_surrogate_derived": is_surr,
+                "surrogate_n": surrogate_n,
+                "surrogate_percentile": SURROGATE_THRESHOLD_PERCENTILE,
+            }
+        else:
+            thr = (
+                ONSET_THRESHOLD
+                if onset_threshold is None
+                else float(onset_threshold)
+            )
+            dyad_thresholds[key] = thr
+            threshold_meta[key] = {
+                "threshold": thr,
+                "mode": "fixed",
+                "scope": "fixed",
+                "is_surrogate_derived": False,
+            }
 
     segments: List[Tuple[str, float, float]] = []
     if dataset.context_labels:
@@ -1522,39 +1585,34 @@ def extract_features_segmented(
             continue
 
         seg_results: Dict[str, DynamicFeatures] = {}
-        for i, name_a in enumerate(names):
-            for name_b in names[i + 1:]:
-                for col_a in feat_cols[name_a]:
-                    for col_b in feat_cols[name_b]:
-                        x = dataset.get_aligned_array(name_a, col_a)
-                        y = dataset.get_aligned_array(name_b, col_b)
-                        if x is None or y is None:
-                            continue
+        for src_key, name_a, name_b, col_a, col_b, x, y in iter_dyad_pairs(
+            dataset, cross_modal=cross_modal
+        ):
+            key = src_key
 
-                        x_seg = x[mask]
-                        y_seg = y[mask]
-                        # Segment slice of the signal-resolution mask.
-                        seg_dm = dm[mask] if dm is not None else None
+            x_seg = x[mask]
+            y_seg = y[mask]
+            # Segment slice of the signal-resolution mask.
+            seg_dm = dm[mask] if dm is not None else None
 
-                        valid_ratio = (
-                            ~np.isnan(x_seg) & ~np.isnan(y_seg)
-                        ).sum() / len(x_seg)
-                        if valid_ratio < (1.0 - max_nan_ratio):
-                            continue
+            valid_ratio = (
+                ~np.isnan(x_seg) & ~np.isnan(y_seg)
+            ).sum() / len(x_seg)
+            if valid_ratio < (1.0 - max_nan_ratio):
+                continue
 
-                        wcc = sliding_window_wcc_masked(
-                            x_seg, y_seg, window_size, hz, discontinuity_mask=seg_dm
-                        )
-                        if len(wcc) < 5:
-                            continue
+            wcc = sliding_window_wcc_masked(
+                x_seg, y_seg, window_size, hz, discontinuity_mask=seg_dm
+            )
+            if len(wcc) < 5:
+                continue
 
-                        key = f"{name_a}_{col_a}__{name_b}_{col_b}"
-                        thr = dyad_thresholds.get(key, ONSET_THRESHOLD)
-                        feat = extract_dynamic_features(
-                            wcc, hz, thr, onset_k, max_nan_ratio,
-                            wcc_window_sec=wcc_window_sec,
-                        )
-                        seg_results[key] = feat
+            thr = dyad_thresholds.get(key, ONSET_THRESHOLD)
+            feat = extract_dynamic_features(
+                wcc, hz, thr, onset_k, max_nan_ratio,
+                wcc_window_sec=wcc_window_sec,
+            )
+            seg_results[key] = feat
 
         results[label] = seg_results
 

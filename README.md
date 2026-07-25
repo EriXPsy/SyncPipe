@@ -67,12 +67,15 @@ family (e.g. EDA-A vs EDA-B, ECG-A vs ECG-B, RESP-A vs RESP-B), separately per
 family. v1 does **not** compute cross-modal synchrony (e.g. EDA-A vs ECG-B) or
 multivariate coordination.
 
-> **Known gap (to be aligned):** the CLI `analyze` descriptor path
-> (`DynamicAnalyzer`) currently pairs *all* provided signal columns by input
-> naming, which can yield cross-modal pairs (e.g. EDA×ECG) depending on how the
-> CSV columns are laid out. Its pairing semantics must be restricted to
-> same-modality dyads to match the scientific canonical. Tracked as a
-> post-review action.
+> **Resolved (v1.0, 2026-07-25):** the CLI `analyze` descriptor path
+> (`DynamicAnalyzer`) now defaults to **same-modality dyad pairing** — it pairs
+> feature columns *within* a single modality (e.g. `person_a` vs `person_b`),
+> matching the scientific canonical. The legacy cross-modal pairing
+> (EDA×ECG, etc.) is still available as an explicit opt-in via `--cross-modal`.
+> All three pairing sites (`DynamicAnalyzer._iter_pairs`,
+> `extract_features_all_pairs`, `extract_features_segmented`) share one
+> `iter_dyad_pairs` helper so the WCC cache, descriptor features, and segmented
+> features stay key-consistent.
 
 This scope does **not** currently cover:
 

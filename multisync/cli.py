@@ -70,6 +70,18 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         dyad.align(target_hz=hz)
     dyad.zscore()
 
+    # P1-D strict input contract: every modality must carry at least one
+    # numeric signal column, or the result is meaningless. Fail loud.
+    empty_mods = [m for m, cols in dyad.feature_columns.items() if not cols]
+    if empty_mods:
+        print(
+            f"Error: modality(ies) {empty_mods} have no numeric feature "
+            f"columns (only 'time'). Provide at least one signal column per "
+            f"modality.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
     qc_report = run_quality_check(dyad, raise_on_fail=False)
     print(format_qc_report(qc_report))
     for w in _align_warnings:
@@ -89,6 +101,7 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         max_lag_sec=args.max_lag,
         seed=args.seed,
         run_qc=False,
+        cross_modal=getattr(args, "cross_modal", False),
     )
 
     # Fail-loud: --max-lag is accepted for compatibility but ignored (v1 = zero-lag WCC).
@@ -101,6 +114,18 @@ def cmd_analyze(args: argparse.Namespace) -> None:
 
     print("  Running analysis...")
     results = analyzer.fit_transform(dyad)
+
+    # P1-D strict input contract: refuse to emit a meaningless empty result.
+    if not results.dynamic_features:
+        print(
+            "Error: no same-modality dyad pairs could be formed from the "
+            "input. Provide a same-modality dyad (one modality with "
+            "person_a/person_b columns, or two single-column files for the "
+            "two dyad members). Use --cross-modal to pair across modalities.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
     results.parameters["qc"] = qc_report.to_dict()
     results.parameters["full_family_fdr"] = bool(
         getattr(args, "full_family_fdr", False)
@@ -386,6 +411,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--max-lag", type=float, default=30.0,
         help="[DEPRECATED / ignored] Retained for compatibility only. SyncPipe v1 "
              "computes zero-lag WCC; this flag does NOT change the computation.",
+    )
+    p_analyze.add_argument(
+        "--cross-modal", action="store_true",
+        help="OPT-IN: pair ACROSS modalities (legacy exploratory cross-modal "
+             "description) instead of the v1 default SAME-MODALITY dyad "
+             "pairing (person_a vs person_b within one modality).",
     )
     p_analyze.add_argument("--seed", type=int, default=42, help="Random seed.")
     p_analyze.add_argument(

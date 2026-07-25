@@ -32,6 +32,7 @@ from .dynamic_features import (
     extract_dynamic_features,
     extract_features_all_pairs,
     extract_features_segmented,
+    iter_dyad_pairs,
     sliding_window_wcc,
     sliding_window_wcc_masked,
 )
@@ -326,9 +327,11 @@ class DynamicAnalyzer:
         qc_raise_on_fail: bool = True,
         qc_config: Optional[Dict[str, Any]] = None,
         window_type: str = "rect",
+        cross_modal: bool = False,
     ) -> None:
         self.window_size = window_size
         self.window_type = window_type.lower()
+        self.cross_modal = bool(cross_modal)
         self.surrogate_n = surrogate_n
         self.max_lag_sec = max_lag_sec
         self.alpha = alpha
@@ -375,30 +378,14 @@ class DynamicAnalyzer:
     def _iter_pairs(self, dataset):
         """
         Generate (src_key, name_a, name_b, col_a, col_b, x, y)
-        for all valid modality+feature column pairs.
+        for all valid dyad pairs.
+
+        Delegates to the shared ``iter_dyad_pairs`` so the WCC cache stays
+        key-consistent with extract_features_all_pairs / _segmented. Default is
+        SAME-MODALITY dyad pairing (v1 contract); cross-modal is opt-in via
+        ``self.cross_modal``.
         """
-        names = dataset.modality_names
-        feat_cols = dataset.feature_columns
-        if len(names) < 2:
-            # No pair can be formed; the caller would otherwise produce a
-            # silently empty AnalysisResults.  Fail LOUD (no silent empty
-            # output for a mis-specified single-modality dataset).
-            logging.getLogger(__name__).warning(
-                "DynamicAnalyzer._iter_pairs: dataset has only %d modality"
-                "(ies) (%s); at least 2 are required to form a pair. "
-                "Analysis will yield zero pairs / empty results.",
-                len(names), names,
-            )
-        for i, name_a in enumerate(names):
-            for name_b in names[i + 1:]:
-                for col_a in feat_cols[name_a]:
-                    for col_b in feat_cols[name_b]:
-                        x = dataset.get_aligned_array(name_a, col_a)
-                        y = dataset.get_aligned_array(name_b, col_b)
-                        if x is None or y is None:
-                            continue
-                        src_key = f"{name_a}_{col_a}__{name_b}_{col_b}"
-                        yield src_key, name_a, name_b, col_a, col_b, x, y
+        yield from iter_dyad_pairs(dataset, cross_modal=self.cross_modal)
 
     def fit_transform(self, dataset: SynchronyDataset) -> AnalysisResults:
         """
@@ -491,6 +478,7 @@ class DynamicAnalyzer:
             use_surrogate_threshold=self._use_surrogate_threshold,
             surrogate_n=self.surrogate_n,
             surrogate_seed=self.seed,
+            cross_modal=self.cross_modal,
         )
         results.dynamic_features = {k: v.to_dict() for k, v in feat_dict.items()}
         results.threshold_meta = threshold_meta
@@ -506,6 +494,7 @@ class DynamicAnalyzer:
                 use_surrogate_threshold=self._use_surrogate_threshold,
                 surrogate_n=self.surrogate_n,
                 surrogate_seed=self.seed,
+                cross_modal=self.cross_modal,
             )
             results.dynamic_features_segmented = {
                 label: {pair: feat.to_dict() for pair, feat in pairs.items()}
@@ -610,5 +599,47 @@ class DynamicAnalyzer:
                     "score": ctx.score,
                     "mean_sync": mean_sync,
                 })
+
+        # P1-E: augment the unified manifest (parameters) with an explicit,
+        # reproducible computation contract. Keeps the descriptor path honest
+        # about what was actually computed (zero-lag WCC, step, threshold
+        # scope, missing-data policy, valid WCC-point counts, per-condition
+        # record length) so results are not silently re-interpretable.
+        n_valid_wcc_points = {
+            k: int(np.sum(~np.isnan(w))) for k, w in wcc_cache.items()
+        }
+        per_condition_record_length: Dict[str, int] = {}
+        if dataset.context_labels:
+            t_vec = dataset.time_vector()
+            wcc_offset = (self.window_size - 1) / (2.0 * hz)
+            for ctx in dataset.context_labels:
+                c = 0
+                for w in wcc_cache.values():
+                    wt = t_vec[: len(w)] + wcc_offset
+                    m = (wt >= ctx.start_sec) & (wt < ctx.end_sec)
+                    c += int(np.sum(~np.isnan(w[m])))
+                per_condition_record_length[ctx.label] = c
+        onset_threshold_effective_per_pair: Dict[str, Optional[float]] = {}
+        for k in wcc_cache:
+            if self._use_surrogate_threshold:
+                onset_threshold_effective_per_pair[k] = threshold_meta.get(
+                    k, {}
+                ).get("threshold")
+            else:
+                onset_threshold_effective_per_pair[k] = self.onset_threshold
+        missing_policy = (
+            "discontinuity_mask_skip"
+            if getattr(dataset, "discontinuity_mask", None) is not None
+            else "none"
+        )
+        results.parameters.update({
+            "effective_lag_sec": 0.0,
+            "lag_scan": "none (zero-lag WCC; --max-lag is deprecated and ignored in v1)",
+            "wcc_step_samples": 1,
+            "missing_policy": missing_policy,
+            "n_valid_wcc_points": n_valid_wcc_points,
+            "per_condition_record_length": per_condition_record_length,
+            "onset_threshold_effective_per_pair": onset_threshold_effective_per_pair,
+        })
 
         return results
