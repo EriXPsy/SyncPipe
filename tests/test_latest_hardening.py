@@ -121,3 +121,23 @@ def test_pairing_policy_is_explicit_in_manifest():
     result = DynamicAnalyzer(window_size=5, surrogate_n=2, run_qc=False).fit_transform(ds)
     assert result.parameters["pairing_policy"] == "same_modality"
     assert result.parameters["effective_lag_sec"] == 0.0
+
+
+def test_observation_guard_detects_within_cell_trial_length_variation():
+    rows = [
+        {"dyad_id": "d0", "condition": "A", "n_wcc_points": 90, "peak_amplitude": .5},
+        {"dyad_id": "d0", "condition": "A", "n_wcc_points": 120, "peak_amplitude": .5},
+        {"dyad_id": "d0", "condition": "B", "n_wcc_points": 90, "peak_amplitude": .5},
+        {"dyad_id": "d1", "condition": "A", "n_wcc_points": 90, "peak_amplitude": .5},
+        {"dyad_id": "d1", "condition": "B", "n_wcc_points": 90, "peak_amplitude": .5},
+        {"dyad_id": "d2", "condition": "A", "n_wcc_points": 90, "peak_amplitude": .5},
+        {"dyad_id": "d2", "condition": "B", "n_wcc_points": 90, "peak_amplitude": .5},
+        {"dyad_id": "d3", "condition": "A", "n_wcc_points": 90, "peak_amplitude": .5},
+        {"dyad_id": "d3", "condition": "B", "n_wcc_points": 90, "peak_amplitude": .5},
+    ]
+    with pytest.raises(ValueError, match="Observation opportunity"):
+        between_condition_fdr(
+            pd.DataFrame(rows), dyad_col="dyad_id",
+            feature_cols=["peak_amplitude"], condition_values=("A", "B"),
+            observation_policy="raise",
+        )

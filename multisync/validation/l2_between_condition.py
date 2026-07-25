@@ -420,7 +420,15 @@ def between_condition_fdr(
     if observation_col is not None and observation_col in df.columns and observation_policy != "ignore":
         obs = df[[dyad_col, condition_col, observation_col]].dropna()
         if not obs.empty:
-            obs = obs.groupby([dyad_col, condition_col], as_index=False)[observation_col].first()
+            cell_stats = (
+                obs.groupby([dyad_col, condition_col])[observation_col]
+                .agg(cell_min="min", cell_max="max", cell_nunique="nunique")
+                .reset_index()
+            )
+            internal_variation = cell_stats[cell_stats["cell_nunique"] > 1]
+            # Do not use first(): it would hide unequal trial observation
+            # opportunity inside one dyad-condition cell.
+            obs = obs.groupby([dyad_col, condition_col], as_index=False)[observation_col].mean()
             pivot = obs.pivot(index=dyad_col, columns=condition_col, values=observation_col)
             if condition_values is not None:
                 pivot = pivot.reindex(columns=list(condition_values))
@@ -430,16 +438,21 @@ def between_condition_fdr(
                     vals = row.dropna().to_numpy(dtype=float)
                     if vals.size >= 2 and not np.allclose(vals, vals[0]):
                         unequal.append(str(dyad_id))
+            internal_dyads = sorted(internal_variation[dyad_col].astype(str).unique().tolist())
             observation_guard = {
                 "available": True, "column": observation_col,
                 "n_dyads_unequal": len(unequal),
-                "unequal_dyads": unequal[:20], "policy": observation_policy,
+                "unequal_dyads": unequal[:20],
+                "n_cells_internal_variation": int(len(internal_variation)),
+                "internal_variation_dyads": internal_dyads[:20],
+                "policy": observation_policy,
             }
-            if unequal:
+            if unequal or len(internal_variation):
+                affected = sorted(set(unequal) | set(internal_dyads))
                 msg = (
-                    f"Observation opportunity differs across conditions for {len(unequal)} "
-                    f"dyad(s) in {observation_col!r}; maximum/peak features are not "
-                    "directly comparable."
+                    f"Observation opportunity differs across conditions or trials for "
+                    f"{len(affected)} dyad(s) in {observation_col!r}; maximum/peak "
+                    "features are not directly comparable."
                 )
                 if observation_policy == "raise":
                     raise ValueError(msg)
