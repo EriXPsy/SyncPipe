@@ -159,6 +159,11 @@ class DataImporter:
         if person_a_cols and person_b_cols:
             # Build dyad DataFrame: columns are 'time', 'person_a', 'person_b'
             # Caller is responsible for passing matching-length arrays
+            if not (len(person_a_cols) == len(person_b_cols) == 1):
+                raise ValueError(
+                    "person_a_cols / person_b_cols currently accept a single column each; "
+                    f"got {len(person_a_cols)} / {len(person_b_cols)}. Multi-column dyad not supported."
+                )
             out = {"signal": pd.DataFrame({
                 "time": time_arr,
                 "person_a": df[person_a_cols[0]].values.astype(float),
@@ -337,8 +342,12 @@ class DataImporter:
                         hz = float(device_info.get("sampling rate",
                                device_info.get("sr", hz)))
                         channel_names = device_info.get("channels", [])
-                        if isinstance(channel_names, list):
-                            channel_names = [f"CH{i+1}" for i in range(len(channel_names))]
+                        if isinstance(channel_names, list) and channel_names:
+                            # 保留真实 channel 标识；仅当 header 无可用字符串名时才回退占位符
+                            if all(isinstance(c, str) and c.strip() for c in channel_names):
+                                channel_names = [c.strip() for c in channel_names]
+                            else:
+                                channel_names = [f"CH{i+1}" for i in range(len(channel_names))]
                 break
             except (json.JSONDecodeError, AttributeError):
                 continue
@@ -499,6 +508,8 @@ class DataImporter:
         time_col: Optional[str] = None,
         signal_col: Optional[str] = None,
         offset_b_sec: Optional[float] = None,
+        hz: Optional[float] = None,
+        tolerance_samples: float = 2.0,
     ) -> pd.DataFrame:
         """
         Merge two single-person CSV files into one dyad DataFrame.
@@ -563,12 +574,20 @@ class DataImporter:
         df_a = _load_person(file_a, is_b=False).rename(columns={"signal": "person_a"})
         df_b = _load_person(file_b, is_b=True).rename(columns={"signal": "person_b"})
 
-        # Merge on nearest time (tolerance = 2 samples at default_hz)
+        # 有效采样率：显式覆盖 > 从真实时间向量推断 > default_hz 兜底
+        if hz is None:
+            hz_a = _infer_hz(df_a["time"].values)
+            hz_b = _infer_hz(df_b["time"].values)
+            hz = min(hz_a, hz_b) or self.default_hz
+        hz = hz or self.default_hz
+        tolerance = tolerance_samples / hz
+
+        # Merge on nearest time (tolerance = tolerance_samples / effective hz)
         merged = pd.merge_asof(
             df_a.sort_values("time"),
             df_b.sort_values("time"),
             on="time",
-            tolerance=2.0 / self.default_hz,
+            tolerance=tolerance,
             direction="nearest",
         )
         return merged[["time", "person_a", "person_b"]]
