@@ -104,14 +104,6 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         cross_modal=getattr(args, "cross_modal", False),
     )
 
-    # Fail-loud: --max-lag is accepted for compatibility but ignored (v1 = zero-lag WCC).
-    if args.max_lag != 30.0:
-        print(
-            "[SyncPipe] WARNING: --max-lag is DEPRECATED and ignored. v1 computes "
-            "zero-lag WCC only; no lag scan or lead-lag estimation is performed.",
-            file=sys.stderr,
-        )
-
     print("  Running analysis...")
     results = analyzer.fit_transform(dyad)
 
@@ -236,7 +228,7 @@ def cmd_demo(args: argparse.Namespace) -> None:
     analyzer = DynamicAnalyzer(
         window_size=10,
         surrogate_n=args.surrogates,
-        max_lag_sec=30.0,
+        max_lag_sec=0.0,
         seed=42,
         enable_prediction=bool(getattr(args, "prediction", False)),
     )
@@ -408,9 +400,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_analyze.add_argument("--window-size", type=int, default=10, help="WCC window size.")
     p_analyze.add_argument("--surrogates", type=int, default=500, help="Number of surrogates.")
     p_analyze.add_argument(
-        "--max-lag", type=float, default=30.0,
-        help="[DEPRECATED / ignored] Retained for compatibility only. SyncPipe v1 "
-             "computes zero-lag WCC; this flag does NOT change the computation.",
+        "--max-lag", type=float, default=0.0,
+        help="v1 supports zero-lag WCC only; non-zero values fail loudly.",
     )
     p_analyze.add_argument(
         "--cross-modal", action="store_true",

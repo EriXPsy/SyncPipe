@@ -63,8 +63,12 @@ class ComputationPipeline:
         wclr_metric: str = "beta",
         window_type: str = "rect",
     ):
-        self.hz = hz
-        self.window_size = window_size
+        if not np.isfinite(hz) or hz <= 0:
+            raise ValueError(f"hz must be finite and positive, got {hz!r}")
+        if int(window_size) != window_size or window_size < 2:
+            raise ValueError(f"window_size must be an integer >= 2, got {window_size!r}")
+        self.hz = float(hz)
+        self.window_size = int(window_size)
         self.onset_threshold = onset_threshold
         self.backend = backend.lower()
         self.window_type = window_type.lower()
@@ -115,6 +119,24 @@ class ComputationPipeline:
         """
         self._sig_a = np.asarray(sig_a, dtype=float)
         self._sig_b = np.asarray(sig_b, dtype=float)
+        if self._sig_a.ndim != 1 or self._sig_b.ndim != 1:
+            raise ValueError(
+                f"sig_a and sig_b must be 1-D arrays; got "
+                f"{self._sig_a.shape} and {self._sig_b.shape}."
+            )
+        if self._sig_a.size != self._sig_b.size:
+            raise ValueError(
+                f"sig_a and sig_b must have equal length; got "
+                f"{self._sig_a.size} and {self._sig_b.size}."
+            )
+        if discontinuity_mask is not None:
+            dm = np.asarray(discontinuity_mask, dtype=bool)
+            if dm.ndim != 1 or dm.size != self._sig_a.size:
+                raise ValueError(
+                    "discontinuity_mask must be a 1-D boolean array with "
+                    f"length {self._sig_a.size}, got shape {dm.shape}."
+                )
+            discontinuity_mask = dm
         self._discontinuity_mask = discontinuity_mask
         self._metadata = {"label": label, **metadata}
         self._wcc = None
@@ -179,9 +201,7 @@ class ComputationPipeline:
                 metric=self.wclr_metric,
             )
             self._wcc = trace
-            return self._wcc
-
-        if method == "cumsum" and self.window_type == "rect":
+        elif method == "cumsum" and self.window_type == "rect":
             # Fast O(n) cumsum backend — correct ONLY for the uniform ('rect')
             # taper.  A non-rect taper would be phase-shifted by the global
             # tiling; the existing `else` branch routes tapered windows through
@@ -215,7 +235,7 @@ class ComputationPipeline:
         # Gate out coupling windows that straddle a segment-boundary seam.
         # NaN windows are skipped by feature extraction (isfinite) and by the
         # surrogate nulls, keeping observed features and null consistent.
-        if self._discontinuity_mask is not None and self.backend == "wcc":
+        if self._discontinuity_mask is not None:
             self._wcc = _apply_discontinuity_mask(
                 self._wcc, self._discontinuity_mask, self.window_size
             )
@@ -283,6 +303,14 @@ class ComputationPipeline:
             raise ValueError("Call extract_features() first.")
         feature_dict = self._features.to_dict()
         row = {**self._metadata, **feature_dict}
+        n_signal = int(self._sig_a.size) if self._sig_a is not None else 0
+        n_wcc = int(self._wcc.size) if self._wcc is not None else 0
+        n_valid = int(np.isfinite(self._wcc).sum()) if self._wcc is not None else 0
+        row["n_signal_samples"] = n_signal
+        row["n_wcc_points"] = n_wcc
+        row["n_valid_wcc_points"] = n_valid
+        row["valid_wcc_fraction"] = n_valid / n_wcc if n_wcc else float("nan")
+        row["wcc_observation_sec"] = n_wcc / self.hz if self.hz > 0 else float("nan")
         return pd.DataFrame([row])
 
     @property

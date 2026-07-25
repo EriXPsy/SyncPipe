@@ -183,6 +183,8 @@ class L2Result:
     defined_a: int = 0
     defined_b: int = 0
     p_definedness: float = 1.0
+    definedness_status: str = "complete"
+    claimable: bool = True
 
     @property
     def cohens_d(self) -> float:
@@ -219,6 +221,12 @@ def between_condition_fdr(
     threshold_scope: str = "unknown",
     modality_col: Optional[str] = "modality",
     allow_multimodal_pool: bool = False,
+    observation_col: Optional[str] = "n_wcc_points",
+    observation_policy: str = "warn",
+    undefined_policy: str = "flag",
+    min_defined_fraction: float = 0.50,
+    eligibility_policy: str = "warn",
+    n_min_dyads: int = 10,
 ) -> Dict[str, Union[List[L2Result], L2Result]]:
     """L2 between-condition permutation test with BH-FDR correction.
 
@@ -265,6 +273,16 @@ def between_condition_fdr(
         condition_values are not found.
     """
     # ── Validate ───────────────────────────────────────────────────────
+    if observation_policy not in {"ignore", "warn", "raise"}:
+        raise ValueError("observation_policy must be 'ignore', 'warn', or 'raise'")
+    if undefined_policy not in {"flag", "gate"}:
+        raise ValueError("undefined_policy must be 'flag' or 'gate'")
+    if eligibility_policy not in {"ignore", "warn", "raise"}:
+        raise ValueError("eligibility_policy must be 'ignore', 'warn', or 'raise'")
+    if n_min_dyads < 1:
+        raise ValueError("n_min_dyads must be >= 1")
+    if not 0.0 <= min_defined_fraction <= 1.0:
+        raise ValueError("min_defined_fraction must lie in [0, 1]")
     if feature_cols is None:
         from ..feature_definitions import FDR_FEATURES
         feature_cols = list(FDR_FEATURES)
@@ -397,6 +415,38 @@ def between_condition_fdr(
                     f"Condition '{c}' not found in data. Available: {unique_conditions}"
                 )
 
+    # ── Observation-opportunity guard ─────────────────────────────────
+    observation_guard = {"available": False, "policy": observation_policy}
+    if observation_col is not None and observation_col in df.columns and observation_policy != "ignore":
+        obs = df[[dyad_col, condition_col, observation_col]].dropna()
+        if not obs.empty:
+            obs = obs.groupby([dyad_col, condition_col], as_index=False)[observation_col].first()
+            pivot = obs.pivot(index=dyad_col, columns=condition_col, values=observation_col)
+            if condition_values is not None:
+                pivot = pivot.reindex(columns=list(condition_values))
+            unequal = []
+            if pivot.shape[1] >= 2:
+                for dyad_id, row in pivot.iterrows():
+                    vals = row.dropna().to_numpy(dtype=float)
+                    if vals.size >= 2 and not np.allclose(vals, vals[0]):
+                        unequal.append(str(dyad_id))
+            observation_guard = {
+                "available": True, "column": observation_col,
+                "n_dyads_unequal": len(unequal),
+                "unequal_dyads": unequal[:20], "policy": observation_policy,
+            }
+            if unequal:
+                msg = (
+                    f"Observation opportunity differs across conditions for {len(unequal)} "
+                    f"dyad(s) in {observation_col!r}; maximum/peak features are not "
+                    "directly comparable."
+                )
+                if observation_policy == "raise":
+                    raise ValueError(msg)
+                warnings.warn(msg, UserWarning, stacklevel=2)
+    elif observation_col is not None and observation_policy == "warn":
+        observation_guard["warning"] = f"{observation_col!r} not present; opportunity was not checked."
+
     # ── Build paired dyad table ─────────────────────────────────────────
     subset = df[[dyad_col, condition_col] + feature_cols].dropna(
         subset=[dyad_col, condition_col]
@@ -430,6 +480,15 @@ def between_condition_fdr(
         df_b = df_b.loc[common_dyads]
 
     n_dyads = len(common_dyads)
+    eligibility_status = "pass" if n_dyads >= n_min_dyads else "underpowered"
+    if eligibility_status == "underpowered" and eligibility_policy != "ignore":
+        msg = (
+            f"Only {n_dyads} paired dyads; the configured v1 eligibility floor "
+            f"is {n_min_dyads}. Results are exploratory/underpowered."
+        )
+        if eligibility_policy == "raise":
+            raise ValueError(msg)
+        warnings.warn(msg, UserWarning, stacklevel=2)
 
     # ── Permutation test per feature ────────────────────────────────────
     rng = np.random.default_rng(seed)
@@ -451,6 +510,10 @@ def between_condition_fdr(
         def_diff_obs = def_a_count - def_b_count
         def_null_diffs = _definedness_null(is_def_a, is_def_b, n_permutations, rng)
         p_def = _exact_p(def_diff_obs, def_null_diffs)
+        min_rate = min(def_a_count, def_b_count) / max(n_dyads, 1)
+        informative_undefinedness = (p_def < alpha) or (min_rate < min_defined_fraction)
+        definedness_status = "informative_undefinedness" if informative_undefinedness else "complete"
+        claimable = not informative_undefinedness or undefined_policy == "flag"
 
         # --- Scheme 3: Continue with valid pairs only ---
         valid = is_def_a & is_def_b
@@ -470,6 +533,8 @@ def between_condition_fdr(
                 defined_a=def_a_count,
                 defined_b=def_b_count,
                 p_definedness=p_def,
+                definedness_status=definedness_status,
+                claimable=False if undefined_policy == "gate" else claimable,
             ))
             continue
 
@@ -505,6 +570,8 @@ def between_condition_fdr(
             defined_a=def_a_count,
             defined_b=def_b_count,
             p_definedness=p_def,
+            definedness_status=definedness_status,
+            claimable=claimable,
         ))
 
     # ── BH-FDR across features ─────────────────────────────────────────
@@ -513,7 +580,7 @@ def between_condition_fdr(
 
     for i, r in enumerate(results):
         r.p_fdr = float(p_fdr_arr[i]) if np.isfinite(p_fdr_arr[i]) else 1.0
-        r.significant_05 = bool(r.p_fdr < alpha)
+        r.significant_05 = bool(r.p_fdr < alpha and r.claimable)
 
     n_significant = sum(1 for r in results if r.significant_05)
 
@@ -532,6 +599,8 @@ def between_condition_fdr(
             "defined_a": r.defined_a,
             "defined_b": r.defined_b,
             "p_definedness": r.p_definedness,
+            "definedness_status": r.definedness_status,
+            "claimable": r.claimable,
         }
         for r in results
     ])
@@ -546,6 +615,10 @@ def between_condition_fdr(
         "n_permutations": n_permutations,
         "summary_df": summary_df,
         "vif_gate": vif_gate,
+        "observation_guard": observation_guard,
+        "eligibility_status": eligibility_status,
+        "n_min_dyads": n_min_dyads,
+        "undefined_policy": undefined_policy,
     }
 
 
@@ -577,6 +650,12 @@ def between_condition_by_modality(
     alpha: float = 0.05,
     condition_values: Optional[Tuple[str, str]] = None,
     threshold_scope: str = "unknown",
+    observation_col: Optional[str] = "n_wcc_points",
+    observation_policy: str = "warn",
+    undefined_policy: str = "flag",
+    min_defined_fraction: float = 0.50,
+    eligibility_policy: str = "warn",
+    n_min_dyads: int = 10,
 ) -> Dict[str, Dict]:
     """Run L2 between-condition test split by modality.
 
@@ -615,6 +694,12 @@ def between_condition_by_modality(
                 # Subset is single-modality; disable the multimodal guard.
                 modality_col=None,
                 allow_multimodal_pool=False,
+                observation_col=observation_col,
+                observation_policy=observation_policy,
+                undefined_policy=undefined_policy,
+                min_defined_fraction=min_defined_fraction,
+                eligibility_policy=eligibility_policy,
+                n_min_dyads=n_min_dyads,
             )
         except ValueError as e:
             results[mod] = {"error": str(e)}

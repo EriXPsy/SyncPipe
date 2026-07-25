@@ -16,7 +16,7 @@ they are designed to make shared-stimulus and co-presence alternatives visible.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -97,17 +97,22 @@ def extract_pair_features(
     threshold: float = ONSET_THRESHOLD,
     feature_names: Sequence[str] = DEFAULT_AUDIT_FEATURES,
     window_type: str = "rect",
+    discontinuity_mask: Optional[np.ndarray] = None,
 ) -> Dict[str, float]:
     """Compute WCC and selected SyncPipe features for one signal pair."""
     a, b = _finite_pair(sig_a, sig_b)
     if a.size < window_size or b.size < window_size:
         return {name: float("nan") for name in feature_names}
     wcc = sliding_window_wcc(a, b, window_size=window_size, hz=hz, window_type=window_type)
+    if discontinuity_mask is not None:
+        from .dynamic_features import _apply_discontinuity_mask
+        wcc = _apply_discontinuity_mask(wcc, discontinuity_mask, window_size)
     feats = extract_features(
         wcc,
         hz=hz,
         wcc_window_sec=window_size / hz if hz > 0 else float(window_size),
         threshold=threshold,
+        gap_policy="segment" if discontinuity_mask is not None else None,
     )
     return {name: float(getattr(feats, name, np.nan)) for name in feature_names}
 
@@ -215,12 +220,13 @@ def design_control_audit(
     *,
     hz: float,
     window_size: int,
-    threshold: float = ONSET_THRESHOLD,
+    threshold: Union[float, Mapping[str, float]] = ONSET_THRESHOLD,
     feature_names: Sequence[str] = DEFAULT_AUDIT_FEATURES,
     n_pseudo_per_dyad: int = 10,
     shift_lags_sec: Sequence[float] = (-60.0, -45.0, -30.0, 30.0, 45.0, 60.0),
     seed: int = 42,
     window_type: str = "rect",
+    discontinuity_masks: Optional[Mapping[str, np.ndarray]] = None,
 ) -> Dict[str, Any]:
     """Run pseudo-pair and time-shift design controls for a cohort.
 
@@ -243,14 +249,35 @@ def design_control_audit(
     """
     rng = np.random.default_rng(seed)
     ids = list(signal_pairs.keys())
+    if discontinuity_masks is not None:
+        missing_masks = sorted(set(ids) - set(discontinuity_masks))
+        if missing_masks:
+            raise ValueError(
+                "discontinuity_masks must use the same keys as signal_pairs; "
+                f"missing masks for {missing_masks[:10]}"
+            )
+
+    def _threshold_for(pair_id: str) -> float:
+        if isinstance(threshold, Mapping):
+            if pair_id not in threshold:
+                raise ValueError(f"No threshold supplied for design pair {pair_id!r}")
+            value = float(threshold[pair_id])
+        else:
+            value = float(threshold)
+        if not np.isfinite(value):
+            raise ValueError(f"Non-finite threshold for design pair {pair_id!r}")
+        return value
+
+    def _mask_for(pair_id: str):
+        return discontinuity_masks.get(pair_id) if discontinuity_masks is not None else None
 
     real: Dict[str, Dict[str, float]] = {}
     for dyad_id in ids:
         a, b = signal_pairs[dyad_id]
         real[dyad_id] = extract_pair_features(
             a, b, hz=hz, window_size=window_size,
-            threshold=threshold, feature_names=feature_names,
-            window_type=window_type,
+            threshold=_threshold_for(dyad_id), feature_names=feature_names,
+            window_type=window_type, discontinuity_mask=_mask_for(dyad_id),
         )
 
     pseudo_values: Dict[str, Dict[str, list]] = {
@@ -266,8 +293,8 @@ def design_control_audit(
                 _, b_partner = signal_pairs[str(partner_id)]
                 feats = extract_pair_features(
                     a, b_partner, hz=hz, window_size=window_size,
-                    threshold=threshold, feature_names=feature_names,
-                    window_type=window_type,
+                    threshold=_threshold_for(dyad_id), feature_names=feature_names,
+                    window_type=window_type, discontinuity_mask=_mask_for(dyad_id),
                 )
                 for f in feature_names:
                     if np.isfinite(feats.get(f, np.nan)):
@@ -291,8 +318,8 @@ def design_control_audit(
                 b_use = b[-k:]
             feats = extract_pair_features(
                 a_use, b_use, hz=hz, window_size=window_size,
-                threshold=threshold, feature_names=feature_names,
-                window_type=window_type,
+                threshold=_threshold_for(dyad_id), feature_names=feature_names,
+                window_type=window_type, discontinuity_mask=None,
             )
             for f in feature_names:
                 if np.isfinite(feats.get(f, np.nan)):
@@ -330,6 +357,8 @@ def design_control_audit(
         "audit": "design_controls",
         "features": list(feature_names),
         "n_dyads": len(ids),
+        "threshold_scope": "per_pair_mapping" if isinstance(threshold, Mapping) else "fixed",
+        "discontinuity_masks_applied": bool(discontinuity_masks),
         "pseudo_pair": {
             "enabled": len(ids) >= 2,
             "n_pseudo_per_dyad": int(n_pseudo_per_dyad),

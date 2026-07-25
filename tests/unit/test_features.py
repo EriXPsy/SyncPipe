@@ -749,7 +749,7 @@ class TestCLI:
                 output=None,
                 window_size=10,
                 surrogates=10,
-                max_lag=20.0,
+                max_lag=0.0,
                 seed=42,
                 contexts=None,
             )

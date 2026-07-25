@@ -78,14 +78,22 @@ def _as_array(df_or_series) -> Optional[np.ndarray]:
     if df_or_series is None:
         return None
     if isinstance(df_or_series, pd.DataFrame):
-        # Prefer a column literally named "value"; else the first numeric col.
+        # Never guess between time and multiple signal columns.
         if "value" in df_or_series.columns:
-            arr = df_or_series["value"].to_numpy(dtype=float)
+            signal_col = "value"
         else:
-            num = df_or_series.select_dtypes(include=[np.number])
-            if num.shape[1] == 0:
-                return None
-            arr = num.iloc[:, 0].to_numpy(dtype=float)
+            candidates = [
+                c for c in df_or_series.select_dtypes(include=[np.number]).columns
+                if c not in {"time", "timestamp"}
+            ]
+            if len(candidates) != 1:
+                raise ValueError(
+                    "Signal DataFrame must contain a numeric 'value' column "
+                    "or exactly one numeric non-time signal column; "
+                    f"candidates={candidates}."
+                )
+            signal_col = candidates[0]
+        arr = df_or_series[signal_col].to_numpy(dtype=float)
     elif isinstance(df_or_series, pd.Series):
         arr = df_or_series.to_numpy(dtype=float)
     else:
@@ -146,6 +154,19 @@ def records_to_inference_inputs(
     """
     if feature_cols is None:
         feature_cols = list(FDR_FEATURES) + list(REFERENCE_FEATURE)
+    if not np.isfinite(hz) or hz <= 0:
+        raise ValueError(f"hz must be finite and positive, got {hz!r}")
+    if int(window_size) != window_size or window_size < 2:
+        raise ValueError(f"window_size must be an integer >= 2, got {window_size!r}")
+    feature_cols = list(feature_cols)
+    if isinstance(onset_threshold, str) and onset_threshold != "session_pooled":
+        raise ValueError(
+            "onset_threshold string must be 'session_pooled' or a numeric value."
+        )
+    if not isinstance(onset_threshold, str):
+        threshold_value = float(onset_threshold)
+        if not np.isfinite(threshold_value) or not -1.0 <= threshold_value <= 1.0:
+            raise ValueError("numeric onset_threshold must be finite and lie in [-1, 1]")
 
     # ------------------------------------------------------------------
     # Pass 1: parse + collect usable entries (skip incomplete / too-short).
@@ -159,13 +180,33 @@ def records_to_inference_inputs(
             continue
         a = _as_array(getattr(rec, "person_a", None))
         b = _as_array(getattr(rec, "person_b", None))
-        if a is None or b is None or a.size < window_size or b.size < window_size:
+        if a is None or b is None:
+            continue
+        if a.ndim != 1 or b.ndim != 1 or a.size != b.size:
+            raise ValueError(
+                "Each record must contain two one-dimensional, equal-length "
+                f"signals; got {getattr(a, 'shape', None)} and {getattr(b, 'shape', None)}."
+            )
+        if a.size < window_size:
             continue
         dyad = str(rec.dyad_label)
         mod = str(rec.modality)
         cond = str(rec.condition)
         key = f"{dyad}__{mod}__{cond}"
+        if any(e["key"] == key for e in entries):
+            raise ValueError(f"Duplicate record key {key!r}; expected one record per dyad/modality/condition.")
+        rec_hz = float(getattr(rec, "target_hz", hz))
+        if not np.isfinite(rec_hz) or rec_hz <= 0 or not np.isclose(rec_hz, hz):
+            raise ValueError(
+                f"Record {key!r} target_hz={rec_hz} does not match bridge hz={hz}. "
+                "Resample explicitly before pooling thresholds."
+            )
         rec_mask = getattr(rec, "discontinuity_mask", None)
+        mask = np.asarray(rec_mask, dtype=bool) if rec_mask is not None else None
+        if mask is not None and (mask.ndim != 1 or mask.size != a.size):
+            raise ValueError(
+                f"Record {key!r} discontinuity_mask must have length {a.size}."
+            )
         entries.append({
             "a": a.astype(float),
             "b": b.astype(float),
@@ -173,8 +214,8 @@ def records_to_inference_inputs(
             "mod": mod,
             "cond": cond,
             "key": key,
-            "rec_hz": float(getattr(rec, "target_hz", hz)),
-            "mask": np.asarray(rec_mask, dtype=bool) if rec_mask is not None else None,
+            "rec_hz": rec_hz,
+            "mask": mask,
         })
 
     if not entries:
@@ -235,12 +276,15 @@ def records_to_inference_inputs(
         row[dyad_col] = dyad
         row["modality"] = mod
         row[condition_col] = cond
-        # Keep only requested features + the join keys (drop the verbose
-        # duplicate metadata that load_signals() may have stored).
-        keep = [dyad_col, "modality", condition_col] + [
-            c for c in feature_cols if c in row.columns
+        missing_features = [c for c in feature_cols if c not in row.columns]
+        if missing_features:
+            raise ValueError(f"Requested features not produced: {missing_features}")
+        metadata_cols = [
+            "n_signal_samples", "n_wcc_points", "n_valid_wcc_points",
+            "valid_wcc_fraction", "wcc_observation_sec",
         ]
-        keep = [c for i, c in enumerate(keep) if c not in keep[:i]]  # dedupe
+        keep = [dyad_col, "modality", condition_col] + metadata_cols + list(feature_cols)
+        keep = [c for i, c in enumerate(keep) if c not in keep[:i]]
         frames.append(row[keep])
 
         # --- raw signals for the existence audit (every condition) ---
@@ -250,6 +294,19 @@ def records_to_inference_inputs(
         if design_condition is None or cond == design_condition:
             design_pairs[f"{dyad}__{mod}"] = (a, b)
         discontinuity_mask[key] = e["mask"]
+
+    if design_condition is not None:
+        expected = {(e["dyad"], e["mod"]) for e in entries}
+        observed = {
+            (e["dyad"], e["mod"])
+            for e in entries
+            if f"{e['dyad']}__{e['mod']}" in design_pairs
+        }
+        if expected - observed:
+            raise ValueError(
+                f"design_condition={design_condition!r} missing for dyad/modality "
+                f"pairs: {sorted(expected - observed)}"
+            )
 
     features_df = pd.concat(frames, ignore_index=True)
     return InferenceInputs(

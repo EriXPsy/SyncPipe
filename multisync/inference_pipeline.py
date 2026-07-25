@@ -34,7 +34,42 @@ from .validation.across_stim_shuffle import across_stim_shuffle_test
 from .validation.l2_between_condition import (
     between_condition_fdr,
     between_condition_by_modality,
+    _bh_fdr,
 )
+
+
+def _apply_global_modality_fdr(results: Dict[str, Any], alpha: float) -> Dict[str, Any]:
+    """Apply BH once across all modality × feature hypotheses."""
+    items = []
+    for modality, payload in results.items():
+        if isinstance(payload, dict) and "per_feature" in payload:
+            for result in payload["per_feature"]:
+                items.append((modality, result))
+    if not items:
+        return results
+    adjusted = _bh_fdr(np.asarray([r.p_raw for _, r in items], dtype=float))
+    for (_, result), p_adj in zip(items, adjusted):
+        result.p_fdr = float(p_adj) if np.isfinite(p_adj) else 1.0
+        result.significant_05 = bool(result.p_fdr < alpha and result.claimable)
+    for payload in results.values():
+        if isinstance(payload, dict) and "per_feature" in payload:
+            payload["fdr_scope"] = "global_modality_feature"
+            payload["fdr_family_size"] = len(items)
+            payload["summary_df"] = pd.DataFrame([
+                {
+                    "feature": r.feature, "observed_diff": r.observed_diff,
+                    "null_mean": r.null_mean, "null_sd": r.null_sd,
+                    "p_raw": r.p_raw, "p_fdr": r.p_fdr,
+                    "significant_05": r.significant_05,
+                    "perm_effect_size": r.perm_effect_size,
+                    "n_dyads": r.n_dyads, "defined_a": r.defined_a,
+                    "defined_b": r.defined_b, "p_definedness": r.p_definedness,
+                    "definedness_status": r.definedness_status,
+                    "claimable": r.claimable,
+                }
+                for r in payload["per_feature"]
+            ])
+    return results
 
 
 class InferencePipeline:
@@ -161,9 +196,11 @@ class InferencePipeline:
         *,
         wcc_window_size: int,
         feature_names: Sequence[str] = DEFAULT_AUDIT_FEATURES,
-        n_pseudo_per_dyad: int = 3,
+        n_pseudo_per_dyad: int = 10,
         shift_lags_sec: Sequence[float] = (-60.0, -45.0, -30.0, 30.0, 45.0, 60.0),
         window_type: str = "rect",
+        threshold: Any = 0.5,
+        discontinuity_masks: Optional[Dict[str, np.ndarray]] = None,
     ) -> Dict[str, Any]:
         """Step 2a: run pseudo-pair and time-shift design controls.
 
@@ -183,6 +220,8 @@ class InferencePipeline:
             shift_lags_sec=shift_lags_sec,
             seed=self.seed,
             window_type=window_type,
+            threshold=threshold,
+            discontinuity_masks=discontinuity_masks,
         )
         self._design_control_results = result
         return result
@@ -243,6 +282,11 @@ class InferencePipeline:
         full_family_fdr: bool = False,
         threshold_scope: str = "unknown",
         modality_col: str = "modality",
+        fdr_scope: str = "global",
+        undefined_policy: str = "gate",
+        observation_policy: str = "warn",
+        eligibility_policy: str = "warn",
+        n_min_dyads: int = 10,
     ) -> Dict[str, Any]:
         """Step 3: test whether features differentiate experimental conditions.
 
@@ -272,6 +316,11 @@ class InferencePipeline:
                 full_family_fdr=full_family_fdr,
                 threshold_scope=threshold_scope,
                 seed=self.seed,
+                fdr_scope=fdr_scope,
+                undefined_policy=undefined_policy,
+                observation_policy=observation_policy,
+                eligibility_policy=eligibility_policy,
+                n_min_dyads=n_min_dyads,
             )
         else:
             result = self.test_l2_condition(
@@ -283,6 +332,10 @@ class InferencePipeline:
                 contrast=contrast,
                 full_family_fdr=full_family_fdr,
                 threshold_scope=threshold_scope,
+                undefined_policy=undefined_policy,
+                observation_policy=observation_policy,
+                eligibility_policy=eligibility_policy,
+                n_min_dyads=n_min_dyads,
             )
         self._group_inference_results = result
         return result
@@ -302,9 +355,17 @@ class InferencePipeline:
         window_type: str = "rect",
         full_family_fdr: bool = False,
         discontinuity_mask: Optional[Dict[str, np.ndarray]] = None,
+        design_discontinuity_mask: Optional[Dict[str, np.ndarray]] = None,
         threshold_scope: str = "unknown",
         contrast: Optional[Tuple[str, str]] = None,
         modality_col: str = "modality",
+        n_pseudo_per_dyad: int = 10,
+        design_threshold: Any = 0.5,
+        fdr_scope: str = "global",
+        undefined_policy: str = "gate",
+        observation_policy: str = "warn",
+        eligibility_policy: str = "warn",
+        n_min_dyads: int = 10,
     ) -> Dict[str, Any]:
         """Run the recommended v1 evidence chain end-to-end.
 
@@ -328,6 +389,8 @@ class InferencePipeline:
         if design_signal_pairs is not None:
             design = self.run_design_control_audit(
                 design_signal_pairs, wcc_window_size=wcc_window_size, window_type=window_type,
+                n_pseudo_per_dyad=n_pseudo_per_dyad, threshold=design_threshold,
+                discontinuity_masks=design_discontinuity_mask,
             )
         across = None
         if across_stim_segments is not None:
@@ -344,6 +407,16 @@ class InferencePipeline:
             full_family_fdr=full_family_fdr,
             threshold_scope=threshold_scope,
             modality_col=modality_col,
+            fdr_scope=fdr_scope,
+            undefined_policy=undefined_policy,
+            observation_policy=observation_policy,
+            eligibility_policy=eligibility_policy,
+            n_min_dyads=n_min_dyads,
+        )
+        existence_results = existence.get("results", {})
+        primary_pass = any(
+            bool(r.get("per_feature_significant", {}).get("peak_amplitude", False))
+            for r in existence_results.values() if isinstance(r, dict)
         )
         return {
             "evidence_chain_version": "v1",
@@ -351,6 +424,18 @@ class InferencePipeline:
             "design_controls": design,
             "across_stimulus_shuffle": across,
             "group_condition_inference": group,
+            "stage_status": {
+                "existence": "passed" if primary_pass else "not_supported",
+                "design_controls": "completed" if design is not None else "not_run",
+                "across_stimulus": "completed" if across is not None else "not_run",
+                "group_inference": "completed" if group is not None else "not_run",
+            },
+            "claim_ceiling": (
+                "Existence support is present but does not establish dyad-specific "
+                "interpersonal coupling." if primary_pass else
+                "Group differences are descriptive only because the primary "
+                "existence audit was not supported."
+            ),
             "summary": self._build_audited_chain_summary(existence, design, across, group),
         }
 
@@ -529,6 +614,10 @@ class InferencePipeline:
         contrast: Optional[Tuple[str, str]] = None,
         full_family_fdr: bool = False,
         threshold_scope: str = "unknown",
+        undefined_policy: str = "gate",
+        observation_policy: str = "warn",
+        eligibility_policy: str = "warn",
+        n_min_dyads: int = 10,
     ) -> Dict[str, Any]:
         """Run L2 between-condition permutation test with BH-FDR correction.
 
@@ -581,6 +670,10 @@ class InferencePipeline:
             seed=self.seed,
             condition_values=contrast,  # was contrast= (wrong kwarg name)
             threshold_scope=threshold_scope,
+            undefined_policy=undefined_policy,
+            observation_policy=observation_policy,
+            eligibility_policy=eligibility_policy,
+            n_min_dyads=n_min_dyads,
         )
         return self._l2_results
 
@@ -597,6 +690,11 @@ class InferencePipeline:
         contrast: Optional[Tuple[str, str]] = None,
         threshold_scope: str = "unknown",
         seed: Optional[int] = None,
+        fdr_scope: str = "global",
+        undefined_policy: str = "gate",
+        observation_policy: str = "warn",
+        eligibility_policy: str = "warn",
+        n_min_dyads: int = 10,
     ) -> Dict[str, Any]:
         """Run L2 tests separately for each modality.
 
@@ -622,18 +720,32 @@ class InferencePipeline:
         if seed is None:
             seed = self.seed
 
-        return between_condition_by_modality(
+        results = between_condition_by_modality(
             self.df,
             modality_col=modality_col,
             condition_col=condition_col,
             dyad_col=dyad_col,
             feature_cols=feature_cols,
-            alpha=fdr_alpha,            # was fdr_alpha= (wrong kwarg name)
+            alpha=fdr_alpha,
             n_permutations=n_permutations,
             seed=seed,
             condition_values=contrast,
             threshold_scope=threshold_scope,
+            undefined_policy=undefined_policy,
+            observation_policy=observation_policy,
+            eligibility_policy=eligibility_policy,
+            n_min_dyads=n_min_dyads,
         )
+        if fdr_scope not in {"global", "within_modality"}:
+            raise ValueError("fdr_scope must be 'global' or 'within_modality'")
+        if fdr_scope == "global":
+            results = _apply_global_modality_fdr(results, fdr_alpha)
+        else:
+            for payload in results.values():
+                if isinstance(payload, dict):
+                    payload["fdr_scope"] = "within_modality"
+                    payload["fdr_family_size"] = len(payload.get("per_feature", []))
+        return results
 
     # ---- full cascade ---------------------------------------------------
 

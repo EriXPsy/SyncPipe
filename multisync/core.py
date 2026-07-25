@@ -33,6 +33,7 @@ from .dynamic_features import (
     extract_features_all_pairs,
     extract_features_segmented,
     iter_dyad_pairs,
+    pairing_policy,
     sliding_window_wcc,
     sliding_window_wcc_masked,
 )
@@ -275,8 +276,9 @@ class DynamicAnalyzer:
         Sliding window size in samples (for WCC and dynamic features).
     surrogate_n : int
         Number of IAAFT/PRTF surrogates for cascade significance testing.
-    max_lag_sec : float
-        Maximum cross-correlation lag in seconds.
+    max_lag_sec : float, default 0.0
+        Reserved for a future validated lagged estimator. v1 supports only
+        zero-lag WCC and raises on non-zero values.
     alpha : float
         Significance threshold for surrogate testing.
     seed : int
@@ -314,7 +316,7 @@ class DynamicAnalyzer:
         self,
         window_size: int = 10,
         surrogate_n: int = 5000,
-        max_lag_sec: float = 30.0,
+        max_lag_sec: float = 0.0,
         alpha: float = 0.05,
         seed: int = 42,
         onset_threshold: Optional[float] = None,
@@ -333,7 +335,15 @@ class DynamicAnalyzer:
         self.window_type = window_type.lower()
         self.cross_modal = bool(cross_modal)
         self.surrogate_n = surrogate_n
-        self.max_lag_sec = max_lag_sec
+        if not np.isfinite(max_lag_sec) or max_lag_sec < 0:
+            raise ValueError("max_lag_sec must be a finite non-negative number.")
+        if max_lag_sec != 0:
+            raise ValueError(
+                "SyncPipe v1 computes zero-lag WCC only. Non-zero "
+                "max_lag_sec is not implemented; use 0 or a future validated "
+                "lagged estimator instead of treating this as a working option."
+            )
+        self.max_lag_sec = float(max_lag_sec)
         self.alpha = alpha
         self.seed = seed
         self.enable_prediction = bool(enable_prediction)
@@ -446,6 +456,9 @@ class DynamicAnalyzer:
                 "window_size": self.window_size,
                 "surrogate_n": self.surrogate_n,
                 "max_lag_sec": self.max_lag_sec,
+                "max_lag_sec_requested": self.max_lag_sec,
+                "cross_modal": self.cross_modal,
+                "pairing_policy": pairing_policy(dataset, self.cross_modal),
                 "alpha": self.alpha,
                 "seed": self.seed,
                 "onset_threshold": _thr_value,

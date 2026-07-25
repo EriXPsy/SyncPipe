@@ -1222,7 +1222,7 @@ def extract_dynamic_features(
 
     # Hard NaN-ratio guard
     wcc_arr = np.asarray(wcc, dtype=float)
-    valid = ~np.isnan(wcc_arr)
+    valid = np.isfinite(wcc_arr)
     if wcc_arr.size == 0:
         nan_ratio = 1.0
     else:
@@ -1270,6 +1270,19 @@ def extract_dynamic_features(
     if return_raw_profiles:
         return features, []
     return features
+
+
+def pairing_policy(dataset, cross_modal: bool = False) -> str:
+    """Return the effective dyad-pairing policy for the result manifest."""
+    if cross_modal:
+        return "cross_modal"
+    feat_cols = dataset.feature_columns
+    if any(len(cols) >= 2 for cols in feat_cols.values()):
+        return "same_modality"
+    names = dataset.modality_names
+    if len(names) == 2 and all(len(feat_cols[name]) == 1 for name in names):
+        return "two_file_dyad_fallback"
+    return "same_modality_no_pair"
 
 
 def iter_dyad_pairs(dataset, cross_modal: bool = False):
@@ -1448,6 +1461,7 @@ def extract_features_all_pairs(
         feat = extract_dynamic_features(
             wcc, hz, thr, onset_k,
             wcc_window_sec=wcc_window_sec,
+            gap_policy="segment" if dm is not None else None,
         )
         results[key] = feat
 
@@ -1611,6 +1625,7 @@ def extract_features_segmented(
             feat = extract_dynamic_features(
                 wcc, hz, thr, onset_k, max_nan_ratio,
                 wcc_window_sec=wcc_window_sec,
+                gap_policy="segment" if seg_dm is not None else None,
             )
             seg_results[key] = feat
 

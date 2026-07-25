@@ -108,10 +108,12 @@ python -m pytest tests/ --collect-only -q | tail -1
 
 | Metric                              | Value |
 |------------------------------------|-------|
-| Collected tests (`--collect-only`) | **388** |
+| Collected tests (`--collect-only`) | **411** |
 | `slow` subset (`-m slow`)          | 59    |
-| `not slow` subset (`-m "not slow"`)| 329   |
+| `not slow` subset (`-m "not slow"`)| 352   |
 
-> The consolidation moved the 55 flat files into the 8 themed suites above
-> (plus the pinned `test_feature_definitions.py`). The collect-only count is
-> unchanged at **388** — no test was dropped or duplicated.
+> Baselines reflect the current suite, including `tests/test_latest_hardening.py`
+> (architecture-review hardening regression gate, 9 tests) and subsequent
+> additions. Collected total **411** = 352 fast (`not slow`) + 59 `slow`.
+> The regression gate above must track this count: any future consolidation or
+> rename MUST keep the collected total at 411 (59 slow, 352 not-slow).
