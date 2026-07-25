@@ -1,7 +1,7 @@
 # SyncPipe
 <img width="1376" height="768" alt="image" src="file:///C:/Users/%E9%99%88%E6%80%9D%E4%B8%9E/WorkBuddy/20260413150513/syncpipe-logo-mark.svg" />
 
-> **Measurement infrastructure for dyadic, continuous low-frequency multimodal interpersonal synchrony.**  
+> **Measurement infrastructure for dyadic, continuous low-frequency same-modality synchrony, analyzed consistently across multiple modality families (e.g. EDA / ECG / RESP).** 
 > SyncPipe is not intended to be merely a feature-profile generator. Its v1 goal is to provide a standardized, auditable measurement procedure for dyadic synchrony: from aligned signals, to WCC traces, to interpretable descriptors, to null-model audits, to design-specific confound checks, to group-level inference.
 
 SyncPipe is an open-source Python package for analyzing **dyadic peripheral physiological and behavioral synchrony**. It is built for psychology, social neuroscience, psychophysiology, developmental science, psychotherapy, teamwork, and related fields where researchers need more than a single mean-correlation score but also need stronger statistical guardrails than one-off scripts usually provide. The preferred v1 command/import namespace is `syncpipe`; the older `multisync` namespace remains as a compatibility alias during transition.
@@ -42,7 +42,7 @@ In this sense, SyncPipe is closer in spirit to DPABI-like scientific infrastruct
 
 ### It does not
 
-- Prove causality. Lead-lag estimates are temporal-precedence descriptions, not evidence of psychological driving.
+- Prove causality or estimate lead-lag. SyncPipe v1 computes **zero-lag WCC only** (no lag scan): reported timing features (onset_latency, rise_time, recovery_time, first_peak_time, inter_peak_cv) describe the temporal *morphology of the zero-lag coupling trace* relative to an event anchor — not who leads whom or psychological driving.
 - Prove dyad-specific interpersonal coupling from WCC+IAAFT alone. Signal-level IAAFT does not remove shared-stimulus or co-presence confounds.
 - Replace raw physiological preprocessing. High-frequency raw signals should be converted into scientifically justified second-level time series before entering SyncPipe.
 - Provide clinically calibrated thresholds. Current thresholds are methodological anchors, not diagnostic cutoffs.
@@ -59,6 +59,20 @@ respiration, motion-energy, or (in principle) neural envelopes. The package's
 "modality independence" rests on the fact that every supported signal has been
 flattened into the *same statistical object* (an aligned low-rate trace) before
 it reaches the WCC layer.
+
+**Pairing is same-modality in the scientific canonical path, not cross-modal.**
+The audited evidence chain (`pipeline_bridge` + `InferencePipeline`) analyzes
+*dyadic* synchrony between the two partners' aligned traces *within* each modality
+family (e.g. EDA-A vs EDA-B, ECG-A vs ECG-B, RESP-A vs RESP-B), separately per
+family. v1 does **not** compute cross-modal synchrony (e.g. EDA-A vs ECG-B) or
+multivariate coordination.
+
+> **Known gap (to be aligned):** the CLI `analyze` descriptor path
+> (`DynamicAnalyzer`) currently pairs *all* provided signal columns by input
+> naming, which can yield cross-modal pairs (e.g. EDA×ECG) depending on how the
+> CSV columns are laid out. Its pairing semantics must be restricted to
+> same-modality dyads to match the scientific canonical. Tracked as a
+> post-review action.
 
 This scope does **not** currently cover:
 

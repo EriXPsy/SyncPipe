@@ -91,6 +91,14 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         run_qc=False,
     )
 
+    # Fail-loud: --max-lag is accepted for compatibility but ignored (v1 = zero-lag WCC).
+    if args.max_lag != 30.0:
+        print(
+            "[SyncPipe] WARNING: --max-lag is DEPRECATED and ignored. v1 computes "
+            "zero-lag WCC only; no lag scan or lead-lag estimation is performed.",
+            file=sys.stderr,
+        )
+
     print("  Running analysis...")
     results = analyzer.fit_transform(dyad)
     results.parameters["qc"] = qc_report.to_dict()
@@ -374,7 +382,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_analyze.add_argument("-o", "--output", default="results.json", help="Output JSON path.")
     p_analyze.add_argument("--window-size", type=int, default=10, help="WCC window size.")
     p_analyze.add_argument("--surrogates", type=int, default=500, help="Number of surrogates.")
-    p_analyze.add_argument("--max-lag", type=float, default=30.0, help="Max CCF lag (sec).")
+    p_analyze.add_argument(
+        "--max-lag", type=float, default=30.0,
+        help="[DEPRECATED / ignored] Retained for compatibility only. SyncPipe v1 "
+             "computes zero-lag WCC; this flag does NOT change the computation.",
+    )
     p_analyze.add_argument("--seed", type=int, default=42, help="Random seed.")
     p_analyze.add_argument(
         "--contexts", nargs="*", help="Context labels: start,end,label[,score]."

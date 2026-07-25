@@ -1,6 +1,6 @@
 # SyncPipe v1.0 — User Manual
 
-> Measurement infrastructure for multimodal interpersonal synchrony.
+> Measurement infrastructure for same-modality dyadic synchrony, analyzed across multiple modality families (EDA / ECG / RESP).
 > This manual is for human users. For an agent-oriented capability sheet see
 > [`SKILL.md`](SKILL.md). For the intellectual lineage see
 > `SYNCPIPE_FAMILY_TREE.html` (repo root) and `METHOD_LOG.md`.

@@ -5,8 +5,8 @@ Agent-oriented capability sheet. Human docs: `docs/USER_MANUAL.md`.
 ## What this skill does
 Turn a pre-computed or raw dyadic synchrony signal into **auditable descriptors**
 and run a **three-step audited evidence chain** (existence audit → design-control
-audit → group inference). It is measurement infrastructure for multimodal
-interpersonal synchrony built on a windowed cross-correlation (WCC) substrate.
+audit → group inference). It is measurement infrastructure for **same-modality dyadic synchrony across
+multiple modality families**, built on a windowed cross-correlation (WCC) substrate.
 
 ## When to use
 - User has dyadic / two-party time series (behavioral, physiological, neural) and
