@@ -7,9 +7,12 @@ Fix 1 (finding 20): ``merge_asof`` tolerance must use the *real* sampling rate,
     tolerance would become ~2.0 s (≈200 samples) of "nearest neighbour" slack and
     a mis-aligned dyad would be produced with no error — a silent measurement
     error.
-Fix 2 (finding 21): ``load_opensignals`` must keep the real channel identifiers
-    from the header instead of overwriting them with CH1..CHn placeholders, so a
-    user's ``channel_map`` based on the true metadata stays aligned.
+Fix 2 (finding 21): ``load_opensignals`` applies *fail-soft* channel handling.
+    Real *string* channel ids are preserved; integer or missing channel indices
+    fall back to CH1..CHn. Note: real OpenSignals files use integer channel
+    indices (readable names live in the ``sensor``/``label`` keys, which importer
+    does not currently consume), so real files still yield CHn — the fail-soft
+    only guards the defensive string-id case.
 Fix 3: ``load_csv`` dyad build must fail loudly (not silently ignore) when more
     than one column per person is supplied, because the implementation only uses
     ``[0]``.
