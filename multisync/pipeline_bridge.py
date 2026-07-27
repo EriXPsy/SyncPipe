@@ -68,6 +68,7 @@ class InferenceInputs:
     raw_signals: Dict[str, Tuple[np.ndarray, np.ndarray]]
     design_pairs: Dict[str, Tuple[np.ndarray, np.ndarray]]
     discontinuity_mask: Optional[Dict[str, np.ndarray]] = None
+    wcc_traces: Optional[Dict[str, np.ndarray]] = None
     condition_col: str = "condition"
     dyad_col: str = "dyad_id"
     thresholds_by_modality: Optional[Dict[str, float]] = None
@@ -253,6 +254,7 @@ def records_to_inference_inputs(
     raw_signals: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
     discontinuity_mask: Dict[str, Optional[np.ndarray]] = {}
     design_pairs: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
+    wcc_traces: Dict[str, np.ndarray] = {}
 
     for e in entries:
         a, b = e["a"], e["b"]
@@ -271,6 +273,7 @@ def records_to_inference_inputs(
         )
         pipe.load_signals(a, b, discontinuity_mask=e["mask"])
         pipe.compute_wcc()
+        wcc_traces[key] = pipe._wcc
         pipe.extract_features()
         row = pipe.to_dataframe()
         row[dyad_col] = dyad
@@ -314,6 +317,7 @@ def records_to_inference_inputs(
         raw_signals=raw_signals,
         design_pairs=design_pairs,
         discontinuity_mask=discontinuity_mask or None,
+        wcc_traces=wcc_traces or None,
         condition_col=condition_col,
         dyad_col=dyad_col,
         thresholds_by_modality=thresholds_by_modality,

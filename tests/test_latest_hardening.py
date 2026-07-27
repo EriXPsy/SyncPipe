@@ -16,7 +16,7 @@ from multisync.validation.l2_between_condition import between_condition_fdr
 
 def test_nonzero_lag_fails_loud_and_cli_default_is_zero():
     from multisync.cli import build_parser
-    args = build_parser().parse_args(["analyze", "-i", "a.csv,b.csv"])
+    args = build_parser().parse_args(["describe", "-i", "a.csv,b.csv"])
     assert args.max_lag == 0.0
     with pytest.raises(ValueError, match="zero-lag WCC only"):
         DynamicAnalyzer(max_lag_sec=1.0)

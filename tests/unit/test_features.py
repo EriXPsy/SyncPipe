@@ -724,39 +724,82 @@ class TestCLI:
         args = argparse.Namespace(surrogates=20, output=None)
         cmd_demo(args)  # Should not raise
 
-    def test_analyze_command_runs(self):
-        """The `analyze` CLI command should run with synthetic CSVs."""
+    def test_analyze_command_runs(self, tmp_path):
+        """The canonical `analyze` CLI command should run from a manifest + config."""
         from multisync.cli import cmd_analyze
         import argparse
-        import tempfile
 
-        # Create temporary CSV files
-        np.random.seed(42)
+        # Build a small synthetic manifest + config
+        rng = np.random.default_rng(0)
+        n = 120
+        t = np.arange(n, dtype=float)
+        sigdir = tmp_path / "data"
+        sigdir.mkdir()
+        rows = []
+        for i in range(4):
+            for cond, coup in (("rest", 0.2), ("task", 0.8)):
+                shared = np.sin(np.linspace(0, 4 * np.pi, n))
+                a = coup * shared + rng.normal(scale=0.5, size=n)
+                b = coup * shared + rng.normal(scale=0.5, size=n)
+                pa = sigdir / f"d{i:02d}_{cond}_a.csv"
+                pb = sigdir / f"d{i:02d}_{cond}_b.csv"
+                pd.DataFrame({"time": t, "val": a}).to_csv(pa, index=False)
+                pd.DataFrame({"time": t, "val": b}).to_csv(pb, index=False)
+                rows.append((f"d{i:02d}", "EDA", cond, str(pa), str(pb), 1.0, ""))
+        man = tmp_path / "manifest.csv"
+        pd.DataFrame(
+            rows,
+            columns=["dyad_id", "modality", "condition", "person_a_path", "person_b_path", "hz", "mask_path"],
+        ).to_csv(man, index=False)
+        cfg = tmp_path / "config.toml"
+        cfg.write_text(
+            "[analysis]\n"
+            "window_size = 10\n"
+            "contrast = ['rest', 'task']\n"
+            "eligibility_policy = 'raise'\n"
+            "n_min_dyads = 2\n"
+            "n_permutations = 100\n"
+            "seed = 42\n"
+            "surrogate_n = 10\n",
+            encoding="utf-8",
+        )
+        out = tmp_path / "results"
+        args = argparse.Namespace(manifest=str(man), config=str(cfg), output=str(out))
+        cmd_analyze(args)  # Should not raise
+        for f in ["manifest_resolved.json", "config_resolved.toml",
+                  "features.csv", "claimability.json", "REPORT.md"]:
+            assert (out / f).exists(), f
+
+    def test_describe_command_runs(self, tmp_path):
+        """The `describe` CLI command (design-agnostic descriptor path) still runs."""
+        from multisync.cli import cmd_describe
+        import argparse
+
+        rng = np.random.default_rng(0)
         n = 100
         t = np.arange(n, dtype=float)
-        csvs = []
-        for name in ["neural", "behavior"]:
-            path = tempfile.mktemp(suffix=".csv")
-            df = pd.DataFrame({"time": t, "val": np.random.randn(n)})
-            df.to_csv(path, index=False)
-            csvs.append(path)
-
-        try:
-            args = argparse.Namespace(
-                input=",".join(csvs),
-                names="neural,behavior",
-                hz="1.0",
-                output=None,
-                window_size=10,
-                surrogates=10,
-                max_lag=0.0,
-                seed=42,
-                contexts=None,
-            )
-            cmd_analyze(args)  # Should not raise
-        finally:
-            for p in csvs:
-                os.unlink(p)
+        dyad_csv = tmp_path / "dyad.csv"
+        pd.DataFrame({
+            "time": t,
+            "person_a": rng.normal(size=n),
+            "person_b": rng.normal(size=n),
+        }).to_csv(dyad_csv, index=False)
+        out = tmp_path / "out.json"
+        args = argparse.Namespace(
+            input=str(dyad_csv),
+            names="eda",
+            hz=1.0,
+            output=str(out),
+            window_size=10,
+            surrogates=10,
+            max_lag=0.0,
+            seed=42,
+            cross_modal=False,
+            contexts=None,
+            full_family_fdr=False,
+        )
+        cmd_describe(args)  # Should not raise
+        assert out.exists()
 
 
 # ===========================================================================

@@ -2,8 +2,11 @@
 CLI — Command-line interface for SyncPipe (distribution: syncpipe).
 
 Usage:
-    python -m multisync analyze -i neural.csv,bio.csv,behavior.csv \
-           -n neural,bio,behavior --hz 1.0 -o results.json
+    # Canonical v1 audited evidence chain (manifest + config -> report bundle)
+    python -m multisync analyze -m manifest.csv -c config.toml -o results/
+
+    # Design-agnostic descriptor path on ad-hoc CSVs (exploratory)
+    python -m multisync describe -i neural.csv,bio.csv -n neural,bio --hz 1.0 -o out.json
 
     python -m multisync demo --output demo_results.json
 """
@@ -31,8 +34,14 @@ from .io import load_csv
 from .synthetic import generate_ground_truth_dyad
 
 
-def cmd_analyze(args: argparse.Namespace) -> None:
-    """Run analysis on user-provided CSV files."""
+def cmd_describe(args: argparse.Namespace) -> None:
+    """Run the design-agnostic DESCRIPTOR path on user-provided CSV files.
+
+    This is the exploratory / measurement-core entry point (A4 routing):
+    load -> align -> QC -> DynamicAnalyzer -> viewer JSON. It is NOT the
+    confirmatory scientific path; for paper-level audited analysis use
+    ``analyze`` (the canonical evidence chain via ``canonical_runner``).
+    """
     input_files = args.input.split(",")
     names = args.names.split(",") if args.names else [
         f"modality_{i}" for i in range(len(input_files))
@@ -143,6 +152,58 @@ def cmd_analyze(args: argparse.Namespace) -> None:
                 f"dynamic AUC = {pred.get('mean_dynamic_auc', 0.5):.3f}, "
                 f"baseline AUC = {pred.get('mean_baseline_auc', 0.5):.3f}"
             )
+
+
+def cmd_analyze(args: argparse.Namespace) -> None:
+    """Run the v1 audited evidence chain from a manifest + config (canonical).
+
+    This is the paper-level scientific entry point and is structurally
+    identical to :func:`multisync.canonical_runner.run_canonical` — the same
+    manifest + config through the CLI and the Python API yield the same
+    report bundle (Gate 1 CLI/API parity pass criterion).
+    """
+    from .canonical_runner import run_canonical
+
+    try:
+        res = run_canonical(args.manifest, args.config, args.output)
+    except (ValueError, FileNotFoundError, OSError) as e:
+        # Manifest/config/eligibility contract violations are expected,
+        # user-facing errors — print cleanly and exit non-zero (fail-loud,
+        # no traceback).
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(2)
+
+    status = res.chain.get("stage_status", {})
+    print("SyncPipe v1 audited evidence chain complete.")
+    print(f"  Output bundle: {res.output_dir}")
+    print(
+        f"  Manifest rows: {res.qc.get('total_rows')} | "
+        f"included: {res.qc.get('included')} | "
+        f"excluded: {len(res.exclusions)}"
+    )
+    per_feature = res.claimability.get("per_feature", [])
+    n_sig = sum(1 for f in per_feature if f.get("significant_05"))
+    print(
+        f"  Claimable features: {len(per_feature)} "
+        f"({n_sig} significant @ FDR 0.05)"
+    )
+    print(f"  WCC traces captured: {len(res.wcc_traces)}")
+    print("  Stage status:")
+    for stage, st in status.items():
+        print(f"    - {stage}: {st}")
+    if res.exclusions:
+        print("  Exclusions:")
+        for e in res.exclusions:
+            print(
+                f"    - {e['dyad_id']}/{e['modality']}/{e['condition']}: "
+                f"{e['reason']}"
+            )
+    if status.get("existence") == "not_supported":
+        print(
+            "  NOTE: primary existence audit not supported — group claims are "
+            "descriptive only (see REPORT.md / claimability.json).",
+            file=sys.stderr,
+        )
 
 
 def _json_ready(obj: Any) -> Any:
@@ -391,36 +452,54 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    # analyze
-    p_analyze = sub.add_parser("analyze", help="Analyze multi-modal dyadic data.")
-    p_analyze.add_argument("-i", "--input", required=True, help="Comma-separated CSV paths.")
-    p_analyze.add_argument("-n", "--names", help="Comma-separated modality names.")
-    p_analyze.add_argument("--hz", default=1.0, help="Target sampling rate.")
-    p_analyze.add_argument("-o", "--output", default="results.json", help="Output JSON path.")
-    p_analyze.add_argument("--window-size", type=int, default=10, help="WCC window size.")
-    p_analyze.add_argument("--surrogates", type=int, default=500, help="Number of surrogates.")
+    # analyze — canonical v1 audited evidence chain (manifest + config -> bundle)
+    p_analyze = sub.add_parser(
+        "analyze",
+        help="Run the v1 audited evidence chain from a manifest + config "
+             "(canonical scientific path).",
+    )
     p_analyze.add_argument(
+        "-m", "--manifest", required=True,
+        help="Strict manifest CSV: dyad_id,modality,condition,person_a_path,"
+             "person_b_path,hz[,mask_path].",
+    )
+    p_analyze.add_argument(
+        "-c", "--config", required=True,
+        help="TOML config with [analysis] section (contrast required).",
+    )
+    p_analyze.add_argument(
+        "-o", "--output", default="canonical_results",
+        help="Output directory for the 12-file report bundle.",
+    )
+    p_analyze.set_defaults(func=cmd_analyze)
+
+    # describe — design-agnostic descriptor path (exploratory / measurement core)
+    p_describe = sub.add_parser(
+        "describe",
+        help="Run the design-agnostic DESCRIPTOR path on ad-hoc CSV files "
+             "(exploratory; not the confirmatory scientific path).",
+    )
+    p_describe.add_argument("-i", "--input", required=True, help="Comma-separated CSV paths.")
+    p_describe.add_argument("-n", "--names", help="Comma-separated modality names.")
+    p_describe.add_argument("--hz", default=1.0, help="Target sampling rate.")
+    p_describe.add_argument("-o", "--output", default="results.json", help="Output JSON path.")
+    p_describe.add_argument("--window-size", type=int, default=10, help="WCC window size.")
+    p_describe.add_argument("--surrogates", type=int, default=500, help="Number of surrogates.")
+    p_describe.add_argument(
         "--max-lag", type=float, default=0.0,
         help="v1 supports zero-lag WCC only; non-zero values fail loudly.",
     )
-    p_analyze.add_argument(
+    p_describe.add_argument(
         "--cross-modal", action="store_true",
         help="OPT-IN: pair ACROSS modalities (legacy exploratory cross-modal "
              "description) instead of the v1 default SAME-MODALITY dyad "
              "pairing (person_a vs person_b within one modality).",
     )
-    p_analyze.add_argument("--seed", type=int, default=42, help="Random seed.")
-    p_analyze.add_argument(
+    p_describe.add_argument("--seed", type=int, default=42, help="Random seed.")
+    p_describe.add_argument(
         "--contexts", nargs="*", help="Context labels: start,end,label[,score]."
     )
-    p_analyze.add_argument(
-        "--full-family-fdr", action="store_true",
-        help="Record that the L2 between-condition BH-FDR should enter ALL 12 "
-             "implemented features (strictly more conservative) instead of the "
-             "pre-registered 3-feature confirmatory family. Governs the FDR "
-             "family used by group-condition inference (scripts/Python API).",
-    )
-    p_analyze.set_defaults(func=cmd_analyze)
+    p_describe.set_defaults(func=cmd_describe)
 
     # demo
     p_demo = sub.add_parser("demo", help="Run complete synthetic demo + audit reports.")

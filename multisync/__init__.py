@@ -24,6 +24,15 @@ from .computation_pipeline import (
 )
 from .inference_pipeline import InferencePipeline
 from .pipeline_bridge import InferenceInputs, records_to_inference_inputs
+from .canonical_runner import (
+    CanonicalResult,
+    DEFAULT_CONFIG,
+    ManifestRecord,
+    SyncPipeConfig,
+    parse_config,
+    parse_manifest,
+    run_canonical,
+)
 
 # Feature/status governance
 from .feature_definitions import FDR_FEATURES, ONSET_THRESHOLD, REFERENCE_FEATURE
@@ -70,6 +79,14 @@ __all__ = [
     # Data-layer -> pipeline bridge (reviewer entry point)
     "records_to_inference_inputs",
     "InferenceInputs",
+    # Canonical scientific runner (Gate 1 single entry point)
+    "run_canonical",
+    "parse_manifest",
+    "parse_config",
+    "ManifestRecord",
+    "SyncPipeConfig",
+    "CanonicalResult",
+    "DEFAULT_CONFIG",
     # Feature/status governance
     "FDR_FEATURES",
     "REFERENCE_FEATURE",

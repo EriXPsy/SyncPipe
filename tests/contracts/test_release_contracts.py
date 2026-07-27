@@ -451,11 +451,12 @@ def test_cli_demo_prediction_opt_in_defaults_off():
     assert parser.parse_args(["demo", "--prediction"]).prediction is True
 
 
-def test_cli_analyze_has_no_prediction_path():
-    """``analyze`` is descriptor / default-CLI only: it never exposes/enters the prediction
-    path (no --prediction toggle wired in)."""
+def test_cli_describe_has_no_prediction_path():
+    """``describe`` is the descriptor / default-CLI path: it never exposes/enters the
+    prediction path (no --prediction toggle wired in). The canonical ``analyze``
+    command is the audited scientific path and is tested separately."""
     parser = build_parser()
-    args = parser.parse_args(["analyze", "-i", "a.csv,b.csv", "-n", "x,y"])
+    args = parser.parse_args(["describe", "-i", "a.csv,b.csv", "-n", "x,y"])
     assert not hasattr(args, "prediction")
 
 
