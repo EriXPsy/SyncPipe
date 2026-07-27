@@ -27,6 +27,7 @@ Pipeline:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import platform
@@ -126,6 +127,28 @@ class SyncPipeConfig:
     design_threshold: float = 0.5
     design_condition: Optional[str] = None
 
+    def __post_init__(self) -> None:
+        if int(self.window_size) != self.window_size or self.window_size < 2:
+            raise ValueError("config.window_size must be an integer >= 2")
+        if self.window_type not in {"rect", "boxcar", "rectangular", "hann", "hanning", "hamming", "triang", "gaussian"}:
+            raise ValueError(f"unsupported config.window_type: {self.window_type!r}")
+        if self.contrast is not None and (len(self.contrast) != 2 or str(self.contrast[0]) == str(self.contrast[1])):
+            raise ValueError("config.contrast must contain two different conditions")
+        if self.fdr_scope not in {"global", "within_modality"}:
+            raise ValueError("config.fdr_scope must be 'global' or 'within_modality'")
+        if self.undefined_policy not in {"flag", "gate"}:
+            raise ValueError("config.undefined_policy must be 'flag' or 'gate'")
+        if self.observation_policy not in {"ignore", "warn", "raise"}:
+            raise ValueError("config.observation_policy must be 'ignore', 'warn', or 'raise'")
+        if self.eligibility_policy not in {"ignore", "warn", "raise"}:
+            raise ValueError("config.eligibility_policy must be 'ignore', 'warn', or 'raise'")
+        if self.n_min_dyads < 4:
+            raise ValueError("config.n_min_dyads must be >= 4")
+        if self.n_permutations < 1 or self.surrogate_n < 1:
+            raise ValueError("config.n_permutations and surrogate_n must be >= 1")
+        if not -1.0 <= self.design_threshold <= 1.0:
+            raise ValueError("config.design_threshold must lie in [-1, 1]")
+
     def resolved_contrast(self) -> Tuple[str, str]:
         if not self.contrast or len(self.contrast) != 2:
             raise ValueError(
@@ -167,6 +190,8 @@ def parse_manifest(path: Union[str, Path]) -> List[ManifestRecord]:
     optional per row.
     """
     df = pd.read_csv(path)
+    if df.empty:
+        raise ValueError("manifest must contain at least one data row")
     required = ["dyad_id", "modality", "condition", "person_a_path", "person_b_path", "hz"]
     missing = [c for c in required if c not in df.columns]
     if missing:
@@ -199,6 +224,16 @@ def parse_manifest(path: Union[str, Path]) -> List[ManifestRecord]:
                 mask_path=mask_path,
             )
         )
+
+    keys = [(r.dyad_id, r.modality, r.condition) for r in records]
+    if len(set(keys)) != len(keys):
+        raise ValueError("manifest contains duplicate (dyad_id, modality, condition) rows")
+    for r in records:
+        if any(
+            not str(getattr(r, field)).strip()
+            for field in ("dyad_id", "modality", "condition", "person_a_path", "person_b_path")
+        ):
+            raise ValueError("manifest contains an empty identifier, condition, or signal path")
 
     if len(hz_set) > 1:
         raise ValueError(
@@ -271,7 +306,33 @@ def _load_mask(path: str) -> np.ndarray:
     num = df.select_dtypes(include=[np.number])
     if num.shape[1] == 0:
         raise ValueError(f"mask file {path} has no numeric column.")
-    return num.iloc[:, 0].to_numpy(dtype=float).astype(bool)
+    values = num.iloc[:, 0].to_numpy(dtype=float)
+    if not np.isfinite(values).all() or not np.isin(values, [0.0, 1.0]).all():
+        raise ValueError(f"mask file {path} must contain only finite 0/1 values")
+    return values.astype(bool)
+
+
+def _validate_aligned_signal_frames(a_df: pd.DataFrame, b_df: pd.DataFrame, *, hz: float, key: str) -> None:
+    """Validate the time axes before the bridge discards them.
+
+    Guards against manufacturing spurious synchrony when person A/B are not
+    sampled on the same time grid (Gate 1 residual, vulnerability B).
+    """
+    if "time" not in a_df.columns or "time" not in b_df.columns:
+        raise ValueError(f"{key}: both signal files must contain a 'time' column")
+    ta = a_df["time"].to_numpy(dtype=float)
+    tb = b_df["time"].to_numpy(dtype=float)
+    if ta.ndim != 1 or tb.ndim != 1 or ta.size != tb.size:
+        raise ValueError(f"{key}: person A/B time axes must be one-dimensional and equal length")
+    if ta.size < 2 or not np.isfinite(ta).all() or not np.isfinite(tb).all():
+        raise ValueError(f"{key}: time axes must contain at least two finite samples")
+    if not (np.all(np.diff(ta) > 0) and np.all(np.diff(tb) > 0)):
+        raise ValueError(f"{key}: time axes must be strictly increasing")
+    if not np.allclose(ta, tb, rtol=0.0, atol=max(1e-6, 0.1 / hz)):
+        raise ValueError(f"{key}: person A/B time axes are not aligned")
+    dt = float(np.median(np.diff(ta)))
+    if not np.isclose(dt, 1.0 / hz, rtol=0.01, atol=1e-9):
+        raise ValueError(f"{key}: time step {dt:g} does not match manifest hz={hz:g}")
 
 
 def _manifest_record_to_loader_record(
@@ -281,7 +342,11 @@ def _manifest_record_to_loader_record(
     r = rec.resolve(base_dir)
     a_df = load_csv(r.person_a_path)
     b_df = load_csv(r.person_b_path)
+    key = f"{r.dyad_id}__{r.modality}__{r.condition}"
+    _validate_aligned_signal_frames(a_df, b_df, hz=r.hz, key=key)
     mask = _load_mask(r.mask_path) if r.mask_path else None
+    if mask is not None and mask.size != len(a_df):
+        raise ValueError(f"{key}: mask length {mask.size} does not match signal length {len(a_df)}")
     return LoaderRecord(
         dyad_label=r.dyad_id,
         modality=r.modality,
@@ -361,10 +426,22 @@ def _environment(seed: int) -> Dict[str, Any]:
             git_hash = out.stdout.strip()
     except Exception:
         pass
+    try:
+        import pandas as _pandas
+        import scipy as _scipy
+        import sklearn as _sklearn
+        dependency_versions = {
+            "pandas": _pandas.__version__,
+            "scipy": _scipy.__version__,
+            "scikit_learn": _sklearn.__version__,
+        }
+    except Exception:
+        dependency_versions = {}
     return {
         "python_version": platform.python_version(),
         "syncpipe_version": __version__,
         "numpy_version": np.__version__,
+        "dependency_versions": dependency_versions,
         "platform": platform.platform(),
         "git_hash": git_hash,
         "seed": seed,
@@ -459,6 +536,12 @@ def run_canonical(
     contrast = cfg.resolved_contrast()
     if cfg.design_condition is None:
         cfg.design_condition = contrast[1]
+    available_conditions = {r.condition for r in records}
+    if cfg.design_condition not in available_conditions:
+        raise ValueError(
+            f"config.design_condition={cfg.design_condition!r} is not present "
+            f"in the manifest conditions {sorted(available_conditions)}"
+        )
 
     hz = records[0].hz  # uniform (parse_manifest guarantees this)
     output_dir = Path(output_dir)
@@ -471,7 +554,10 @@ def run_canonical(
     for rec in records:
         try:
             loader_records.append(_manifest_record_to_loader_record(rec, base_dir))
-        except Exception as e:  # load error -> excluded, not a hard crash
+        except (OSError, pd.errors.ParserError) as e:
+            # Expected data/input failures become exclusions. Unexpected
+            # programming/runtime errors must propagate instead of being
+            # mislabeled as bad participant data.
             exclusions.append({
                 "dyad_id": rec.dyad_id, "modality": rec.modality,
                 "condition": rec.condition, "reason": f"load_error: {e}",
@@ -501,6 +587,24 @@ def run_canonical(
                 "condition": lr.condition, "reason": "too_short_or_incomplete",
             })
 
+    # Pairing summary is separate from row-level inclusion. A loadable orphan
+    # condition row is not a paired dyad-level observation and must not look
+    # like a usable confirmatory unit in qc_report.json.
+    pair_summary: Dict[str, Any] = {}
+    for modality, mod_df in inputs.features_df.groupby("modality"):
+        by_condition = {
+            str(cond): set(mod_df.loc[mod_df["condition"] == cond, "dyad_id"].astype(str))
+            for cond in contrast
+        }
+        paired = set.intersection(*by_condition.values()) if by_condition else set()
+        union = set.union(*by_condition.values()) if by_condition else set()
+        pair_summary[str(modality)] = {
+            "n_rows": int(len(mod_df)),
+            "n_by_condition": {k: len(v) for k, v in by_condition.items()},
+            "n_paired_dyads": len(paired),
+            "n_orphan_dyads": len(union - paired),
+        }
+
     # --- inference pipeline (v1 audited evidence chain) ---
     pipe = InferencePipeline(
         features_df=inputs.features_df,
@@ -513,14 +617,43 @@ def run_canonical(
         "per_modality" if isinstance(cfg.onset_threshold, str)
         and cfg.onset_threshold == "session_pooled" else "fixed"
     )
-    # design-control audit masks must be keyed by dyad__mod (matching design_pairs),
-    # not by dyad__mod__cond. Remap from the cond-keyed discontinuity mask.
+    # Design-control masks and thresholds must be keyed to the SELECTED design
+    # condition, not to whichever condition happened to appear first in the
+    # manifest (Gate 1 residual P0-2).
+    design_keys = set(inputs.design_pairs)
     design_masks: Optional[Dict[str, np.ndarray]] = None
-    if inputs.discontinuity_mask:
+    if inputs.discontinuity_mask and any(
+        m is not None for m in inputs.discontinuity_mask.values()
+    ):
         design_masks = {}
-        for key, mask in inputs.discontinuity_mask.items():
-            dm = key.rsplit("__", 1)[0]
-            design_masks.setdefault(dm, mask)
+        for lr in loader_records:
+            if lr.condition != cfg.design_condition or lr.discontinuity_mask is None:
+                continue
+            pair_key = f"{lr.dyad_label}__{lr.modality}"
+            design_masks[pair_key] = lr.discontinuity_mask
+        if set(design_masks) != design_keys:
+            raise ValueError(
+                "design-condition discontinuity masks must cover exactly the "
+                "design_signal_pairs keys"
+            )
+
+    # P0-1: when onset thresholds are session-pooled, the design-control audit
+    # must use the SAME per-modality effective threshold as the feature table,
+    # not the fixed config.design_threshold. Pass a per-pair mapping keyed by
+    # dyad__modality so dwell/switching/fraction_above_threshold share one
+    # measurement definition across both stages.
+    if cfg.onset_threshold == "session_pooled":
+        mod_of_key = {
+            f"{lr.dyad_label}__{lr.modality}": lr.modality
+            for lr in loader_records
+            if lr.condition == cfg.design_condition
+        }
+        design_threshold: Union[float, Dict[str, float]] = {
+            key: float(inputs.thresholds_by_modality[mod_of_key[key]])
+            for key in design_keys
+        }
+    else:
+        design_threshold = cfg.design_threshold
 
     chain = pipe.run_audited_evidence_chain(
         raw_signals=inputs.raw_signals,
@@ -537,7 +670,7 @@ def run_canonical(
         design_discontinuity_mask=design_masks,
         window_type=cfg.window_type,
         n_permutations=cfg.n_permutations,
-        design_threshold=cfg.design_threshold,
+        design_threshold=design_threshold,
         feature_cols=list(FDR_FEATURES) + list(REFERENCE_FEATURE),
     )
 
@@ -552,6 +685,11 @@ def run_canonical(
         "excluded": len(exclusions),
         "hz": hz,
         "window_size": cfg.window_size,
+        "thresholds_by_modality": inputs.thresholds_by_modality,
+        "pair_summary": pair_summary,
+        "design_threshold_scope": (
+            "per_modality_pooled" if cfg.onset_threshold == "session_pooled" else "fixed"
+        ),
         "n_wcc_points_per_cell": {
             f"{r['dyad_id']}__{r['modality']}__{r['condition']}": _safe_float(
                 r.get("n_wcc_points")
@@ -563,7 +701,7 @@ def run_canonical(
     paths = _write_report_bundle(
         records=records, cfg=cfg, chain=chain, qc=qc, exclusions=exclusions,
         inputs=inputs, claimability=claimability, environment=environment,
-        output_dir=output_dir,
+        output_dir=output_dir, base_dir=base_dir,
     )
 
     return CanonicalResult(
@@ -584,6 +722,20 @@ def run_canonical(
 # ──────────────────────────────────────────────────────────────────────────
 # Report bundle writer
 # ──────────────────────────────────────────────────────────────────────────
+def _sha256(path: Optional[str]) -> Optional[str]:
+    """SHA-256 of a file's bytes, or None when unreadable."""
+    if not path:
+        return None
+    try:
+        digest = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except OSError:
+        return None
+
+
 def _write_report_bundle(
     *,
     records: List[ManifestRecord],
@@ -595,6 +747,7 @@ def _write_report_bundle(
     claimability: Dict[str, Any],
     environment: Dict[str, Any],
     output_dir: Path,
+    base_dir: Path,
 ) -> Dict[str, str]:
     """Write the 12-file unified report bundle. Returns a path map."""
     out = str(output_dir)
@@ -608,9 +761,20 @@ def _write_report_bundle(
         )
         paths[name] = str(p)
 
-    # manifest_resolved.json
+    # manifest_resolved.json: resolved paths + content hashes, not only the
+    # original relative strings. This makes an analysis auditable after files
+    # move or are replaced (Gate 1 residual, vulnerability A).
+    resolved_rows = []
+    for r in records:
+        rr = r.resolve(base_dir)
+        item = vars(rr).copy()
+        item["person_a_sha256"] = _sha256(rr.person_a_path)
+        item["person_b_sha256"] = _sha256(rr.person_b_path)
+        item["mask_sha256"] = _sha256(rr.mask_path)
+        resolved_rows.append(item)
     _dump_json("manifest_resolved.json", {
-        "rows": [vars(r) for r in records],
+        "base_dir": str(base_dir.resolve()),
+        "rows": resolved_rows,
         "hz_uniform": qc["hz"],
     })
 

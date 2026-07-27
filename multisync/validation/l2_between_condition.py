@@ -526,7 +526,10 @@ def between_condition_fdr(
         min_rate = min(def_a_count, def_b_count) / max(n_dyads, 1)
         informative_undefinedness = (p_def < alpha) or (min_rate < min_defined_fraction)
         definedness_status = "informative_undefinedness" if informative_undefinedness else "complete"
-        claimable = not informative_undefinedness or undefined_policy == "flag"
+        claimable = (
+            eligibility_status == "pass"
+            and (not informative_undefinedness or undefined_policy == "flag")
+        )
 
         # --- Scheme 3: Continue with valid pairs only ---
         valid = is_def_a & is_def_b

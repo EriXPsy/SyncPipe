@@ -5,6 +5,8 @@ from __future__ import annotations
 Covers manifest/config parsing contracts, the 12-file report bundle,
 exclusion accounting, and the eligibility governance floor.
 """
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -65,7 +67,7 @@ def _write_config(root: Path, **over) -> Path:
         "undefined_policy": "gate",
         "observation_policy": "raise",
         "eligibility_policy": "raise",
-        "n_min_dyads": 2,
+        "n_min_dyads": 4,
         "onset_threshold": "session_pooled",
         "n_permutations": 100,
         "seed": 42,
@@ -103,6 +105,31 @@ class TestParseManifest:
         assert len(recs) == 4  # 2 dyads x 2 conditions
         assert recs[0].modality == "EDA"
 
+    def test_rejects_empty_manifest(self, tmp_path):
+        man = tmp_path / "empty.csv"
+        pd.DataFrame(columns=["dyad_id", "modality", "condition", "person_a_path", "person_b_path", "hz"]).to_csv(man, index=False)
+        with pytest.raises(ValueError, match="at least one"):
+            parse_manifest(man)
+
+    def test_rejects_duplicate_manifest_key(self, tmp_path):
+        man = _write_cohort(tmp_path, n_dyads=1)
+        df = pd.read_csv(man)
+        df = pd.concat([df, df.iloc[[0]]], ignore_index=True)
+        df.to_csv(man, index=False)
+        with pytest.raises(ValueError, match="duplicate"):
+            parse_manifest(man)
+
+    def test_rejects_misaligned_signal_time_axes(self, tmp_path):
+        man = _write_cohort(tmp_path, n_dyads=1)
+        df = pd.read_csv(man)
+        b = Path(df.loc[0, "person_b_path"])
+        bdf = pd.read_csv(b)
+        bdf["time"] = bdf["time"] + 0.25
+        bdf.to_csv(b, index=False)
+        cfg = _write_config(tmp_path, n_min_dyads=4, eligibility_policy="warn")
+        with pytest.raises(ValueError, match="time axes"):
+            run_canonical(man, cfg, tmp_path / "out")
+
 
 class TestParseConfig:
     def test_requires_contrast(self, tmp_path):
@@ -129,6 +156,11 @@ class TestParseConfig:
         c = parse_config(cfg)
         assert c.onset_threshold == 0.5
 
+    def test_rejects_duplicate_contrast(self, tmp_path):
+        cfg = _write_config(tmp_path, contrast=["rest", "rest"])
+        with pytest.raises(ValueError, match="different"):
+            parse_config(cfg)
+
 
 class TestRunCanonical:
     def test_writes_full_bundle(self, tmp_path):
@@ -144,6 +176,13 @@ class TestRunCanonical:
         assert res.qc["total_rows"] == 8
         assert res.qc["included"] == 8
         assert res.qc["excluded"] == 0
+        # Vulnerability A: manifest_resolved must carry resolved absolute paths
+        # and content hashes, not only the original relative strings.
+        manifest_payload = json.loads((out / "manifest_resolved.json").read_text())
+        assert manifest_payload["base_dir"]
+        row0 = manifest_payload["rows"][0]
+        assert Path(row0["person_a_path"]).is_absolute()
+        assert row0["person_a_sha256"]
 
     def test_excludes_load_errors(self, tmp_path):
         man = _write_cohort(tmp_path, n_dyads=6)
@@ -164,6 +203,10 @@ class TestRunCanonical:
         exc = pd.read_csv(out / "exclusion_report.csv")
         assert len(exc) == 1
         assert "load_error" in str(exc.iloc[0]["reason"])
+        # pair_summary exposes orphan vs paired dyads (an orphan is not a usable
+        # confirmatory unit and must not masquerade as one in qc_report.json).
+        assert res.qc["pair_summary"]["EDA"]["n_paired_dyads"] == 5
+        assert res.qc["pair_summary"]["EDA"]["n_orphan_dyads"] == 1
 
     def test_eligibility_raise_blocks(self, tmp_path):
         man = _write_cohort(tmp_path, n_dyads=4)  # 4 paired dyads (>= hard floor 4)
@@ -180,3 +223,4 @@ class TestRunCanonical:
         assert res.chain["group_condition_inference"] is not None
         for pf in res.claimability["per_feature"]:
             assert pf["eligibility_status"] == "underpowered"
+            assert pf["claimable"] is False

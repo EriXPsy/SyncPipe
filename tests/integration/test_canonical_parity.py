@@ -67,7 +67,7 @@ def _write_config(root: Path, **over) -> Path:
         "undefined_policy": "gate",
         "observation_policy": "raise",
         "eligibility_policy": "raise",
-        "n_min_dyads": 2,
+        "n_min_dyads": 4,
         "onset_threshold": "session_pooled",
         "n_permutations": 200,
         "seed": 42,
@@ -98,15 +98,11 @@ def test_cli_api_byte_parity(tmp_path):
     )
     assert proc.returncode == 0, proc.stderr
 
-    for f in EXPECTED_BUNDLE:
-        p1, p2 = api_out / f, cli_out / f
-        assert p1.exists() and p2.exists(), f
-        if f == "exclusion_report.csv":
-            continue  # both empty; header-only comparison is not meaningful
-        assert (
-            p1.read_text(encoding="utf-8") == p2.read_text(encoding="utf-8")
-        ), f"byte mismatch: {f}"
-
-    wcc_api = list((api_out / "wcc_traces").glob("*.csv"))
-    wcc_cli = list((cli_out / "wcc_traces").glob("*.csv"))
-    assert len(wcc_api) == len(wcc_cli) == 8
+    # Compare the complete bundle, including exclusion CSV and every WCC trace.
+    api_files = sorted(p.relative_to(api_out) for p in api_out.rglob("*") if p.is_file())
+    cli_files = sorted(p.relative_to(cli_out) for p in cli_out.rglob("*") if p.is_file())
+    assert api_files == cli_files
+    expected_top = {Path(f) for f in EXPECTED_BUNDLE}
+    assert expected_top.issubset(set(api_files))
+    for rel in api_files:
+        assert (api_out / rel).read_bytes() == (cli_out / rel).read_bytes(), f"byte mismatch: {rel}"

@@ -757,7 +757,7 @@ class TestCLI:
             "window_size = 10\n"
             "contrast = ['rest', 'task']\n"
             "eligibility_policy = 'raise'\n"
-            "n_min_dyads = 2\n"
+            "n_min_dyads = 4\n"
             "n_permutations = 100\n"
             "seed = 42\n"
             "surrogate_n = 10\n",
