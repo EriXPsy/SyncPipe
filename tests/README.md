@@ -108,12 +108,12 @@ python -m pytest tests/ --collect-only -q | tail -1
 
 | Metric                              | Value |
 |------------------------------------|-------|
-| Collected tests (`--collect-only`) | **412** |
+| Collected tests (`--collect-only`) | **430** |
 | `slow` subset (`-m slow`)          | 59    |
-| `not slow` subset (`-m "not slow"`)| 353   |
+| `not slow` subset (`-m "not slow"`)| 371   |
 
 > Baselines reflect the current suite, including `tests/test_latest_hardening.py`
-> (architecture-review hardening regression gate, 9 tests) and subsequent
-> additions. Collected total **412** = 353 fast (`not slow`) + 59 `slow`.
-> The regression gate above must track this count: any future consolidation or
-> rename MUST keep the collected total at 411 (59 slow, 352 not-slow).
+> (architecture-review hardening regression gate) and subsequent additions.
+> Collected total **430** = 371 fast (`not slow`) + 59 `slow`. The regression
+> gate above must track this count: any future consolidation or rename MUST keep
+> the collected total at 430 (59 slow, 371 not-slow).

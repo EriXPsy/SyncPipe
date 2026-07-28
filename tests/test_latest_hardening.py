@@ -141,3 +141,17 @@ def test_observation_guard_detects_within_cell_trial_length_variation():
             feature_cols=["peak_amplitude"], condition_values=("A", "B"),
             observation_policy="raise",
         )
+
+
+def test_syncpipe_module_entrypoint_uses_canonical_wrapper():
+    """`python -m syncpipe` must resolve to the canonical CLI wrapper (main)."""
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [sys.executable, "-m", "syncpipe", "--version"],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert result.stdout.startswith("syncpipe ")

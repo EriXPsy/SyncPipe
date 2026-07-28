@@ -21,10 +21,11 @@ dependencies = [
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "build>=1.0",
 ]
 
 [project.scripts]
-syncpipe = "multisync.cli:main"
+syncpipe = "syncpipe.cli:main"
 multisync = "multisync.cli:main"
 
 [tool.setuptools.packages.find]
