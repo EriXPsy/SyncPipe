@@ -151,9 +151,10 @@ def _make_results(n_features: int = 3, undefined: bool = True) -> AnalysisResult
     return AnalysisResults(dyad_id="test_dyad", dynamic_features=feats)
 
 
-def test_report_shows_undefined_as_dash():
+def test_report_shows_undefined_as_dash(tmp_path):
     res = _make_results(n_features=3, undefined=True)
-    path = ReportGenerator().single_dyad_report(res, filepath="ignore.html")
+    path = tmp_path / "ignore.html"
+    ReportGenerator().single_dyad_report(res, filepath=str(path))
     html = open(path, encoding="utf-8").read()
     # The undefined feature's row must still be present (not dropped)...
     assert "Feat 0" in html
@@ -161,18 +162,20 @@ def test_report_shows_undefined_as_dash():
     assert "—" in html
 
 
-def test_report_does_not_drop_undefined_rows():
+def test_report_does_not_drop_undefined_rows(tmp_path):
     res = _make_results(n_features=3, undefined=True)
-    path = ReportGenerator().single_dyad_report(res, filepath="ignore2.html")
+    path = tmp_path / "ignore2.html"
+    ReportGenerator().single_dyad_report(res, filepath=str(path))
     html = open(path, encoding="utf-8").read()
     # All three feature rows present (1 undefined + 2 defined).
     assert html.count("<tr") >= 4  # header + >=3 data rows
 
 
-def test_report_truncation_notice():
+def test_report_truncation_notice(tmp_path):
     # 45 features -> only first 40 shown, with an explicit notice.
     res = _make_results(n_features=45, undefined=True)
-    path = ReportGenerator().single_dyad_report(res, filepath="ignore3.html")
+    path = tmp_path / "ignore3.html"
+    ReportGenerator().single_dyad_report(res, filepath=str(path))
     html = open(path, encoding="utf-8").read()
     assert "Showing first 40 of 45" in html
 
