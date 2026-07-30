@@ -468,13 +468,17 @@ import pytest
 from multisync.feature_definitions import (
     ALL_FEATURES,
     FDR_FEATURES,
+    PRIMARY_FDR_FAMILY,
+    SECONDARY_FDR_FAMILY,
     get_fdr_features,
+    get_primary_fdr_features,
+    get_secondary_fdr_features,
 )
 from multisync.feature_pipeline import get_fdr_features as fp_get_fdr_features
 from multisync.inference_pipeline import InferencePipeline
 
 N_FEATURES = 12
-FDR_N = 3
+PRIMARY_N = len(PRIMARY_FDR_FAMILY)
 
 
 def _full_feature_df(n_dyads: int = 8, seed: int = 0) -> pd.DataFrame:
@@ -504,10 +508,17 @@ def test_all_features_has_twelve_members():
     assert set(FDR_FEATURES).issubset(set(ALL_FEATURES))
 
 
-def test_get_fdr_features_default_is_three():
-    assert get_fdr_features() == list(FDR_FEATURES)
-    assert get_fdr_features(False) == list(FDR_FEATURES)
-    assert len(get_fdr_features(False)) == FDR_N
+def test_get_fdr_features_default_is_primary_family():
+    # Default = pre-registered PRIMARY FDR family (single peak_amplitude).
+    # SECONDARY family (dwell_time, switching_rate) is reported alongside but
+    # does NOT enter the primary BH-FDR correction.
+    assert get_fdr_features() == list(PRIMARY_FDR_FAMILY)
+    assert get_fdr_features(False) == list(PRIMARY_FDR_FAMILY)
+    assert len(get_fdr_features(False)) == PRIMARY_N
+    assert set(get_primary_fdr_features()) == set(PRIMARY_FDR_FAMILY)
+    assert set(get_secondary_fdr_features()) == set(SECONDARY_FDR_FAMILY)
+    # FDR_FEATURES remains the union (used for exports / guards), n=3.
+    assert set(FDR_FEATURES) == set(PRIMARY_FDR_FAMILY) | set(SECONDARY_FDR_FAMILY)
 
 
 def test_get_fdr_features_full_family_is_all():
@@ -523,13 +534,14 @@ def test_feature_pipeline_mirrors_ssot():
 
 # --- A2/A3: inference threading --------------------------------------------
 
-def test_l2_default_tests_only_fdr_family():
+def test_l2_default_tests_only_primary_family():
     df = _full_feature_df()
     pipe = InferencePipeline(df, hz=1.0, wcc_window_sec=20.0, surrogate_n=5, seed=1)
     res = pipe.test_l2_condition(n_permutations=200, contrast=("rest", "task"))
-    assert res["n_tested"] == FDR_N
-    assert len(res["per_feature"]) == FDR_N
-    assert set(f.feature for f in res["per_feature"]) == set(FDR_FEATURES)
+    # Default L2 input = PRIMARY FDR family (single pre-registered endpoint).
+    assert res["n_tested"] == PRIMARY_N
+    assert len(res["per_feature"]) == PRIMARY_N
+    assert set(f.feature for f in res["per_feature"]) == set(PRIMARY_FDR_FAMILY)
 
 
 def test_l2_full_family_tests_all_twelve():
@@ -561,7 +573,8 @@ def test_summarize_reflects_family():
     df = _full_feature_df()
     pipe = InferencePipeline(df, hz=1.0, wcc_window_sec=20.0, surrogate_n=5, seed=1)
     pipe.test_l2_condition(n_permutations=200, contrast=("rest", "task"))
-    assert "FDR-family" in pipe.summarize()
+    # Default L2 corrects the PRIMARY FDR family -> "primary-FDR" label.
+    assert "primary-FDR" in pipe.summarize()
 
     pipe2 = InferencePipeline(df, hz=1.0, wcc_window_sec=20.0, surrogate_n=5, seed=1)
     pipe2.test_l2_condition(
@@ -589,7 +602,7 @@ def test_run_full_cascade_carries_full_family_flag():
     assert "all-features" in res["cascade_summary"]
 
 
-def test_run_full_cascade_default_is_fdr_family():
+def test_run_full_cascade_default_is_primary_family():
     df = _full_feature_df()
     pipe = InferencePipeline(df, hz=1.0, wcc_window_sec=20.0, surrogate_n=5, seed=1)
     res = pipe.run_full_cascade(
@@ -598,8 +611,8 @@ def test_run_full_cascade_default_is_fdr_family():
         wcc_window_size=20,
         n_permutations=200,
     )
-    assert res["l2_results"]["n_tested"] == FDR_N
-    assert "FDR-family" in res["cascade_summary"]
+    assert res["l2_results"]["n_tested"] == PRIMARY_N
+    assert "primary-FDR" in res["cascade_summary"]
 
 # === source: test_per_feature_significance.py ===
 """Regression tests: per-feature significance (no OR) for BOTH L0 and L1,

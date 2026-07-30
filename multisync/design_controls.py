@@ -304,22 +304,43 @@ def design_control_audit(
         dyad_id: {f: [] for f in feature_names} for dyad_id in ids
     }
     for dyad_id in ids:
-        a, b = _finite_pair(*signal_pairs[dyad_id])
-        n = min(a.size, b.size)
+        # Crop from the raw (pre-finite) arrays so the discontinuity mask stays
+        # index-aligned with the signals, matching how the real/pseudo arms pass
+        # the full mask into extract_pair_features. Previously the time-shift arm
+        # passed discontinuity_mask=None, so on segmented/gapped data real WCC
+        # NaN-outs seam-straddling windows while the shift arm did not — biasing
+        # real_minus_time_shift. See design-control mask-consistency fix.
+        a_full = np.asarray(signal_pairs[dyad_id][0], dtype=float)
+        b_full = np.asarray(signal_pairs[dyad_id][1], dtype=float)
+        n = min(a_full.size, b_full.size)
+        a_full = a_full[:n]
+        b_full = b_full[:n]
+        mask_full = _mask_for(dyad_id)
+        if mask_full is not None:
+            mask_full = np.asarray(mask_full, dtype=bool)
+            mask_full = mask_full[:n] if mask_full.size >= n else None
         for lag_sec in shift_lags_sec:
             k = int(round(lag_sec * hz))
             if k == 0 or abs(k) >= n - window_size:
                 continue
             if k > 0:
-                a_use = a[k:]
-                b_use = b[: n - k]
+                a_use = a_full[k:]
+                b_use = b_full[: n - k]
+                # a_use[i] -> a[i+k], b_use[i] -> b[i]; a window is valid only
+                # if BOTH shifted signals are internal to a segment there.
+                shift_mask = (
+                    (mask_full[k:] & mask_full[: n - k]) if mask_full is not None else None
+                )
             else:
-                a_use = a[: n + k]
-                b_use = b[-k:]
+                a_use = a_full[: n + k]
+                b_use = b_full[-k:]
+                shift_mask = (
+                    (mask_full[: n + k] & mask_full[-k:]) if mask_full is not None else None
+                )
             feats = extract_pair_features(
                 a_use, b_use, hz=hz, window_size=window_size,
                 threshold=_threshold_for(dyad_id), feature_names=feature_names,
-                window_type=window_type, discontinuity_mask=None,
+                window_type=window_type, discontinuity_mask=shift_mask,
             )
             for f in feature_names:
                 if np.isfinite(feats.get(f, np.nan)):

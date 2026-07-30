@@ -29,7 +29,14 @@ from .design_controls import (
     synchrony_existence_audit,
 )
 from .dynamic_features import sliding_window_wcc, wcc_surrogate_test
-from .feature_definitions import FDR_FEATURES, ONSET_THRESHOLD, extract_features, get_fdr_features
+from .feature_definitions import (
+    FDR_FEATURES,
+    ONSET_THRESHOLD,
+    PRIMARY_EXISTENCE_ENDPOINT,
+    PRIMARY_FDR_FAMILY,
+    extract_features,
+    get_fdr_features,
+)
 from .validation.across_stim_shuffle import across_stim_shuffle_test
 from .validation.l2_between_condition import (
     between_condition_fdr,
@@ -415,7 +422,7 @@ class InferencePipeline:
         )
         existence_results = existence.get("results", {})
         primary_pass = any(
-            bool(r.get("per_feature_significant", {}).get("peak_amplitude", False))
+            bool(r.get("per_feature_significant", {}).get(PRIMARY_EXISTENCE_ENDPOINT, False))
             for r in existence_results.values() if isinstance(r, dict)
         )
         return {
@@ -792,7 +799,7 @@ class InferencePipeline:
         # L1 primary = switching_rate, NOT dwell_time: dwell_time is undefined in
         # a large fraction of real dyads (~40% NaN in Lerique), so it cannot be a
         # primary endpoint that must cover every dyad. See manuscript Methods.
-        L0_PRIMARY = "peak_amplitude"
+        L0_PRIMARY = PRIMARY_EXISTENCE_ENDPOINT
         L1_PRIMARY = "switching_rate"
 
         for label in wcc_dict:
@@ -885,8 +892,8 @@ class InferencePipeline:
             lines.append(f"{heading}: ERROR ({err})")
             return lines
         n_sig = int(l2.get("n_significant", 0))
-        n_total = int(l2.get("n_tested", len(FDR_FEATURES)))
-        fam = "all-features" if n_total > len(FDR_FEATURES) else "FDR-family"
+        n_total = int(l2.get("n_tested", len(PRIMARY_FDR_FAMILY)))
+        fam = "all-features" if n_total > len(PRIMARY_FDR_FAMILY) else "primary-FDR"
         ca = l2.get("condition_a", "?")
         cb = l2.get("condition_b", "?")
         lines.append(
@@ -947,7 +954,7 @@ class InferencePipeline:
             n_l0 = len(self._l0_results)
             n_l0_sig = sum(
                 1 for r in self._l0_results.values()
-                if r.get("per_feature_significant", {}).get("peak_amplitude", False)
+                if r.get("per_feature_significant", {}).get(PRIMARY_EXISTENCE_ENDPOINT, False)
             )
             lines.append(f"L0 (signal-level IAAFT): {n_l0_sig}/{n_l0} significant")
             lines.append("  Tests: mean_synchrony, peak_amplitude, bimodality_coefficient")
@@ -1083,11 +1090,11 @@ def _build_cascade_summary(
         fam = "per-modality"
     else:
         n_l2_sig = l2_results.get("n_significant", 0)
-        n_l2_total = l2_results.get("n_tested", len(FDR_FEATURES))
-        # Family label: the pre-registered 3-feature FDR family is the primary
-        # endpoint; full_family_fdr=True enters all 12 features into one BH-FDR
-        # step (reviewer-proof against "cherry-picking 3/12").
-        fam = "all-features" if n_l2_total > len(FDR_FEATURES) else "FDR-family"
+        n_l2_total = l2_results.get("n_tested", len(PRIMARY_FDR_FAMILY))
+        # Family label: the pre-registered PRIMARY FDR family (single descriptor)
+        # is the primary endpoint; full_family_fdr=True enters all 12 features
+        # into one BH-FDR step (reviewer-proof against "cherry-picking").
+        fam = "all-features" if n_l2_total > len(PRIMARY_FDR_FAMILY) else "primary-FDR"
 
     parts = []
 

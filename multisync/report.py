@@ -12,6 +12,7 @@ Requires: ``pip install matplotlib`` (optional, degrades gracefully).
 from __future__ import annotations
 
 import base64
+import html
 import io
 import json
 from dataclasses import dataclass
@@ -162,7 +163,7 @@ def _html_table(rows: List[Dict[str, Any]], highlight_key: Optional[str] = None,
     if not rows:
         return "<p>No data.</p>"
     keys = list(rows[0].keys())
-    header = "<tr>" + "".join(f"<th>{k}</th>" for k in keys) + "</tr>"
+    header = "<tr>" + "".join(f"<th>{html.escape(str(k))}</th>" for k in keys) + "</tr>"
     body = ""
     for row in rows:
         row_class = ""
@@ -176,7 +177,9 @@ def _html_table(rows: List[Dict[str, Any]], highlight_key: Optional[str] = None,
             elif isinstance(v, bool):
                 cells += f"<td>{'✓' if v else ''}</td>"
             else:
-                cells += f"<td>{v}</td>"
+                # Escape arbitrary identifiers/params (pair keys, feature names,
+                # dyad ids) so a '<' or '&' cannot break or inject into the HTML.
+                cells += f"<td>{html.escape(str(v))}</td>"
         body += f"<tr{row_class}>{cells}</tr>"
     return f"<table><thead>{header}</thead><tbody>{body}</tbody></table>"
 
@@ -188,7 +191,7 @@ def _html_wrap(title: str, body: str, version: str) -> str:
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<title>{title} — SyncPipe Report</title>
+<title>{html.escape(str(title))} — SyncPipe Report</title>
 <style>{_CSS}</style>
 </head>
 <body>
@@ -269,8 +272,11 @@ class ReportGenerator:
             filepath = str(self.output_dir / f"{results.dyad_id}_report.html")
 
         title = title or f"Synchrony Analysis Report — {results.dyad_id}"
-        body = f"<h1>{title}</h1>\n"
-        body += f"<p style='text-align:center;color:#666'>Dyad ID: <code>{results.dyad_id}</code></p>\n"
+        body = f"<h1>{html.escape(str(title))}</h1>\n"
+        body += (
+            "<p style='text-align:center;color:#666'>Dyad ID: "
+            f"<code>{html.escape(str(results.dyad_id))}</code></p>\n"
+        )
 
         # --- Parameters ---
         body += "<h2>Analysis parameters</h2>\n"
@@ -315,11 +321,28 @@ class ReportGenerator:
         body += "<h2>Prediction window analysis</h2>\n"
         pred = results.prediction
         if pred:
+            def _pred_flags(v: Dict[str, Any]) -> str:
+                # Surface method-level fallbacks/auto-adjustments that would
+                # otherwise be dropped from the report (they are core evidence
+                # of how the AUC was actually produced).
+                diag = v.get("diagnostics") or {}
+                flags = []
+                if diag.get("gap_auto_adjusted"):
+                    flags.append("gap auto-adj")
+                if diag.get("window_size_auto_adjusted"):
+                    flags.append("window auto-adj")
+                if diag.get("class_imbalance"):
+                    flags.append("class imbalance")
+                return ", ".join(flags)
+
             pred_rows = [{
                 "Pair": k,
                 "Mean Dynamic AUC": round(float(v.get("mean_dynamic_auc", float("nan"))), 4),
                 "Mean Baseline AUC": round(float(v.get("mean_baseline_auc", float("nan"))), 4),
                 "ΔAUC": round(float(v.get("mean_delta_auc", float("nan"))), 4),
+                "Feat/Sample": round(float(v.get("feature_to_sample_ratio", float("nan"))), 3),
+                "Failed folds": v.get("n_failed_folds", 0),
+                "Flags": _pred_flags(v),
                 "Warning": v.get("warning") or "",
             } for k, v in pred.items()]
             body += _html_table(pred_rows)
@@ -342,10 +365,10 @@ class ReportGenerator:
 
         # Write file
         body += self._claim_ceiling_html()
-        html = _html_wrap(title, body, __version__)
+        html_doc = _html_wrap(title, body, __version__)
         path = Path(filepath)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(html, encoding="utf-8")
+        path.write_text(html_doc, encoding="utf-8")
         return str(path)
 
     def group_report(
@@ -404,8 +427,8 @@ class ReportGenerator:
 
         # Write
         body += self._claim_ceiling_html()
-        html = _html_wrap(title, body, __version__)
+        html_doc = _html_wrap(title, body, __version__)
         path = Path(filepath)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(html, encoding="utf-8")
+        path.write_text(html_doc, encoding="utf-8")
         return str(path)

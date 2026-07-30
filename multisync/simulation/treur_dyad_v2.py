@@ -1,8 +1,9 @@
 """
-simulation/treur_dyad.py — Optimization patch for GT-4
-========================================================
+simulation/treur_dyad_v2.py — GT-4 v2 W_AB-trajectory scenarios
+================================================================
 
-Adds W_AB trajectory validation scenario and modulated signal generator.
+Standalone module (imports from ``treur_dyad``) that adds W_AB trajectory
+validation scenarios and a modulated signal generator.
 
 GT-4 v2 key improvement:
   - Instead of relying on pure Treur dynamics to produce WCC curves
@@ -13,8 +14,6 @@ GT-4 v2 key improvement:
     network while making the WCC curves practical for feature validation.
   - Validation: compare SyncPipe features (dwell, onset, peak) against
     ground-truth W_AB(t) metrics.
-
-PATCH: Append to end of existing treur_dyad.py
 """
 
 import numpy as np

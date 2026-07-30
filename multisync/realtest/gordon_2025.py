@@ -197,12 +197,20 @@ def _resample_to_common_grid(
         )
 
     dt = 1.0 / float(target_hz)
-    grid = np.arange(t_min, t_max + 0.5 * dt, dt)
+    # Build the grid strictly within [t_min, t_max] (the overlap region). The
+    # previous "+ 0.5*dt" tolerance could emit a grid point slightly beyond
+    # t_max, which np.interp would fill by constant end-point extrapolation —
+    # injecting a fabricated boundary sample into the synchrony input.
+    n_grid = int(np.floor((t_max - t_min) / dt)) + 1
+    grid = t_min + np.arange(n_grid) * dt
 
     def _interp(df: pd.DataFrame) -> pd.DataFrame:
         out: Dict[str, np.ndarray] = {"time": grid}
+        src_t = df["time"].values
         for col in ("R", "theta", "motion_intensity"):
-            out[col] = np.interp(grid, df["time"].values, df[col].values)
+            # left/right=nan: out-of-range points become NaN and are handled by
+            # downstream QC rather than silently extrapolated to a constant.
+            out[col] = np.interp(grid, src_t, df[col].values, left=np.nan, right=np.nan)
         return pd.DataFrame(out)
 
     return _interp(df_a), _interp(df_b)

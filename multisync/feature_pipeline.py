@@ -22,6 +22,7 @@ import warnings
 
 from .feature_definitions import (
     FDR_FEATURES,
+    FEATURE_TIER,
     REFERENCE_FEATURE,
     CORE_FEATURES,
     CONDITIONAL_FEATURES,
@@ -173,6 +174,33 @@ _FEATURE_CATALOG: Dict[str, FeatureInfo] = {
         typical_range="paradigm-dependent",
     ),
 }
+
+
+# Import-time anti-drift guard: the catalog carries richer human-readable
+# metadata that cannot be mechanically derived, but its `tier`/`fdr_member`
+# fields MUST agree with the SSoT. Assert that here so a future SSoT edit that
+# is not mirrored into the catalog fails loudly at import rather than silently
+# shipping a mislabeled feature tier in user-facing help.
+for _cat_name, _info in _FEATURE_CATALOG.items():
+    if _cat_name not in FEATURE_TIER:
+        raise AssertionError(
+            f"_FEATURE_CATALOG lists '{_cat_name}', which is not in the SSoT "
+            f"FEATURE_TIER. Remove it or add it to feature_definitions.FEATURE_TIER."
+        )
+    if _info.tier != FEATURE_TIER[_cat_name]:
+        raise AssertionError(
+            f"_FEATURE_CATALOG['{_cat_name}'].tier={_info.tier!r} disagrees with "
+            f"SSoT FEATURE_TIER[{_cat_name!r}]={FEATURE_TIER[_cat_name]!r}. "
+            f"Update the catalog to match the SSoT."
+        )
+    _ssot_fdr = _cat_name in FDR_FEATURES
+    if _info.fdr_member != _ssot_fdr:
+        raise AssertionError(
+            f"_FEATURE_CATALOG['{_cat_name}'].fdr_member={_info.fdr_member} disagrees "
+            f"with SSoT membership (name in FDR_FEATURES = {_ssot_fdr}). "
+            f"Update the catalog to match the SSoT."
+        )
+del _cat_name, _info
 
 
 def list_features(tier: Optional[str] = None, axis: Optional[str] = None) -> List[FeatureInfo]:

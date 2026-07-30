@@ -306,7 +306,7 @@ class PredictionResult:
         mean_joint_auc = joint model (source+target) AUC
         mean_dynamic_auc = alias for mean_joint_auc (backward compatible)
         mean_ar_baseline_auc = restricted model (target-only) AUC
-        feature_importance = all 20 features (source_XXX + target_XXX)
+        feature_importance = all 14 joint features (6 source_XXX + 6 target_XXX + 2 AR)
         source_feature_importance = only source_XXX features (researcher-facing)
     """
     source_pair: str = ""  # e.g., "behavior_value__neural_value"
@@ -645,7 +645,7 @@ def rolling_origin_cv(
     Rolling-origin time-series CV using DYNAMIC FEATURES (not raw WCC).
 
     This is the corrected prediction pipeline:
-    1. Build feature matrix: each sliding window of WCC -> 10 dynamic features.
+    1. Build feature matrix: each sliding window of WCC -> 6 dynamic features.
     2. Create binary labels from future WCC windows.
     3. Train LogisticRegression on features, compare against naive baseline.
 
@@ -863,6 +863,7 @@ def rolling_origin_cv(
             X_test_scaled = scaler.transform(X_test)
 
             clf = LogisticRegression(
+                penalty="elasticnet",
                 l1_ratio=1.0,
                 solver="saga",
                 max_iter=max(max_iter, 500),
@@ -956,7 +957,9 @@ def rolling_origin_cv(
             dynamic_auc=dynamic_auc,
             baseline_auc=baseline_auc,
             ar_baseline_auc=ar_auc,
-            delta_auc=dynamic_auc - max(baseline_auc, ar_auc),
+            # np.nanmax so a NaN baseline/AR does not make the reference
+            # order-dependent (Python max(nan, x) is order-sensitive).
+            delta_auc=dynamic_auc - np.nanmax([baseline_auc, ar_auc]),
         ))
 
     if valid_folds == 0:
@@ -980,7 +983,14 @@ def rolling_origin_cv(
         )
 
     mean_dynamic = np.mean([f.dynamic_auc for f in folds])
-    mean_baseline = np.mean([f.baseline_auc for f in folds])
+    baseline_aucs = [f.baseline_auc for f in folds]
+    # Honest aggregation: if ANY fold's naive baseline failed (NaN --- roc_auc
+    # undefined for a degenerate fold), the aggregate is undefined too. Never
+    # fabricate 0.5 by silently dropping the failed fold via nanmean.
+    mean_baseline = (
+        float("nan") if any(np.isnan(b) for b in baseline_aucs)
+        else float(np.nanmean(baseline_aucs))
+    )
     mean_delta = np.nanmean([f.delta_auc for f in folds])
 
     avg_coefs = feature_coefs_sum / valid_folds
@@ -1457,6 +1467,7 @@ def cross_modal_prediction(
         # --- Restricted model (target shape + target AR) ---
         try:
             clf_restricted = LogisticRegression(
+                penalty="elasticnet",
                 l1_ratio=1.0,
                 solver="saga",
                 max_iter=max(max_iter, 500),
@@ -1478,6 +1489,7 @@ def cross_modal_prediction(
         joint_auc = float("nan")
         try:
             clf_joint = LogisticRegression(
+                penalty="elasticnet",
                 l1_ratio=1.0,
                 solver="saga",
                 max_iter=max(max_iter, 500),
@@ -1500,6 +1512,7 @@ def cross_modal_prediction(
         ablation_auc = float("nan")
         try:
             clf_abl = LogisticRegression(
+                penalty="elasticnet",
                 l1_ratio=1.0,
                 solver="saga",
                 max_iter=max(max_iter, 500),
@@ -1522,12 +1535,13 @@ def cross_modal_prediction(
             # Do not fabricate chance-level AUC; leave NaN so delta stays honest.
             baseline_auc = float("nan")
 
-        # Delta = joint - max(naive, restricted)
-        delta_auc = joint_auc - max(baseline_auc, restricted_auc)
+        # Delta = joint - max(naive, restricted); np.nanmax keeps the reference
+        # order-independent when baseline_auc is NaN.
+        delta_auc = joint_auc - np.nanmax([baseline_auc, restricted_auc])
 
         # Ablation delta
         if not np.isnan(ablation_auc):
-            ablation_delta = ablation_auc - max(baseline_auc, restricted_auc)
+            ablation_delta = ablation_auc - np.nanmax([baseline_auc, restricted_auc])
         else:
             ablation_delta = float("nan")
 
@@ -1581,7 +1595,13 @@ def cross_modal_prediction(
         )
 
     mean_joint = np.mean([f.dynamic_auc for f in folds])
-    mean_baseline = np.mean([f.baseline_auc for f in folds])
+    baseline_aucs = [f.baseline_auc for f in folds]
+    # Honest aggregation: propagate NaN if ANY fold's naive baseline failed,
+    # instead of fabricating 0.5 via nanmean dropping the NaN fold.
+    mean_baseline = (
+        float("nan") if any(np.isnan(b) for b in baseline_aucs)
+        else float(np.nanmean(baseline_aucs))
+    )
     mean_restricted = np.nanmean([f.ar_baseline_auc for f in folds])
     mean_delta = np.nanmean([f.delta_auc for f in folds])
 

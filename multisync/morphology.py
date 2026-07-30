@@ -368,12 +368,15 @@ def morphology_feature_table(
         sd = scalefree_descriptors(w, prominence=prominence)
         if sd is None:
             continue
-        if wcc_window_sec is None:
-            wcc_window_sec = len(w) / hz
+        # Resolve per trace with a LOCAL variable. Assigning to the shared
+        # `wcc_window_sec` inside the loop pinned trace-0's duration onto every
+        # subsequent trace, mis-scaling the sustained-crossing length K for
+        # traces of differing length.
+        w_window_sec = wcc_window_sec if wcc_window_sec is not None else len(w) / hz
         f = extract_dynamic_features(
             np.asarray(w, float),
             hz=hz,
-            wcc_window_sec=wcc_window_sec,
+            wcc_window_sec=w_window_sec,
             onset_threshold=onset_threshold,
         )
         ms = {

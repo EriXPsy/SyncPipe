@@ -499,6 +499,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_describe.add_argument(
         "--contexts", nargs="*", help="Context labels: start,end,label[,score]."
     )
+    p_describe.add_argument(
+        "--full-family-fdr", action="store_true",
+        help="Record that the L2 between-condition BH-FDR should enter ALL 12 "
+             "implemented features (strictly more conservative) instead of the "
+             "pre-registered 3-feature confirmatory family.",
+    )
     p_describe.set_defaults(func=cmd_describe)
 
     # demo
@@ -529,12 +535,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-prediction", action="store_true",
         help="Deprecated no-op alias kept for backward compatibility "
              "(prediction is already OFF by default).",
-    )
-    p_demo.add_argument(
-        "--full-family-fdr", action="store_true",
-        help="Record that the L2 between-condition BH-FDR should enter ALL 12 "
-             "implemented features (strictly more conservative) instead of the "
-             "pre-registered 3-feature confirmatory family.",
     )
     p_demo.set_defaults(func=cmd_demo)
 

@@ -233,6 +233,35 @@ FEATURE_STATUS_ROWS: List[Dict[str, object]] = [
 ]
 
 
+# Import-time anti-drift guard: this communication table must not silently
+# disagree with the mathematical SSoT. `enters_primary_fdr` must match
+# FDR_FEATURES membership, and any row claiming `implemented_in_ssot=True` must
+# actually exist in FEATURE_TIER. Rows for non-SSoT artefacts (e.g.
+# raw_signal_quality, wcc_trace) are exempt via implemented_in_ssot=False.
+def _check_feature_status_consistency() -> None:
+    from .feature_definitions import FDR_FEATURES, FEATURE_TIER
+
+    for _row in FEATURE_STATUS_ROWS:
+        _name = _row["feature"]
+        _in_ssot = bool(_row.get("implemented_in_ssot", False))
+        if _in_ssot and _name not in FEATURE_TIER:
+            raise AssertionError(
+                f"feature_status row '{_name}' is marked implemented_in_ssot=True "
+                f"but is absent from feature_definitions.FEATURE_TIER."
+            )
+        _enters_fdr = bool(_row.get("enters_primary_fdr", False))
+        _ssot_fdr = _name in FDR_FEATURES
+        if _enters_fdr != _ssot_fdr:
+            raise AssertionError(
+                f"feature_status row '{_name}' has enters_primary_fdr={_enters_fdr} "
+                f"but SSoT membership (name in FDR_FEATURES) is {_ssot_fdr}. "
+                f"Update the status table to match the SSoT."
+            )
+
+
+_check_feature_status_consistency()
+
+
 def feature_status_table(as_dataframe: bool = True):
     """Return the external-facing v1 feature status table.
 

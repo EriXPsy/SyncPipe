@@ -562,15 +562,23 @@ def apply_fdr(
 def _extract_metric_arrays(
     dyad_results: List[DyadResult],
 ) -> Dict[str, np.ndarray]:
-    """Build metric arrays from DyadResults (v2 and v3 fields)."""
+    """Build metric arrays from DyadResults for BH-FDR.
+
+    Only CANONICAL (v3) endpoints enter the FDR input. The v2 mirror
+    fields ``mean_peak_sync`` / ``mean_build_up_rate`` /
+    ``mean_breakdown_rate`` are DELIBERATELY excluded: they are the same
+    constructs as the v3 canonicals (``mean_peak_sync == mean_peak_amplitude``;
+    ``mean_build_up_rate == 1/rise_time`` and ``mean_breakdown_rate ==
+    1/recovery_time`` are monotone reciprocals that yield identical rank-test
+    p-values). Entering them alongside the canonicals would double-count the
+    same construct and inflate the BH denominator ``m``, making the correction
+    spuriously conservative. ``mean_onset_latency`` is retained as the sole
+    representative of onset (no v3 duplicate; it carries the v2 name only).
+    """
     metrics: Dict[str, List[float]] = {
         "frac_significant_edges": [],
         "mean_peak_lag_sec": [],
-        # v2 mirrors
         "mean_onset_latency": [],
-        "mean_peak_sync": [],
-        "mean_build_up_rate": [],
-        "mean_breakdown_rate": [],
         # v3 canonical
         "mean_peak_amplitude": [],
         "mean_rise_time": [],
@@ -586,11 +594,7 @@ def _extract_metric_arrays(
     for dr in dyad_results:
         metrics["frac_significant_edges"].append(dr.frac_significant_edges)
         metrics["mean_peak_lag_sec"].append(dr.mean_peak_lag_sec)
-        # v2
         metrics["mean_onset_latency"].append(dr.mean_onset_latency)
-        metrics["mean_peak_sync"].append(dr.mean_peak_sync)
-        metrics["mean_build_up_rate"].append(dr.mean_build_up_rate)
-        metrics["mean_breakdown_rate"].append(dr.mean_breakdown_rate)
         # v3
         metrics["mean_peak_amplitude"].append(dr.mean_peak_amplitude)
         metrics["mean_rise_time"].append(dr.mean_rise_time)
@@ -689,7 +693,10 @@ def group_comparison(
     """
     Compare two groups of dyads on all scalar synchrony metrics.
 
-    Applies Benjamini-Hochberg FDR correction across all comparisons.
+    Applies Benjamini-Hochberg FDR correction to the pre-registered PRIMARY
+    confirmatory family only (SSoT). Reference / exploratory / prediction
+    metrics are reported descriptively with raw p-values (no FDR flag), so the
+    test count m is never inflated by mixing construct families.
 
     Parameters
     ----------
@@ -782,9 +789,19 @@ def group_comparison(
                 n_a=len(a_valid), n_b=len(b_valid),
             ))
 
-    # BH FDR correction (only on non-NaN p-values)
-    valid_indices = [i for i, r in enumerate(raw_results)
-                     if not np.isnan(r.p_raw)]
+    # BH-FDR correction — ONLY on the pre-registered PRIMARY confirmatory family
+    # (②). Mixing reference / exploratory / prediction metrics into one BH step
+    # previously inflated the test count m (and risked double-counting mirrored
+    # constructs). Each DyadResult metric key is "mean_<feature>", so we map the
+    # SSoT PRIMARY_FDR_FAMILY onto the metric keys and correct ONLY those. All
+    # other metrics keep their raw p-value and are reported descriptively
+    # (significant_fdr stays False; p_fdr stays NaN).
+    from .feature_definitions import PRIMARY_FDR_FAMILY
+    _primary_keys = {f"mean_{f}" for f in PRIMARY_FDR_FAMILY}
+    valid_indices = [
+        i for i, r in enumerate(raw_results)
+        if (not np.isnan(r.p_raw)) and r.metric in _primary_keys
+    ]
     valid_p = [raw_results[i].p_raw for i in valid_indices]
 
     if valid_p:
@@ -854,7 +871,13 @@ def residualize_features(
 
         x = baseline_vals[mask]
         y = feat_vals[mask]
-        beta = np.cov(x, y, ddof=1)[0, 1] / np.var(x, ddof=1)
+        var_x = np.var(x, ddof=1)
+        if not np.isfinite(var_x) or var_x < 1e-12:
+            # Constant baseline: OLS slope is undefined (division by zero would
+            # yield inf/nan residuals). Cannot residualize; emit NaN.
+            out[col] = np.nan
+            continue
+        beta = np.cov(x, y, ddof=1)[0, 1] / var_x
         alpha = y.mean() - beta * x.mean()
 
         out[col] = feat_vals - (alpha + beta * baseline_vals)

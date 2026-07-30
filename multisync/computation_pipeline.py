@@ -401,6 +401,10 @@ class BatchComputationPipeline:
         self._thresholds: Dict[str, float] = {}
         self._threshold: Optional[float] = None
         self._threshold_meta: Optional[Dict] = None
+        # Authoritative per-modality fallback flags (populated in the
+        # session_pooled branch of _compute_threshold from the threshold meta).
+        self._fallback_by_modality: Dict[str, bool] = {}
+        self._fallback_reason_by_modality: Dict[str, Optional[str]] = {}
 
     def add_dyad(
         self,
@@ -450,7 +454,7 @@ class BatchComputationPipeline:
 
         if self.onset_threshold == "session_pooled":
             modalities = [self._modality_of(i) for i in range(len(self._dyad_signals))]
-            self._thresholds = compute_session_pooled_thresholds_by_modality(
+            thresholds_with_meta = compute_session_pooled_thresholds_by_modality(
                 self._dyad_signals,
                 modalities,
                 hz=self.hz,
@@ -461,20 +465,30 @@ class BatchComputationPipeline:
                 surrogate_method="iaaft",
                 backend=self.backend,
                 wclr_max_lag_samples=self.wclr_max_lag_samples,
+                return_meta=True,
             )
-            # A surrogate-derived threshold landing exactly on the fallback is
-            # astronomically unlikely (continuous percentile), so equality is a
-            # reliable fallback proxy for the loud warning already emitted
-            # inside compute_session_pooled_thresholds_by_modality.
-            fb = ONSET_THRESHOLD
-            any_fallback = any(
-                abs(thr - fb) < 1e-12 for thr in self._thresholds.values()
-            )
+            self._thresholds = {
+                mod: thr for mod, (thr, _meta) in thresholds_with_meta.items()
+            }
+            # Use the authoritative per-modality meta (fallback_used/reason) rather
+            # than re-inferring a fallback by float-equality to 0.5, which would
+            # misreport a genuine surrogate threshold that happens to land on 0.5.
+            self._fallback_by_modality = {
+                mod: bool(meta.get("fallback_used", False))
+                for mod, (_thr, meta) in thresholds_with_meta.items()
+            }
+            self._fallback_reason_by_modality = {
+                mod: meta.get("reason")
+                for mod, (_thr, meta) in thresholds_with_meta.items()
+            }
+            any_fallback = any(self._fallback_by_modality.values())
             self._threshold = next(iter(self._thresholds.values()), ONSET_THRESHOLD)
             self._threshold_meta = {
                 "mode": "session_pooled_by_modality",
                 "backend": self.backend,
                 "fallback_used": any_fallback,
+                "fallback_by_modality": dict(self._fallback_by_modality),
+                "fallback_reason_by_modality": dict(self._fallback_reason_by_modality),
                 "thresholds_by_modality": dict(self._thresholds),
                 "n_modalities": len(self._thresholds),
             }
@@ -497,11 +511,13 @@ class BatchComputationPipeline:
             raise ValueError("No dyads added. Call add_dyad() first.")
 
         self._compute_threshold()
-        fb = ONSET_THRESHOLD
-        fallback_by_modality = {
-            k: (abs(v - fb) < 1e-12)
-            for k, v in self._thresholds.items()
-        }
+        # Prefer authoritative per-modality fallback flags from the threshold
+        # meta (session_pooled path). For fixed/default modes no surrogate
+        # fallback concept applies, so all modalities are non-fallback.
+        if self._fallback_by_modality:
+            fallback_by_modality = dict(self._fallback_by_modality)
+        else:
+            fallback_by_modality = {k: False for k in self._thresholds}
         frames = []
         for i, ((sig_a, sig_b), label, meta) in enumerate(
             zip(self._dyad_signals, self._labels, self._metadata)

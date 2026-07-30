@@ -146,9 +146,13 @@ class TreurDyadSimulator:
             dx_A/dt = eta * (tanh(W_BA * x_B + external_A) - x_A)
             dx_B/dt = eta * (tanh(W_AB * x_A + external_B) - x_B)
 
-        Level 2: weight adaptation
-            dW_AB/dt = adaptation_rate * (alpha_sync - |x_A - x_B|) * W_AB
-            dW_BA/dt = adaptation_rate * (alpha_sync - |x_A - x_B|) * W_BA
+        Level 2: weight adaptation (saturating Hebbian; see implementation
+            note below). With net_pull = (alpha_sync - |x_A - x_B|) - alpha_indep
+            and s = tanh(net_pull):
+            dW_AB/dt = adaptation_rate * (max(0, s)*(1 - W_AB) - max(0, -s)*W_AB)
+            dW_BA/dt = adaptation_rate * (max(0, s)*(1 - W_BA) - max(0, -s)*W_BA)
+            (The earlier multiplicative form dW = rate*(alpha_sync - mismatch)*W
+            is NOT used: it can only saturate or collapse and never switches.)
 
         Level 3: external manipulations of alpha_sync / alpha_indep
             (handled by set_control() between steps)

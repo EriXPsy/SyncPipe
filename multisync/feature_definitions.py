@@ -474,10 +474,30 @@ Family L0: null = signal-level IAAFT (destroy all coupling)
 Family L1: null = WCC-level IAAFT   (preserve L0, destroy run-length)
 """
 
+# ---------------------------------------------------------------------------
+# Pre-registered PRIMARY / SECONDARY confirmatory FDR families (②)
+# ---------------------------------------------------------------------------
+# The PRIMARY confirmatory claim rests on ONE pre-registered endpoint, aligned
+# with PRIMARY_EXISTENCE_ENDPOINT (③ existence gate): gating existence and
+# claiming group-inference on a single feature avoids the hidden
+# multiple-comparison of an OR-across-a-family. dwell_time / switching_rate are
+# CONFIRMATORY descriptors (each has its own validated L1 existence null) and
+# are reported in PARALLEL as SECONDARY — BH-corrected within their own small
+# family — but they do NOT enter the primary claim's denominator.
+PRIMARY_FDR_FAMILY: Tuple[str, ...] = (
+    *FDR_FAMILIES["L0"],
+)
+SECONDARY_FDR_FAMILY: Tuple[str, ...] = (
+    *FDR_FAMILIES["L1"],
+)
+
+# FDR_FEATURES stays the FULL confirmatory family (primary + secondary) for
+# descriptive export / guard compatibility. The primary manuscript claim uses
+# PRIMARY_FDR_FAMILY; the secondary report uses SECONDARY_FDR_FAMILY.
 # Backward-compat flat tuple (all FDR-family features, both tiers)
 FDR_FEATURES: Tuple[str, ...] = (
-    *FDR_FAMILIES["L0"],
-    *FDR_FAMILIES["L1"],
+    *PRIMARY_FDR_FAMILY,
+    *SECONDARY_FDR_FAMILY,
     # L2 timing/event features remain EXCLUDED: their peak-timing existence
     # null (cyclic block-bootstrap) is under development and deferred to v2.
     # "onset_latency", "rise_time", "recovery_time",
@@ -533,12 +553,48 @@ but does NOT enter multiplicity correction.  Singular (mean_synchrony)
 as of 2026-06-17."""
 
 
+PRIMARY_EXISTENCE_ENDPOINT: str = "peak_amplitude"
+"""Pre-registered PRIMARY endpoint for the L0 synchrony-existence gate.
+
+The existence audit tests several signal-level features (mean_synchrony,
+peak_amplitude, bimodality_coefficient), but only ONE pre-registered
+endpoint decides whether the existence stage is "supported". Gating on a
+single pre-registered feature — rather than an OR across the whole family —
+avoids inflating the false-positive rate of the gate itself (any-of-k
+significant is a hidden multiple-comparison). The remaining audited features
+are reported alongside but do NOT enter the gate decision.
+
+``peak_amplitude`` is chosen because it is the v1 primary intensity
+workhorse and the L0 member of the confirmatory group-inference family
+(FDR_FAMILIES["L0"]). Defined as a module constant so the gate never drifts
+via a hard-coded string scattered across call sites."""
+
+# Consistency guard: the primary existence endpoint must be a real feature
+# and must be the pre-registered L0 confirmatory member.
+if PRIMARY_EXISTENCE_ENDPOINT not in FEATURE_TIER:
+    raise AssertionError(
+        f"PRIMARY_EXISTENCE_ENDPOINT '{PRIMARY_EXISTENCE_ENDPOINT}' has no "
+        f"FEATURE_TIER entry."
+    )
+if PRIMARY_EXISTENCE_ENDPOINT not in FDR_FAMILIES["L0"]:
+    raise AssertionError(
+        f"PRIMARY_EXISTENCE_ENDPOINT '{PRIMARY_EXISTENCE_ENDPOINT}' must be a "
+        f"member of FDR_FAMILIES['L0'] {FDR_FAMILIES['L0']}."
+    )
+if PRIMARY_EXISTENCE_ENDPOINT not in PRIMARY_FDR_FAMILY:
+    raise AssertionError(
+        f"PRIMARY_EXISTENCE_ENDPOINT '{PRIMARY_EXISTENCE_ENDPOINT}' must be the "
+        f"sole member of PRIMARY_FDR_FAMILY {PRIMARY_FDR_FAMILY} (the primary "
+        f"confirmatory FDR claim must match the primary existence gate)."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Full feature set for reviewer-proof FDR (critique A, 2026-07-07)
 # ---------------------------------------------------------------------------
 # ALL_FEATURES is the complete set of 12 implemented features (the union of
 # every functional tier).  By default the L2 BH-FDR correction uses only the
-# pre-registered confirmatory family (FDR_FEATURES, n=3).  Passing
+# pre-registered PRIMARY confirmatory family (PRIMARY_FDR_FAMILY, n=1).  Passing
 # ``full_family_fdr=True`` enters ALL 12 features into a SINGLE BH-FDR step.
 #
 # This is the most CONSERVATIVE multiplicity correction possible (more tests
@@ -565,9 +621,9 @@ def get_fdr_features(full_family_fdr: bool = False) -> List[str]:
     Parameters
     ----------
     full_family_fdr : bool, default False
-        False (default) — the pre-registered confirmatory family
-        (``FDR_FEATURES``, n=3: peak_amplitude, dwell_time, switching_rate).
-        This is the primary manuscript endpoint.
+        False (default) — the pre-registered PRIMARY confirmatory family
+        (``PRIMARY_FDR_FAMILY``, n=1: peak_amplitude). This is the primary
+        manuscript endpoint, aligned with ``PRIMARY_EXISTENCE_ENDPOINT``.
         True — all 12 implemented features (``ALL_FEATURES``) enter a single
         BH-FDR step.  Strictly more conservative; used as a supplementary,
         reviewer-proof check that the pre-registered core survives even the
@@ -579,7 +635,23 @@ def get_fdr_features(full_family_fdr: bool = False) -> List[str]:
         Feature names to pass as ``feature_cols`` to the L2 test / inference
         pipeline.
     """
-    return list(ALL_FEATURES) if full_family_fdr else list(FDR_FEATURES)
+    return list(ALL_FEATURES) if full_family_fdr else list(PRIMARY_FDR_FAMILY)
+
+
+def get_primary_fdr_features() -> List[str]:
+    """Pre-registered PRIMARY confirmatory endpoints (single, peak_amplitude).
+
+    These enter the primary BH-FDR; the primary manuscript claim rests on them.
+    """
+    return list(PRIMARY_FDR_FAMILY)
+
+
+def get_secondary_fdr_features() -> List[str]:
+    """SECONDARY confirmatory descriptors reported in parallel (dwell_time,
+    switching_rate). BH-corrected within their own small family, but NOT part of
+    the primary claim's denominator.
+    """
+    return list(SECONDARY_FDR_FAMILY)
 
 # ---------------------------------------------------------------------------
 # Informational tier classification (secondary axis — organises Results)
@@ -1750,6 +1822,7 @@ __all__ = [
     "FEATURE_TIER",
     "FDR_FEATURES",
     "REFERENCE_FEATURE",
+    "PRIMARY_EXISTENCE_ENDPOINT",
     "ALL_FEATURES",
     "get_fdr_features",
     "CORE_FEATURES",

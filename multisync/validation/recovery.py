@@ -464,7 +464,10 @@ def split_half_pearson_r(
     n = v.size
     if n == 0:
         return (float("nan"), "all_undefined")
-    if n < 4:
+    # Require each half to hold >=3 points (n>=6). At n=4/5 each half has only
+    # 2 points and np.corrcoef of 2 points is degenerate (exactly +/-1),
+    # producing spurious "perfect" reliability that would pass as "ok".
+    if n < 6:
         return (float("nan"), "insufficient_seeds")
 
     sd = float(np.std(v, ddof=1))

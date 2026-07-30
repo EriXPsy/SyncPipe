@@ -9,6 +9,7 @@ Design target: replace fragile CSV wrangling with a single typed object.
 
 from __future__ import annotations
 
+import logging
 import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
@@ -17,6 +18,8 @@ import numpy as np
 import pandas as pd
 from scipy import interpolate as sp_interp
 from scipy.ndimage import median_filter
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -353,11 +356,17 @@ class SynchronyDataset:
                     src_time = ot
                     break
             if src_time is not None and len(src_time) == len(dm):
-                if len(common_time) != len(dm):
+                # Map to common_time via zero-order hold whenever the target
+                # grid is not literally the same array as the source axis.
+                # Equal length is NOT sufficient: common_time is a uniform
+                # linspace grid, so even a same-length source with different
+                # sample instants would leave the mask misaligned with the
+                # resampled signal (seams pinned to the wrong samples).
+                if not np.array_equal(common_time, src_time):
                     idx = np.searchsorted(src_time, common_time, side="right") - 1
                     idx = np.clip(idx, 0, len(dm) - 1)
                     self.discontinuity_mask = dm[idx]
-                # else: same length, already aligned — keep as-is.
+                # else: common_time IS the source axis — keep mask as-is.
             else:
                 logger.warning(
                     "align(): discontinuity_mask length %d does not match any "
@@ -449,6 +458,21 @@ class SynchronyDataset:
             # Trim all modalities to valid rows
             for name in self.modality_names:
                 self.modalities[name] = self.modalities[name][valid_mask].reset_index(drop=True)
+            # Keep discontinuity_mask aligned with the trimmed time axis; a
+            # stale full-length mask would later mismatch the shortened signal
+            # in sliding_window_wcc_masked.
+            dm = getattr(self, "discontinuity_mask", None)
+            if dm is not None:
+                dm = np.asarray(dm, dtype=bool)
+                if len(dm) == len(valid_mask):
+                    self.discontinuity_mask = dm[valid_mask]
+                else:
+                    logger.warning(
+                        "handle_nan(drop_window): discontinuity_mask length %d "
+                        "does not match pre-trim length %d; leaving mask "
+                        "untrimmed (downstream length mismatch possible).",
+                        len(dm), len(valid_mask),
+                    )
 
         return self
 

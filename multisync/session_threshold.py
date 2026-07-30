@@ -323,7 +323,8 @@ def compute_session_pooled_thresholds_by_modality(
     wclr_max_lag_samples: int = 2,
     fallback_threshold: float = ONSET_THRESHOLD,
     discontinuity_masks: Optional[List[Optional[np.ndarray]]] = None,
-) -> Dict[str, float]:
+    return_meta: bool = False,
+) -> Union[Dict[str, float], Dict[str, Tuple[float, Dict]]]:
     """Compute one surrogate threshold per modality (per-modality pooled null).
 
     Unlike :func:`compute_session_pooled_threshold` (which pools *all* dyads
@@ -353,11 +354,16 @@ def compute_session_pooled_thresholds_by_modality(
 
     Returns
     -------
-    Dict[str, float]
-        Mapping ``modality -> threshold``. If a modality has too few dyads to
-        build a stable null (degenerate pooled distribution), that modality's
-        threshold falls back to ``fallback_threshold`` (default 0.5) and a
-        warning is logged (fail-loud). A modality with zero dyads is not emitted.
+    Dict[str, float] or Dict[str, Tuple[float, Dict]]
+        If ``return_meta`` is False (default): mapping ``modality -> threshold``
+        (backward-compatible). If True: mapping ``modality -> (threshold, meta)``
+        where ``meta`` carries ``fallback_used`` and ``reason`` so downstream
+        reporting can distinguish a surrogate-derived threshold from a fallback
+        instead of re-inferring it by float-equality to 0.5.
+        If a modality has too few dyads to build a stable null (degenerate
+        pooled distribution), that modality's threshold falls back to
+        ``fallback_threshold`` (default 0.5) and a warning is logged
+        (fail-loud). A modality with zero dyads is not emitted.
 
     Notes
     -----
@@ -387,6 +393,7 @@ def compute_session_pooled_thresholds_by_modality(
         by_modality.setdefault(mod_key, []).append(i)
 
     results: Dict[str, float] = {}
+    results_meta: Dict[str, Tuple[float, Dict]] = {}
     for mod_key, idxs in by_modality.items():
         mod_signals = [dyad_signals[i] for i in idxs]
         mod_masks = (
@@ -414,8 +421,11 @@ def compute_session_pooled_thresholds_by_modality(
                 mod_key, threshold, meta.get("reason", "degenerate null"),
                 meta.get("n_dyads_used"), meta.get("n_dyads_input"),
             )
+        meta["mode"] = "session_pooled_by_modality"
+        meta["modality"] = mod_key
         results[mod_key] = float(threshold)
-    return results
+        results_meta[mod_key] = (float(threshold), meta)
+    return results_meta if return_meta else results
 
 
 def compute_condition_pooled_thresholds(
