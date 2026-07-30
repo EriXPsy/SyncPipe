@@ -24,18 +24,35 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: python -m build --wheel
       - run: pytest tests/ -m "not slow" -q --tb=short
+      - name: Test reporting
+        if: always()
+        run: |
+          echo "collected:      $(pytest tests/ --co -q 2>/dev/null | tail -1)"
+          echo "selected fast:  $(pytest tests/ -m 'not slow' --co -q 2>/dev/null | tail -1)"
+          echo "selected slow:  $(pytest tests/ -m slow --co -q 2>/dev/null | tail -1)"
 
   # Full suite (slow validation layer included). Runs only on push to main
-  # or the nightly schedule -- never on ordinary PRs.
+  # or the nightly schedule -- never on ordinary PRs. Matrixed across the
+  # supported Python range so the "3.10-3.13 CI passes" exit criterion is
+  # literally true for BOTH the fast gate and the slow validation layer.
   test-full:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
       - run: pytest tests/ -q --tb=short
+      - name: Test reporting
+        if: always()
+        run: |
+          echo "collected:      $(pytest tests/ --co -q 2>/dev/null | tail -1)"
+          echo "selected fast:  $(pytest tests/ -m 'not slow' --co -q 2>/dev/null | tail -1)"
+          echo "selected slow:  $(pytest tests/ -m slow --co -q 2>/dev/null | tail -1)"
 
   demo:
     runs-on: ubuntu-latest

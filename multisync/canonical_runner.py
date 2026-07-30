@@ -44,7 +44,7 @@ try:  # Python 3.11+
 except ModuleNotFoundError:  # pragma: no cover - exercised only on <3.11
     import tomli as tomllib  # type: ignore
 
-from . import __version__
+from .__about__ import __version__, CONFIG_SCHEMA_VERSION, ANALYSIS_SCHEMA_VERSION
 from .io import load_csv
 from .pipeline_bridge import InferenceInputs, records_to_inference_inputs
 from .inference_pipeline import InferencePipeline
@@ -440,6 +440,8 @@ def _environment(seed: int) -> Dict[str, Any]:
     return {
         "python_version": platform.python_version(),
         "syncpipe_version": __version__,
+        "config_schema_version": CONFIG_SCHEMA_VERSION,
+        "analysis_schema_version": ANALYSIS_SCHEMA_VERSION,
         "numpy_version": np.__version__,
         "dependency_versions": dependency_versions,
         "platform": platform.platform(),
@@ -784,23 +786,34 @@ def _write_report_bundle(
     except ModuleNotFoundError:
         pass
     cfg_path = output_dir / "config_resolved.toml"
+
+    def _toml_str(value: object) -> str:
+        # Escape backslash and double-quote so an identifier/condition label
+        # containing them still produces valid TOML that parse_config can read
+        # back (preserving CLI/API parity). TOML basic strings require these two.
+        s = str(value).replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{s}"'
+
     lines = [
         "[analysis]",
         f'window_size = {cfg.window_size}',
-        f'window_type = "{cfg.window_type}"',
-        f'contrast = ["{cfg.contrast[0]}", "{cfg.contrast[1]}"]' if cfg.contrast else 'contrast = []',
-        f'fdr_scope = "{cfg.fdr_scope}"',
-        f'undefined_policy = "{cfg.undefined_policy}"',
-        f'observation_policy = "{cfg.observation_policy}"',
-        f'eligibility_policy = "{cfg.eligibility_policy}"',
+        f'window_type = {_toml_str(cfg.window_type)}',
+        (f'contrast = [{_toml_str(cfg.contrast[0])}, {_toml_str(cfg.contrast[1])}]'
+         if cfg.contrast else 'contrast = []'),
+        f'fdr_scope = {_toml_str(cfg.fdr_scope)}',
+        f'undefined_policy = {_toml_str(cfg.undefined_policy)}',
+        f'observation_policy = {_toml_str(cfg.observation_policy)}',
+        f'eligibility_policy = {_toml_str(cfg.eligibility_policy)}',
         f'n_min_dyads = {cfg.n_min_dyads}',
-        f'onset_threshold = "{cfg.onset_threshold}"' if isinstance(cfg.onset_threshold, str)
-        else f'onset_threshold = {cfg.onset_threshold}',
+        (f'onset_threshold = {_toml_str(cfg.onset_threshold)}'
+         if isinstance(cfg.onset_threshold, str)
+         else f'onset_threshold = {cfg.onset_threshold}'),
         f'n_permutations = {cfg.n_permutations}',
         f'seed = {cfg.seed}',
         f'surrogate_n = {cfg.surrogate_n}',
         f'design_threshold = {cfg.design_threshold}',
-        f'design_condition = "{cfg.design_condition}"' if cfg.design_condition else 'design_condition = ""',
+        (f'design_condition = {_toml_str(cfg.design_condition)}'
+         if cfg.design_condition else 'design_condition = ""'),
     ]
     cfg_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     paths["config_resolved.toml"] = str(cfg_path)

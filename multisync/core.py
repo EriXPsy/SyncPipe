@@ -38,6 +38,7 @@ from .dynamic_features import (
     sliding_window_wcc_masked,
 )
 from .feature_definitions import ONSET_THRESHOLD
+from .__about__ import ANALYSIS_SCHEMA_VERSION
 from .prediction import FoldResult, PredictionResult, rolling_origin_cv
 from .qc import DataQualityError, run_quality_check
 
@@ -132,7 +133,7 @@ class AnalysisResults:
             # schema_version tracks this JSON output STRUCTURE, not the
             # package version (1.0.0). Bump only when the serialized schema
             # below changes in a breaking way.
-            "schema_version": "0.3.0",
+            "schema_version": ANALYSIS_SCHEMA_VERSION,
             "dyad_id": self.dyad_id,
             "dynamic_features": self.dynamic_features,
             "dynamic_features_segmented": self.dynamic_features_segmented,
@@ -538,7 +539,12 @@ class DynamicAnalyzer:
             if not self.enable_prediction:
                 continue
 
-            pred_thr = threshold_meta.get(src_key, {}).get("threshold", 0.5) if self._use_surrogate_threshold else (self.onset_threshold or 0.5)
+            if self._use_surrogate_threshold:
+                pred_thr = threshold_meta.get(src_key, {}).get("threshold", 0.5)
+            else:
+                # Use `is None` (not truthiness) so a legitimate threshold of
+                # 0.0 is respected rather than silently replaced with 0.5.
+                pred_thr = self.onset_threshold if self.onset_threshold is not None else 0.5
 
             pred = rolling_origin_cv(
                 wcc,

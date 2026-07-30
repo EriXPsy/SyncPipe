@@ -7,7 +7,12 @@ or dataset-specific utilities from their submodules (for example
 stable v1 public API.
 """
 
-from .__about__ import __version__
+from .__about__ import (
+    __version__,
+    PACKAGE_VERSION,
+    ANALYSIS_SCHEMA_VERSION,
+    CONFIG_SCHEMA_VERSION,
+)
 
 # Core user objects
 from .core import AnalysisResults, Dyad, DynamicAnalyzer
@@ -62,6 +67,9 @@ from .session_threshold import (
 
 __all__ = [
     "__version__",
+    "PACKAGE_VERSION",
+    "ANALYSIS_SCHEMA_VERSION",
+    "CONFIG_SCHEMA_VERSION",
     # Core user objects
     "Dyad",
     "DynamicAnalyzer",
