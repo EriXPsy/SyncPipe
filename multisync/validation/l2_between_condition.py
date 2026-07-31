@@ -21,7 +21,7 @@ Method
 1. For each feature k, compute observed Δ_k = median(C1) - median(C2)
 2. Permute condition labels within each dyad (swap C1↔C2), recompute Δ
 3. Phipson-Smyth p-value: p = (|Δ_perm| >= |Δ_obs| + 1) / (n_perm + 1)
-4. BH-FDR across the pre-registered PRIMARY confirmatory family (SyncPipe v1
+4. BH-FDR across the frozen PRIMARY confirmatory family (SyncPipe v1
    default = 1 primary descriptor, peak_amplitude; SECONDARY descriptors are
    reported in parallel with their own small-family correction)
 5. Standardized permutation effect = Δ_obs / SD(Δ_perm)
@@ -246,7 +246,7 @@ def between_condition_fdr(
     dyad_col : str
         Column name for dyad/pair identifier (default "dyad_label").
     feature_cols : sequence of str, optional
-        Which feature columns to test. Defaults to the SSoT pre-registered
+        Which feature columns to test. Defaults to the SSoT frozen
         PRIMARY confirmatory family (peak_amplitude only; dwell_time and
         switching_rate are reported in parallel as SECONDARY).
     n_permutations : int
@@ -358,7 +358,7 @@ def between_condition_fdr(
     # ── VIF gate (collinearity diagnostic for the FDR family) ──────────
     # High-VIF features are statistically redundant and inflate the
     # effective test count. We do NOT silently drop confirmatory features
-    # (the FDR family is pre-registered); instead we flag severe/concern
+    # (the FDR family is frozen); instead we flag severe/concern
     # collinearity so the analyst can interpret the FDR result honestly.
     vif_gate: Dict[str, object] = {"passed": True, "skipped": False}
     try:

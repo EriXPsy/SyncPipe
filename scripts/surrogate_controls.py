@@ -2,8 +2,8 @@
 
 Pre-registration posture
 ------------------------
-This is a *post-hoc specificity check* on top of the locked
-pre-registration. Main / sensitivity / reference contrasts are NOT
+This is a *post-hoc specificity check* on top of the frozen
+protocol. Main / sensitivity / reference contrasts are NOT
 re-judged here. Goal: rule out the two leading nuisance hypotheses
 for the rest1 -> trials_concat elevation found in the main analysis:
 

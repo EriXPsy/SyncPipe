@@ -55,12 +55,12 @@ Per (dyad, modality), three condition units are emitted:
 3. ``trials_concat``   : concat(Trial1..Trial18) (1080 s, 17 boundaries).
                           Task condition (both main and sensitivity).
 
-Pre-registration: see ``docs/PRE_REGISTRATION_PILOTS.md`` sections 1.3,
-1.3a, 1.3b for design / asymmetry mitigation / alignment caveats.
+Protocol: frozen in this module (design / asymmetry mitigation /
+alignment caveats documented inline).
 
 Status
 ------
-2026-05-25: preprocessing pipeline lands (pre-reg §1.4 protocol).
+2026-05-25: preprocessing pipeline lands (protocol frozen in this module).
 ``_preprocess_{ecg,eda,resp}`` produce ``(signal, mask)`` tuples on the
 ``target_fs`` grid; mask is propagated from raw segment-boundary mask.
 ECG path uses ``neurokit2.ecg_peaks`` (added to pyproject dependencies);
@@ -84,7 +84,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Constants (pre-registration locked, corrected 2026-05-24 post-PDF)
+# Constants (frozen, corrected 2026-05-24 post-PDF)
 # ---------------------------------------------------------------------------
 
 #: Raw sampling rate (Hz). Confirmed from Participant Instruction PDF
@@ -114,7 +114,7 @@ TRIAL_SEGMENT_COUNT: int = 18
 #: Pre-registered hard floor: any condition unit shorter than this (in
 #: seconds, measured on the RAW grid) is dropped from analysis.
 #:
-#: Rationale (locked by pre-registration §1.4 "Rest1 duration sanity"):
+#: Rationale ("Rest1 duration sanity" — frozen in this module):
 #: SyncPipe v3 sliding-window WCC uses 30 s windows at 10 s step. The
 #: minimum trace length to estimate dyad-level scalar features with
 #: any reasonable variance is ~4 WCC windows = 30 s + 3 * 10 s = 60 s.
@@ -262,7 +262,7 @@ def _load_mat_segment(path: Path) -> np.ndarray:
 
 
 # ---------------------------------------------------------------------------
-# Preprocessing (per pre-registration §1.4)
+# Preprocessing (protocol frozen in this module)
 # ---------------------------------------------------------------------------
 
 # IBI outlier window (seconds). Beats with IBI outside [_IBI_MIN, _IBI_MAX]
@@ -271,7 +271,7 @@ def _load_mat_segment(path: Path) -> np.ndarray:
 _IBI_MIN_SEC: float = 0.3
 _IBI_MAX_SEC: float = 2.0
 
-# Filter bands (Hz), locked per pre-reg §1.4. Order = 4 (Butterworth)
+# Filter bands (Hz), frozen in this module. Order = 4 (Butterworth)
 # applied via zero-phase filtfilt to avoid temporal distortion that
 # would corrupt WCC alignment.
 _ECG_BAND_HZ: Tuple[float, float] = (5.0, 20.0)
@@ -417,7 +417,7 @@ def _preprocess_ecg(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """ECG → IBI trace resampled to ``target_fs``.
 
-    Pipeline (pre-reg §1.4):
+    Pipeline (frozen in this module):
         1. Bandpass 5–20 Hz, Butterworth order 4, zero-phase (sosfiltfilt)
         2. R-peak detection via ``neurokit2.ecg_peaks``
         3. IBI = diff(R-peak times); outliers (<0.3s, >2.0s) linearly
@@ -482,7 +482,7 @@ def _preprocess_eda(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """EDA → bandpass-filtered SCL trace at ``target_fs``.
 
-    Pipeline (pre-reg §1.4):
+    Pipeline (frozen in this module):
         1. Bandpass 0.05–5 Hz, Butterworth order 4, zero-phase
         2. Resample to ``target_fs`` via scipy.signal.resample_poly
         3. Boundary mask propagated from raw-grid to target-grid
@@ -508,7 +508,7 @@ def _preprocess_resp(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """RESP → bandpass-filtered respiratory waveform at ``target_fs``.
 
-    Pipeline (pre-reg §1.4):
+    Pipeline (frozen in this module):
         1. Bandpass 0.1–1 Hz, Butterworth order 4, zero-phase
         2. Resample to ``target_fs`` via scipy.signal.resample_poly
         3. Boundary mask propagated from raw-grid to target-grid
@@ -661,8 +661,7 @@ def _verify_p1_p2_length_alignment(
     Lerique trial files are nominally exactly TRIAL_SEGMENT_SAMPLES
     samples each, and rest files exactly REST_SEGMENT_SAMPLES. If P1
     and P2 length differ, the trial onset/offset alignment is broken
-    and the dyad must be excluded (pre-registration sanity check
-    1.3b).
+    and the dyad must be excluded (frozen sanity check).
 
     Returns True if both arrays are equal length OR one is None.
     Logs a warning on mismatch but does not raise (caller decides
@@ -692,7 +691,7 @@ def _verify_min_duration(
 
     A condition unit shorter than ``min_duration_sec`` cannot support
     meaningful dyad-level scalar feature estimation (fewer than ~4 WCC
-    windows). The pre-registered hard floor is locked at 60 s.
+    windows). The frozen hard floor is locked at 60 s.
 
     Note: the check is on **raw** length / raw_fs (not on the
     resampled 1 Hz grid), so it does not depend on the preprocessing
@@ -766,7 +765,7 @@ def load_lerique_dataset(
     dyad_whitelist : sequence of str, optional
         If given, only load these dyad labels (e.g. ``["pce02"]``).
     preprocess : bool
-        If True, run modality-specific preprocessing per pre-reg §1.4
+        If True, run modality-specific preprocessing per the frozen protocol
         (ECG → IBI via neurokit2; EDA/RESP → bandpassed waveform via
         scipy) and resample to ``target_fs``. If False, return raw
         ``raw_fs`` traces wrapped in DataFrames — useful for smoke
@@ -781,10 +780,10 @@ def load_lerique_dataset(
         given (modality, condition_unit).
     drop_misaligned : bool
         If True, drop records where P1 / P2 raw concat lengths differ
-        (pre-registration §1.3b sanity check).
+        (frozen sanity check).
     drop_short_duration : bool
         If True, drop records whose raw trace duration is below
-        ``min_duration_sec`` (pre-registration §1.4 hard floor).
+        ``min_duration_sec`` (frozen hard floor).
     min_duration_sec : float
         Minimum required duration of each (P1, P2) trace, in seconds.
         Defaults to ``MIN_DURATION_SEC`` (60 s).

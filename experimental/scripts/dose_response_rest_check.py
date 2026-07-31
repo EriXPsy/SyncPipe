@@ -17,8 +17,8 @@ artifacts/realtest/lerique_2024/dose_response_rests.csv
 
 Pre-reg posture
 ---------------
-This is a *post-hoc sensitivity analysis* on top of the locked
-pre-registration. The locked main/reference/sensitivity contrasts are
+This is a *post-hoc sensitivity analysis* on top of the frozen
+protocol. The locked main/reference/sensitivity contrasts are
 NOT re-run or re-judged.
 
 Usage (PowerShell)

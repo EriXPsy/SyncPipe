@@ -475,9 +475,9 @@ Family L1: null = WCC-level IAAFT   (preserve L0, destroy run-length)
 """
 
 # ---------------------------------------------------------------------------
-# Pre-registered PRIMARY / SECONDARY confirmatory FDR families (②)
+# Frozen PRIMARY / SECONDARY confirmatory FDR families (②)
 # ---------------------------------------------------------------------------
-# The PRIMARY confirmatory claim rests on ONE pre-registered endpoint, aligned
+# The PRIMARY confirmatory claim rests on ONE frozen endpoint, aligned
 # with PRIMARY_EXISTENCE_ENDPOINT (③ existence gate): gating existence and
 # claiming group-inference on a single feature avoids the hidden
 # multiple-comparison of an OR-across-a-family. dwell_time / switching_rate are
@@ -557,9 +557,9 @@ PRIMARY_EXISTENCE_ENDPOINT: str = "peak_amplitude"
 """Pre-registered PRIMARY endpoint for the L0 synchrony-existence gate.
 
 The existence audit tests several signal-level features (mean_synchrony,
-peak_amplitude, bimodality_coefficient), but only ONE pre-registered
+peak_amplitude, bimodality_coefficient), but only ONE frozen
 endpoint decides whether the existence stage is "supported". Gating on a
-single pre-registered feature — rather than an OR across the whole family —
+single frozen feature — rather than an OR across the whole family —
 avoids inflating the false-positive rate of the gate itself (any-of-k
 significant is a hidden multiple-comparison). The remaining audited features
 are reported alongside but do NOT enter the gate decision.
@@ -570,7 +570,7 @@ workhorse and the L0 member of the confirmatory group-inference family
 via a hard-coded string scattered across call sites."""
 
 # Consistency guard: the primary existence endpoint must be a real feature
-# and must be the pre-registered L0 confirmatory member.
+# and must be the frozen L0 confirmatory member.
 if PRIMARY_EXISTENCE_ENDPOINT not in FEATURE_TIER:
     raise AssertionError(
         f"PRIMARY_EXISTENCE_ENDPOINT '{PRIMARY_EXISTENCE_ENDPOINT}' has no "
@@ -594,14 +594,14 @@ if PRIMARY_EXISTENCE_ENDPOINT not in PRIMARY_FDR_FAMILY:
 # ---------------------------------------------------------------------------
 # ALL_FEATURES is the complete set of 12 implemented features (the union of
 # every functional tier).  By default the L2 BH-FDR correction uses only the
-# pre-registered PRIMARY confirmatory family (PRIMARY_FDR_FAMILY, n=1).  Passing
+# frozen PRIMARY confirmatory family (PRIMARY_FDR_FAMILY, n=1).  Passing
 # ``full_family_fdr=True`` enters ALL 12 features into a SINGLE BH-FDR step.
 #
 # This is the most CONSERVATIVE multiplicity correction possible (more tests
 # => stricter BH threshold), so it directly answers the "cherry-picking 3/12"
-# critique: if the pre-registered core survives even the all-features-inclusive
+# critique: if the frozen core survives even the all-features-inclusive
 # procedure, the result is robust to any family-selection objection.  The
-# primary manuscript endpoint remains FDR_FEATURES (pre-registered); the
+# primary manuscript endpoint remains FDR_FEATURES (frozen); the
 # full-family version is a supplementary, strictly-more-stringent check.
 
 ALL_FEATURES: Tuple[str, ...] = tuple(FEATURE_TIER.keys())
@@ -621,12 +621,12 @@ def get_fdr_features(full_family_fdr: bool = False) -> List[str]:
     Parameters
     ----------
     full_family_fdr : bool, default False
-        False (default) — the pre-registered PRIMARY confirmatory family
+        False (default) — the frozen PRIMARY confirmatory family
         (``PRIMARY_FDR_FAMILY``, n=1: peak_amplitude). This is the primary
         manuscript endpoint, aligned with ``PRIMARY_EXISTENCE_ENDPOINT``.
         True — all 12 implemented features (``ALL_FEATURES``) enter a single
         BH-FDR step.  Strictly more conservative; used as a supplementary,
-        reviewer-proof check that the pre-registered core survives even the
+        reviewer-proof check that the frozen core survives even the
         most inclusive multiplicity correction.
 
     Returns

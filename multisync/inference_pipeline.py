@@ -215,8 +215,8 @@ class InferencePipeline:
         partners.  Time-shift controls ask whether the effect depends on the
         original temporal alignment.  These are formal API methods, not just
         dataset-specific scripts.
-        For publication, increase ``n_pseudo_per_dyad`` to >= 10 for stable
-        null distributions; the default 3 is suitable for quick demos.
+        For publication, keep ``n_pseudo_per_dyad`` at >= 10 for stable
+        null distributions; the default is 10. Reduce to 3 for quick demos only.
         """
         result = design_control_audit(
             signal_pairs,
@@ -1091,7 +1091,7 @@ def _build_cascade_summary(
     else:
         n_l2_sig = l2_results.get("n_significant", 0)
         n_l2_total = l2_results.get("n_tested", len(PRIMARY_FDR_FAMILY))
-        # Family label: the pre-registered PRIMARY FDR family (single descriptor)
+        # Family label: the frozen PRIMARY FDR family (single descriptor)
         # is the primary endpoint; full_family_fdr=True enters all 12 features
         # into one BH-FDR step (reviewer-proof against "cherry-picking").
         fam = "all-features" if n_l2_total > len(PRIMARY_FDR_FAMILY) else "primary-FDR"

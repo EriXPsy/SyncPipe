@@ -6,7 +6,7 @@ Validates conditional-tier temporal features (onset_latency, rise_time, recovery
 Parameter grid: onset_delay ∈ {10,30,60}s, rise_duration ∈ {5,15,30}s,
 decay_duration ∈ {10,30,60}s, 30 seeds.
 
-Pre-registered hypotheses: H3.1-H3.6 (see docs/METHODOLOGY_LOCK_IN.md).
+Hypotheses: H3.1-H3.5 (frozen in this module).
 
 Success criteria: A-level (H3.1, H3.2), B-level (H3.3), C-level (H3.3 ρ ∈ [0.30,0.60]).
 """
@@ -293,7 +293,7 @@ def summarise_pgt3(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def test_pgt3_hypotheses(df: pd.DataFrame) -> Dict[str, dict]:
-    """Run pre-registered hypothesis tests for PGT-3.
+    """Run hypothesis tests for PGT-3.
 
     Parameters
     ----------

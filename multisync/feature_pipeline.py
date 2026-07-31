@@ -265,7 +265,7 @@ def get_fdr_features(full_family_fdr: bool = False) -> List[str]:
     ----------
     full_family_fdr : bool, default False
         Forwarded to the SSoT ``get_fdr_features``.  False returns the
-        pre-registered confirmatory family (FDR_FEATURES, n=3); True returns
+        frozen confirmatory family (FDR_FEATURES, n=3); True returns
         all 12 implemented features for a strictly-more-conservative,
         reviewer-proof single BH-FDR step.
     """

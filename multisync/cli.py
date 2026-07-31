@@ -503,7 +503,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--full-family-fdr", action="store_true",
         help="Record that the L2 between-condition BH-FDR should enter ALL 12 "
              "implemented features (strictly more conservative) instead of the "
-             "pre-registered 3-feature confirmatory family.",
+             "frozen 3-feature confirmatory family.",
     )
     p_describe.set_defaults(func=cmd_describe)
 

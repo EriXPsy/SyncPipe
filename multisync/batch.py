@@ -693,7 +693,7 @@ def group_comparison(
     """
     Compare two groups of dyads on all scalar synchrony metrics.
 
-    Applies Benjamini-Hochberg FDR correction to the pre-registered PRIMARY
+    Applies Benjamini-Hochberg FDR correction to the frozen PRIMARY
     confirmatory family only (SSoT). Reference / exploratory / prediction
     metrics are reported descriptively with raw p-values (no FDR flag), so the
     test count m is never inflated by mixing construct families.
@@ -789,7 +789,7 @@ def group_comparison(
                 n_a=len(a_valid), n_b=len(b_valid),
             ))
 
-    # BH-FDR correction — ONLY on the pre-registered PRIMARY confirmatory family
+    # BH-FDR correction — ONLY on the frozen PRIMARY confirmatory family
     # (②). Mixing reference / exploratory / prediction metrics into one BH step
     # previously inflated the test count m (and risked double-counting mirrored
     # constructs). Each DyadResult metric key is "mean_<feature>", so we map the

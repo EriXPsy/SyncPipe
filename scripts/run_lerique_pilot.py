@@ -1,6 +1,6 @@
 """Lerique (Lerique et al., 2024) pilot runner — SyncPipe P2 case study.
 
-Pre-registration: docs/PRE_REGISTRATION_PILOTS.md
+Protocol: frozen in multisync/realtest/lerique_2024.py
 Decision records: docs/DECISION_LOG.md (Lerique-meta-correction,
                   Lerique-rest1-length-heterogeneity,
                   Lerique-preproc-smoke-pass,
@@ -9,7 +9,7 @@ Decision records: docs/DECISION_LOG.md (Lerique-meta-correction,
 Pipeline
 --------
 1. Load every (dyad, modality, condition_unit) record from Lerique-47n3p
-   with preprocessing enabled (pre-reg §1.4 protocol).
+   with preprocessing enabled (frozen protocol).
 2. Per record, build a SyncPipe Dyad and run DynamicAnalyzer to obtain
    the v3 confirmatory + diagnostic features.
 3. Aggregate into DyadResult objects and pivot to a per-record feature
@@ -18,11 +18,11 @@ Pipeline
         Main:        rest1            vs trials_concat  (confirmatory)
         Sensitivity: rest_postblock   vs trials_concat  (robustness)
         Reference:   rest1            vs rest_postblock (sanity)
-   using Wilcoxon signed-rank (DECISION-09 / pre-reg §1.4 locked).
+   using Wilcoxon signed-rank (DECISION-09, frozen).
 5. BH-FDR within (modality × confirmatory family of 6), **limited to
    the MAIN contrast**. Sensitivity, reference, and diagnostic features
    carry only raw p-values — folding them into FDR would inflate the
-   family size and weaken main inference (pre-reg §1.5 FDR family scope).
+   family size and weaken main inference (frozen FDR family scope).
 6. Write all CSVs to ``artifacts/realtest/lerique_2024/``.
 
 Why paired (vs Gordon's unpaired)
@@ -144,7 +144,7 @@ def _analyze_all_records(
         One row per successfully analysed (dyad, modality, condition_unit).
     excluded : list[dict]
         Records that were excluded *by design* (e.g. inventory-missing
-        P2, sub-floor duration). Not an error — pre-registered exclusion.
+        P2, sub-floor duration). Not an error — frozen exclusion.
     failures : list[dict]
         Records that raised an unexpected exception during analysis.
     """
@@ -249,7 +249,7 @@ def _analyze_all_records(
 # Step 4: paired Wilcoxon signed-rank contrast helper
 # ---------------------------------------------------------------------------
 
-# Three pre-registered contrasts (pre-reg §1.3).
+# Three frozen contrasts.
 # Each entry: (label, condition_a, condition_b, role)
 CONTRASTS: Sequence[Tuple[str, str, str, str]] = (
     ("main",        "rest1",          "trials_concat", "main"),
@@ -273,7 +273,7 @@ def _paired_wilcoxon(
     that were present **before** pairwise drop, so the caller can
     distinguish "feature is missing" from "feature is
     phenomenologically undefined" (e.g. onset_latency on a Rest1
-    segment with no transitions — pre-reg §1.5).
+    segment with no transitions).
 
     p_value is NaN if n_pairs < 3.
     """
@@ -405,7 +405,7 @@ def _run_paired_contrasts(per_record: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df
 
-    # BH-FDR within (modality × confirmatory family) — pre-reg §1.5 locks
+    # BH-FDR within (modality × confirmatory family) — frozen scope locks
     # the confirmatory family to the MAIN contrast (rest1 → trials_concat).
     # Sensitivity and reference contrasts are robustness checks and report
     # raw p only; folding them into FDR would inflate the family size and

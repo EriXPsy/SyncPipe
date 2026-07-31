@@ -729,7 +729,7 @@ def _signal_level_surrogate_test(
     p_bc, null_bc_valid, n_bc = _phipson_smyth_p(null_bc, obs_bc)
 
     # Per-feature significance — callers (e.g. InferencePipeline.run_full_cascade)
-    # need per-feature pass rates to track pre-registered primary endpoints
+    # need per-feature pass rates to track frozen primary endpoints
     # rather than an opaque OR across the family.
     per_feature_significant = {
         "mean_synchrony": bool(np.isfinite(p_mean) and p_mean < alpha),
