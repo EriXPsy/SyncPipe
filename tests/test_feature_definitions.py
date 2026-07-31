@@ -10,8 +10,8 @@ project: they import only from ``multisync.feature_definitions`` and
 
     pytest tests/test_feature_definitions.py -v
 
-The assertions encode the locked DECISIONs (see
-``docs/METHODOLOGY_LOCK_IN.md``).  If any of these assertions fail,
+The assertions encode the locked DECISIONs (frozen in
+``feature_definitions.py``).  If any of these assertions fail,
 methodology has been (intentionally or accidentally) reverted -- consult
 ``docs/DECISION_LOG.md`` before proceeding.
 """
