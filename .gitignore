@@ -54,3 +54,4 @@ pytest_out.txt
 artifacts/bakeoff/
 artifacts/figures/
 artifacts/incremental_value/
+artifacts/realdata_full/
