@@ -54,7 +54,7 @@ def toy_signals(rng):
 def features_df_uni(rng):
     """``dyad`` x ``condition`` DataFrame with the real FDR feature columns.
 
-    Values are synthetic but the column names track the actual pre-registered
+    Values are synthetic but the column names track the actual frozen
     FDR family (``multisync.feature_definitions.FDR_FEATURES``), so the
     fixture is drop-in compatible with significance / FDR consumers. Task
     condition is slightly elevated vs rest to give tests a real effect to

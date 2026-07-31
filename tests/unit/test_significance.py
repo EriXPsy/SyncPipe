@@ -445,9 +445,9 @@ def test_pgt1_guard_rejects_duplicate_p_columns():
 """
 Tests for the full-family FDR option (critique A, 2026-07-07).
 
-Reviewer-proofing: instead of only testing the 3 pre-registered FDR-family
+Reviewer-proofing: instead of only testing the 3 frozen FDR-family
 features, the full 12-feature set can be entered into a single BH-FDR step
-via ``full_family_fdr=True``. The pre-registered core family remains the
+via ``full_family_fdr=True``. The frozen core family remains the
 primary endpoint; the full family is a strictly more conservative
 supplementary check that neutralises the "cherry-picking 3/12" critique.
 
@@ -509,7 +509,7 @@ def test_all_features_has_twelve_members():
 
 
 def test_get_fdr_features_default_is_primary_family():
-    # Default = pre-registered PRIMARY FDR family (single peak_amplitude).
+    # Default = frozen PRIMARY FDR family (single peak_amplitude).
     # SECONDARY family (dwell_time, switching_rate) is reported alongside but
     # does NOT enter the primary BH-FDR correction.
     assert get_fdr_features() == list(PRIMARY_FDR_FAMILY)
@@ -538,7 +538,7 @@ def test_l2_default_tests_only_primary_family():
     df = _full_feature_df()
     pipe = InferencePipeline(df, hz=1.0, wcc_window_sec=20.0, surrogate_n=5, seed=1)
     res = pipe.test_l2_condition(n_permutations=200, contrast=("rest", "task"))
-    # Default L2 input = PRIMARY FDR family (single pre-registered endpoint).
+    # Default L2 input = PRIMARY FDR family (single frozen endpoint).
     assert res["n_tested"] == PRIMARY_N
     assert len(res["per_feature"]) == PRIMARY_N
     assert set(f.feature for f in res["per_feature"]) == set(PRIMARY_FDR_FAMILY)

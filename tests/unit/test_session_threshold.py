@@ -199,3 +199,32 @@ def test_bridge_fixed_threshold_forwarded_unchanged():
     assert inputs.thresholds_by_modality is None
     assert len(inputs.features_df) == 1
     assert inputs.features_df["modality"].iloc[0] == "EDA"
+
+
+# ---------------------------------------------------------------------------
+# 7. variable-length dyads within one modality must pool (no vstack crash)
+# ---------------------------------------------------------------------------
+
+def test_by_modality_variable_length_dyads_pool_without_error():
+    """Regression: real datasets (e.g. Lerique rest1 ~150 vs trials_concat
+    ~600-1050 WCC points) feed the session-pooled threshold DIFFERENT-LENGTH
+    dyad signals. A naive np.vstack of the per-dyad surrogate coupling
+    matrices raised ValueError (mismatched columns). The pool is a single
+    percentile over all coupling values regardless of WCC timepoint, so
+    flattening+concatenating per dyad must succeed and yield a finite
+    threshold."""
+    short = _dyads(_smooth, n_dyads=2, n=161, seed=1)   # ~rest1 length
+    long = _dyads(_smooth, n_dyads=2, n=1061, seed=2)   # ~trials_concat length
+    sigs = short + long
+    mods = ["EDA"] * 4
+    thr = compute_session_pooled_thresholds_by_modality(
+        sigs, mods, hz=1.0, wcc_window_size=20, surrogate_n=20, seed=0
+    )
+    assert "EDA" in thr
+    assert np.isfinite(thr["EDA"])
+    # global single-modality pool on the same mixed-length set must agree
+    global_thr, meta = compute_session_pooled_threshold(
+        sigs, hz=1.0, wcc_window_size=20, surrogate_n=20, seed=0
+    )
+    assert thr["EDA"] == pytest.approx(global_thr, rel=1e-9)
+    assert meta["n_dyads_used"] == 4

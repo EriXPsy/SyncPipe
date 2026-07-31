@@ -581,7 +581,7 @@ VIF gate integration test (gstack #14).
 
 The L2 between-condition test now attaches a ``vif_gate`` diagnostic to its
 result: when FDR-family features are severely collinear the gate must FLAG
-it (warn + report) rather than silently drop pre-registered features.
+it (warn + report) rather than silently drop frozen features.
 """
 import numpy as np
 import pandas as pd
