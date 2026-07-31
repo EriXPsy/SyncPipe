@@ -25,27 +25,18 @@ from ..feature_definitions import ONSET_THRESHOLD
 from .recovery import _extract_six_features, ONSET_THRESHOLD_DEFAULT
 
 # ---------------------------------------------------------------------------
-# Patch note: 
-# `scenario_emergent_sync` is imported from `treur_dyad_v2`, which might not
-# exist in the standard repo. We will try to import it, but wrap it in a try-except.
-# If it fails, we will substitute it with a synthetic placeholder function that 
-# behaves like it to allow the pipeline to run and be audited.
+# scenario_emergent_sync is imported from treur_dyad_v2 (present in the repo).
+# No silent fallback: if the import fails the module must fail loud, because
+# this generator is responsible for ruling out shared-stimulus confounds —
+# a dummy constant-coupling substitute would silently corrupt the audit.
 # ---------------------------------------------------------------------------
+from ..simulation.treur_dyad_v2 import scenario_emergent_sync as _scenario_emergent_sync
+
+
 def _safe_scenario_emergent_sync(duration_sec, hz, seed, shared_drive):
-    try:
-        from ..simulation.treur_dyad_v2 import scenario_emergent_sync
-        return scenario_emergent_sync(duration_sec=duration_sec, hz=hz, seed=seed, shared_drive=shared_drive)
-    except ImportError:
-        import warnings
-        warnings.warn("treur_dyad_v2 not found. Using dummy emergent generator.")
-        c_func = constant_coupling(0.8 if shared_drive else 0.4)
-        return generate_signals(
-            c_t=c_func,
-            duration_sec=duration_sec,
-            hz=hz,
-            noise_sigma=0.2,
-            seed=seed,
-        )
+    return _scenario_emergent_sync(
+        duration_sec=duration_sec, hz=hz, seed=seed, shared_drive=shared_drive
+    )
 
 
 # ---------------------------------------------------------------------------

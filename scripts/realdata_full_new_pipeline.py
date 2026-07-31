@@ -14,10 +14,13 @@ CRITICAL: features and inference are produced by the CURRENT code path, NOT by
 any stale pre-computed CSV left over from the old DynamicAnalyzer path. Raw
 signals are loaded directly from E:/OSF for every dataset.
 
-NOTE on parameters: this is a FAST CONFIRMATION run (surrogate_n=30,
+NOTE on parameters: this is a FAST CONFIRMATION run (surrogate_n=100,
 n_perm=2000) so the whole new pipeline can be demonstrated from RAW signals
-for all five datasets within a session.  PUBLICATION-GRADE defaults are LOCKED
-in the package itself:
+for all five datasets within a session.  surrogate_n=100 matches the package-
+locked publication default for synchrony_existence_audit (two-tailed
+Phipson-Smyth reaches p<=0.0198<0.05); the prior 30 produced a floor of
+p=0.0645>0.05 and silently zeroed every existence pass.  Cost: existence/L1
+surrogate steps run ~3.3x slower than at n=30.  PUBLICATION-GRADE defaults:
     design_controls.synchrony_existence_audit  -> surrogate_n=100
     design_controls.design_control_audit       -> n_pseudo_per_dyad=10
     inference_pipeline.InferencePipeline        -> n_permutations=10000
@@ -57,7 +60,9 @@ OUT = ROOT / "artifacts" / "realdata_full"
 OUT.mkdir(parents=True, exist_ok=True)
 
 # FAST CONFIRMATION-run params (publication defaults are locked in the package).
-SURROGATE_N = 30
+# surrogate_n=100 matches synchrony_existence_audit's package default; n=30
+# floored the two-tailed existence test at p=0.0645 and reported 0/176 passes.
+SURROGATE_N = 100
 N_PERM = 2000
 N_PSEUDO = 8
 SEED = 42
@@ -504,7 +509,7 @@ def run_dataset(name: str, records: List[RawRecord], cfg: Dict[str, Any]) -> Dic
             # --- Supplementary: reviewer-proof full-family FDR (critique A) ---
             # Re-run the pooled L2 entering ALL 12 implemented features into a
             # single BH-FDR step. Strictly more conservative; if the
-            # pre-registered core survives this, the "cherry-picking 3/12"
+            # frozen core survives this, the "cherry-picking 3/12"
             # critique is answered. Opt-out via EMIT_FULL_FAMILY_FDR.
             if EMIT_FULL_FAMILY_FDR:
                 try:

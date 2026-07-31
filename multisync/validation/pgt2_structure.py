@@ -5,7 +5,7 @@ Validates structure-tier features (dwell_time, switching_rate, synchrony_entropy
 
 Parameter grid: epoch_duration ∈ {15,30,60}s, n_epochs ∈ {2,4,8}, 30 seeds.
 
-Pre-registered hypotheses: H2.1-H2.5 (see docs/METHODOLOGY_LOCK_IN.md).
+Hypotheses: H2.1-H2.7 (frozen in this module).
 """
 
 from __future__ import annotations
@@ -272,7 +272,7 @@ def summarise_pgt2(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def test_pgt2_hypotheses(df: pd.DataFrame) -> Dict[str, dict]:
-    """Run pre-registered hypothesis tests for PGT-2.
+    """Run hypothesis tests for PGT-2.
 
     Parameters
     ----------
@@ -376,7 +376,7 @@ def test_pgt2_hypotheses(df: pd.DataFrame) -> Dict[str, dict]:
         "note": "mean_synchrony ≈ 0.5·(c_high + c_low)",
     }
 
-    # H3.1: bimodality_coefficient ↑ with epoch_duration
+    # H2.6: bimodality_coefficient ↑ with epoch_duration
     # Longer epoch_duration → WCC spends more time clearly high or low
     # → sharper bimodal distribution → higher BC.
     # Pre-registered threshold: ρ > 0.60 (same semantic level as
@@ -385,14 +385,14 @@ def test_pgt2_hypotheses(df: pd.DataFrame) -> Dict[str, dict]:
         valid_bc = df.dropna(subset=["bimodality_coefficient"])
         if len(valid_bc) > 2:
             rho, p = spearmanr(valid_bc["epoch_duration"], valid_bc["bimodality_coefficient"])
-            results["H3.1_bc_vs_duration"] = {
+            results["H2.6_bc_vs_duration"] = {
                 "spearman_rho": float(rho),
                 "p_value": float(p),
                 "passed": rho > 0.60,
                 "note": "bimodality_coefficient ↑ with epoch_duration (sharper bimodal peaks)",
             }
 
-    # H3.4: bimodality_coefficient independent of n_epochs
+    # H2.7: bimodality_coefficient independent of n_epochs
     # n_epochs only changes switching frequency, not bimodal sharpness.
     # BC is insensitive to how many times the WCC toggles between modes.
     # Pre-registered threshold: |ρ| < 0.30.
@@ -400,7 +400,7 @@ def test_pgt2_hypotheses(df: pd.DataFrame) -> Dict[str, dict]:
         valid_bc = df.dropna(subset=["bimodality_coefficient"])
         if len(valid_bc) > 2:
             rho, p = spearmanr(valid_bc["n_epochs"], valid_bc["bimodality_coefficient"])
-            results["H3.4_bc_vs_n_epochs"] = {
+            results["H2.7_bc_vs_n_epochs"] = {
                 "spearman_rho": float(rho),
                 "p_value": float(p),
                 "passed": abs(rho) < 0.30,

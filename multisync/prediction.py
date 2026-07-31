@@ -123,7 +123,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Feature names — DECISION-10 (METHODOLOGY_LOCK_IN.md)
+# Feature names — DECISION-10 (frozen in feature_definitions.py)
 # ---------------------------------------------------------------------------
 # The joint prediction model uses the **7 FDR-family features**
 # (Core + Conditional tiers; DECISION-09, family size = 7).
@@ -535,7 +535,8 @@ def _extract_mean_synchrony_per_window(
 ) -> np.ndarray:
     """Extract the per-window ``mean_synchrony`` channel.
 
-    DECISION-10 (METHODOLOGY_LOCK_IN.md): ``mean_synchrony`` is removed
+    DECISION-10 (frozen in feature_definitions.py): ``mean_synchrony`` is
+    removed
     from the joint feature matrix (which now contains only the 6 epoch
     dynamic descriptors) but is retained as the **AR baseline
     (restricted model) predictor** — it lets ``delta_auc`` measure
@@ -1073,13 +1074,23 @@ def _compute_effective_gap(
     Returns
     -------
     effective_gap : int
-        At least max(gap, ceil(window_size / step) + horizon_windows).
+        At least max(gap, ceil(window_size / step) + ceil(horizon_windows *
+        window_size / step)).
+
+    Notes
+    -----
+    The label for feature row *i* consumes ``horizon_windows * window_size``
+    raw WCC samples starting at ``i*step + window_size``.  The previous
+    formula used ``horizon_windows`` (feature rows) instead of converting
+    to the equivalent number of feature rows, which left a
+    ``horizon_windows * (window_size - step)`` sample train/test overlap.
     """
     step = max(1, window_size // 2)
     # Rows needed to skip one full non-overlapping window
     min_physical_gap_rows = int(np.ceil(window_size / step))
-    # Rows needed to skip the label's future horizon
-    horizon_gap_rows = horizon_windows
+    # Rows needed to skip the label's future horizon (converted from raw
+    # WCC samples to feature-row units)
+    horizon_gap_rows = int(np.ceil(horizon_windows * window_size / step))
     return max(gap, min_physical_gap_rows + horizon_gap_rows)
 
 

@@ -25,7 +25,6 @@ from .wclr import wclr_coupling_trace
 from .session_threshold import (
     compute_session_pooled_threshold,
     compute_session_pooled_thresholds_by_modality,
-    compute_condition_pooled_thresholds,
 )
 from .feature_definitions import ONSET_THRESHOLD
 

@@ -254,17 +254,24 @@ def compute_session_pooled_threshold(
     # exceed the guard budget. Purely a warning — computation is unchanged for
     # normal inputs.
     if pooled_values:
-        _rows = sum(m.shape[0] for m in pooled_values)
-        _cols = pooled_values[0].shape[1]
-        _est = _rows * _cols * pooled_values[0].dtype.itemsize
+        # NOTE: dyad WCC traces have VARIABLE lengths (different session
+        # durations across conditions, e.g. Lerique rest1 vs trials_concat),
+        # so each coup_matrix has a different number of columns and a naive
+        # np.vstack raises ValueError. The pooled threshold is a single
+        # percentile over ALL surrogate coupling values irrespective of which
+        # WCC timepoint they came from (compute_surrogate_threshold flattens
+        # internally), so we flatten + concatenate per dyad instead.
+        _total_values = sum(int(m.size) for m in pooled_values)
+        _est = _total_values * pooled_values[0].dtype.itemsize
         if _est > SURROGATE_POOLED_MEM_GUARD_BYTES:
             logger.warning(
                 "compute_session_pooled_threshold: pooled surrogate matrix "
-                "would allocate ~%.1f MiB (%d dyads x surrogate_n=%d x %d points). "
-                "This may OOM; consider lowering surrogate_n or chunking dyads.",
-                _est / (1024 * 1024), len(pooled_values), surrogate_n, _cols,
+                "would allocate ~%.1f MiB (%d dyads x surrogate_n=%d x variable "
+                "points). This may OOM; consider lowering surrogate_n or "
+                "chunking dyads.",
+                _est / (1024 * 1024), len(pooled_values), surrogate_n,
             )
-    pooled = np.vstack(pooled_values)
+    pooled = np.concatenate([m.ravel() for m in pooled_values])
     threshold, is_surrogate = compute_surrogate_threshold(pooled, percentile=percentile)
 
     meta = {
@@ -278,7 +285,7 @@ def compute_session_pooled_threshold(
         "n_dyads_excluded_nonfinite": n_excluded_nonfinite,
         "n_dyads_excluded_length_mismatch": n_excluded_length_mismatch,
         "surrogate_n_per_dyad": surrogate_n,
-        "total_replicates": pooled.shape[0],
+        "total_replicates": sum(int(m.shape[0]) for m in pooled_values),
         "n_finite_coupling_values": int(np.isfinite(pooled).sum()),
         "percentile": percentile,
         "surrogate_method": surrogate_method,
@@ -441,6 +448,13 @@ def compute_condition_pooled_thresholds(
     fallback_threshold: float = ONSET_THRESHOLD,
 ) -> Dict[str, Tuple[float, Dict]]:
     """Compute one pooled surrogate threshold per experimental condition.
+
+    .. deprecated::
+        This function does not forward ``discontinuity_masks`` to
+        :func:`compute_session_pooled_threshold`, creating an
+        observed-vs-null asymmetry when seams are present. Use
+        :func:`compute_session_pooled_thresholds_by_modality` instead,
+        which accepts and forwards masks.
 
     Parameters
     ----------

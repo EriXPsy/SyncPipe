@@ -143,7 +143,7 @@ def run_pipeline(recs, surrogate_n: int):
     log.info("=== STAGE 2+3 (computation + inference pipelines via bridge) ===")
     inputs = records_to_inference_inputs(
         recs, hz=TARGET_HZ, window_size=WCC_WINDOW_SIZE,
-        onset_threshold=ONSET_THRESHOLD, design_condition=design_condition,
+        onset_threshold="session_pooled", design_condition=design_condition,
     )
     log.info("features_df: %d rows x %d cols", *inputs.features_df.shape)
     log.info("raw_signals (existence audit): %d pairs", len(inputs.raw_signals))
@@ -189,7 +189,7 @@ def _markdown_report(recs, chain, by_mod, surrogate_n) -> str:
         "# SyncPipe Reviewer Walkthrough — Audited Evidence Chain",
         "",
         f"- Records analysed: **{len(recs)}** (dyad × modality × condition units)",
-        f"- WCC window: **{WCC_WINDOW_SEC:.0f} s** | onset threshold: **{ONSET_THRESHOLD}** "
+        f"- WCC window: **{WCC_WINDOW_SEC:.0f} s** | onset threshold: **session_pooled** "
         f"| existence-surrogate n: **{surrogate_n}**",
         "",
         "## Step 1 — Synchrony-existence audit (signal-level IAAFT)",

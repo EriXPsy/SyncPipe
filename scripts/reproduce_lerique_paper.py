@@ -178,8 +178,8 @@ def _write_manifest(
             "target_hz": TARGET_HZ,
             "wcc_window_sec": WCC_WINDOW_SEC,
             "window_size_samples": WINDOW_SIZE,
-            "onset_threshold": ONSET_THRESHOLD,
-            "threshold_scope": "fixed",
+            "onset_threshold": "session_pooled",
+            "threshold_scope": "session_pooled",
             "surrogate_n": surrogate_n,
             "n_permutations": n_permutations,
             "fdr_alpha": 0.05,
@@ -215,7 +215,7 @@ def _run_chain(
         records,
         hz=TARGET_HZ,
         window_size=WINDOW_SIZE,
-        onset_threshold=ONSET_THRESHOLD,
+        onset_threshold="session_pooled",
         design_condition=design_condition,
     )
     resolved = contrast or _resolve_contrast(inputs.features_df)
@@ -233,7 +233,7 @@ def _run_chain(
         condition_col=inputs.condition_col,
         dyad_col=inputs.dyad_col,
         n_permutations=n_permutations,
-        threshold_scope="fixed",
+        threshold_scope="session_pooled",
         contrast=resolved,
         discontinuity_mask=getattr(inputs, "discontinuity_mask", None),
     )

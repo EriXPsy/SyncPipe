@@ -49,6 +49,7 @@ Usage
 """
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -57,6 +58,7 @@ import pandas as pd
 
 from .computation_pipeline import ComputationPipeline
 from .feature_definitions import FDR_FEATURES, ONSET_THRESHOLD, REFERENCE_FEATURE
+from .qc import DEFAULT_CONFIG as _QC_CONFIG
 from .session_threshold import compute_session_pooled_thresholds_by_modality
 
 
@@ -208,6 +210,40 @@ def records_to_inference_inputs(
             raise ValueError(
                 f"Record {key!r} discontinuity_mask must have length {a.size}."
             )
+
+        # Quality gate: mirror run_quality_check's nan_integrity (max_nan_rate)
+        # and signal_integrity (min_signal_std) stages. The bridge works with
+        # raw arrays, not a SynchronyDataset, so we inline the two checks that
+        # would otherwise let dirty data produce corrupted features silently.
+        # Records that would FAIL QC are skipped with a loud warning.
+        _nan_limit = _QC_CONFIG["max_nan_rate"]
+        _std_floor = _QC_CONFIG["min_signal_std"]
+        _skip_reason = None
+        for _label, _sig in (("person_a", a), ("person_b", b)):
+            _nan_rate = float(np.isnan(_sig).mean())
+            if _nan_rate > _nan_limit:
+                _skip_reason = (
+                    f"{_label} NaN rate {_nan_rate:.1%} (>{_nan_limit:.0%}, "
+                    "nan_integrity FAIL)"
+                )
+                break
+            _finite = _sig[np.isfinite(_sig)]
+            if _finite.size >= 2 and float(np.std(_finite)) < _std_floor:
+                _skip_reason = (
+                    f"{_label} near-zero variance (std<{_std_floor}, "
+                    "signal_integrity FAIL)"
+                )
+                break
+        if _skip_reason is not None:
+            warnings.warn(
+                f"Record {key!r} skipped by bridge QC gate: {_skip_reason}. "
+                "Fix sensor dropout/flatline before pooling, or exclude "
+                "this record from the loader output.",
+                UserWarning,
+                stacklevel=2,
+            )
+            continue
+
         entries.append({
             "a": a.astype(float),
             "b": b.astype(float),
