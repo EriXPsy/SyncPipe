@@ -50,10 +50,15 @@ def main():
     print(f"[canonical] existence pass_rate={ex.get('pass_rate')} "
           f"({ex.get('n_pairs_significant')}/{ex.get('n_pairs_audited')})",
           flush=True)
+    # 1c: chain L2 is always modality-keyed, so `l2_pooled` holds
+    # {modality: summary} — there is no cross-modality pooled number to print.
     l2 = res.get("l2_pooled", {})
-    if isinstance(l2, dict) and "n_significant" in l2:
-        print(f"[canonical] L2 pooled n_significant={l2['n_significant']} "
-              f"({l2.get('condition_a')} vs {l2.get('condition_b')})", flush=True)
+    if isinstance(l2, dict):
+        for mod, m in l2.items():
+            if isinstance(m, dict) and "n_significant" in m:
+                print(f"[canonical] L2 chain {mod}: n_significant="
+                      f"{m['n_significant']} ({m.get('condition_a')} vs "
+                      f"{m.get('condition_b')})", flush=True)
     pm = res.get("l2_per_modality", {})
     if isinstance(pm, dict):
         for mod, m in pm.items():

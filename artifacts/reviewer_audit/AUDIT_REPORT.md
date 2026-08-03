@@ -244,6 +244,12 @@ by_mod = pipe.test_l2_by_modality(
 | 6 | `tests/test_morphology.py::test_morphology_analyzer` 在完整测试套件中挂起（超时） | 低（与本三 pipeline 无关） | ⚠️ 超出本次范围，建议单独排查（morphology 模块，非三 pipeline 文件） |
 
 > 关于 #6：审计执行 `tests/test_*pipeline*.py` / `test_v1_safety_fixes.py` / `test_cascade*.py` 等**与三 pipeline 相关的子集全部通过**（例如 27 passed）；挂起发生在 `test_morphology_analyzer`，属于另一模块，不影响三 pipeline 的衔接与严谨性结论。
+>
+> 路径更新（本文档为历史审计记录，原文不改）：`tests/` 已重组为 `unit/ integration/ contracts/ validation/`
+> 子目录，本表引用的 `tests/test_morphology.py` 现位于
+> [test_features.py](file:///c:/Users/陈思丞/WorkBuddy/20260413150513/syncpipe/tests/unit/test_features.py)
+> 的 `# === source: test_morphology.py ===` 段。全套件当前 0 skip、无挂起，基线由
+> `tests/test_suite_health.py` 强制。
 
 ---
 

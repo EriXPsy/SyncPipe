@@ -486,16 +486,12 @@ def run_dataset(name: str, records: List[RawRecord], cfg: Dict[str, Any]) -> Dic
             res["l2_pooled"] = {"skipped": skip}
             res["l2_per_modality"] = {"skipped": skip}
         else:
-            # group_condition_inference is a single pooled result for unimodal
-            # data, but a per-modality dict (keyed by modality) when the
-            # pipeline routed multimodal data through test_l2_by_modality
-            # (P0-2 companion fix). Summarize accordingly.
+            # 1c: group_condition_inference is ALWAYS {modality: l2_dict}
+            # (one entry for single-modality data), so there is no shape to
+            # sniff. Key kept as "l2_pooled" for report-format stability, but
+            # the content is per-modality — never a cross-modality pool (P0-2).
             group_inf = chain.get("group_condition_inference", {})
-            res["l2_pooled"] = (
-                _summarize_pm(group_inf)
-                if isinstance(group_inf, dict) and "per_feature" not in group_inf
-                else _summarize_l2(group_inf)
-            )
+            res["l2_pooled"] = _summarize_pm(group_inf)
             try:
                 pm = pipe.test_l2_by_modality(
                     modality_col="modality", condition_col="condition",

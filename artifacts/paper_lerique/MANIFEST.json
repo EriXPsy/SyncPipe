@@ -4,11 +4,11 @@
   "canonical_path": "three_pipeline_v1",
   "mode": "fast",
   "git": {
-    "commit": "08b1883d3bdfc03e9a35b75971851879d5a08dbf",
+    "commit": "5cb3cce5f0c6210c55e4816b05b7a121ef70bdb5",
     "repo_dirty": true
   },
   "package_version": "1.0.0",
-  "generated_utc": "2026-07-23T14:04:40Z",
+  "generated_utc": "2026-08-02T11:54:30Z",
   "data_source": {
     "osf_project_url": "https://osf.io/47n3p/",
     "osf_project_title": "Perceptual Crossing Dataset Paper",
@@ -35,8 +35,8 @@
     "target_hz": 1.0,
     "wcc_window_sec": 30.0,
     "window_size_samples": 30,
-    "onset_threshold": 0.5,
-    "threshold_scope": "fixed",
+    "onset_threshold": "session_pooled",
+    "threshold_scope": "session_pooled",
     "surrogate_n": 10,
     "n_permutations": 200,
     "fdr_alpha": 0.05,

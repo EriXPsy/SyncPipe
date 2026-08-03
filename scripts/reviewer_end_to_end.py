@@ -204,9 +204,28 @@ def _markdown_report(recs, chain, by_mod, surrogate_n) -> str:
         "time-shift asks whether the effect depends on the original alignment.",
         "",
         "## Step 3 — Group condition inference (dyad-paired permutation + BH-FDR)",
-        f"- Significant FDR features (pooled): **{group.get('n_significant', 0)}**.",
+    ]
+    # 1c: `group` is always {modality: l2_dict}. The previous version read
+    # group["n_significant"] directly, which does not exist on the modality-keyed
+    # shape, so this report silently claimed "0 significant" for every
+    # multimodal dataset. Walk the modalities instead.
+    lines.append(
+        "L2 is evaluated per modality; there is no cross-modality pooled number, "
+        "because pooling across modalities can cancel opposing real effects."
+    )
+    for mod in sorted(group.keys(), key=str):
+        sub = group[mod]
+        if not isinstance(sub, dict) or "error" in sub:
+            err = sub.get("error", "invalid") if isinstance(sub, dict) else "invalid"
+            lines.append(f"- **{mod}**: not testable ({err})")
+            continue
+        lines.append(
+            f"- **{mod}**: {int(sub.get('n_significant', 0))}"
+            f"/{int(sub.get('n_tested', 0))} FDR feature(s) condition-differentiated"
+        )
+    lines += [
         "",
-        "### Per-modality L2 (recommended for multimodal datasets)",
+        "### Per-modality L2 re-run (explicit `test_l2_by_modality` call)",
     ]
     for mod, res in by_mod.items():
         lines.append(

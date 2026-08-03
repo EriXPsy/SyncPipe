@@ -3,6 +3,13 @@
 - Records analysed: **56** (dyad × modality × condition units)
 - WCC window: **30 s** | onset threshold: **0.5** | existence-surrogate n: **25**
 
+> **Demonstration run only — not publication-grade.** `surrogate_n=25` is the
+> fast default of `scripts/reviewer_end_to_end.py --surrogate-n`, chosen so a
+> reviewer can reproduce the walkthrough quickly. It bounds the smallest
+> attainable existence p-value at ~1/26 ≈ 0.038, so no `p < 0.01` claim can be
+> made from this file. Publication runs use the canonical default
+> `SyncPipeConfig.surrogate_n = 1000` (see the power table in `README.md`).
+
 ## Step 1 — Synchrony-existence audit (signal-level IAAFT)
 - Pairs audited: **56**.
   A significant pair means aligned WCC features exceed what independent autocorrelated signals can produce. Necessary-but-not-sufficient for interpersonal coupling; shared-stimulus / co-presence need Step 2.
