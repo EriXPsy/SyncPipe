@@ -103,23 +103,55 @@ from multisync.inference_pipeline import _build_cascade_summary
 
 def test_cascade_summary_no_l2_significant():
     """n_l2_sig == 0 branch (was always safe)."""
-    s = _build_cascade_summary(l0_pass=3, l0_total=5, l1_pass=2, l1_total=5,
-                               l2_results={"n_significant": 0})
+    s = _build_cascade_summary(
+        l0_pass=3, l0_total=5, l1_pass=2, l1_total=5,
+        l2_results={"ECG": {"n_significant": 0, "n_tested": 1}},
+    )
     assert isinstance(s, str) and "L2" in s
+    # The zero branch reports the outcome in words, not as a fraction.
+    assert "No features survived BH-FDR" in s
 
 
 def test_cascade_summary_some_l2_significant():
     """n_l2_sig > 0 branch — used to raise NameError: name 'FDR_FEATURES'."""
-    s = _build_cascade_summary(l0_pass=3, l0_total=5, l1_pass=2, l1_total=5,
-                               l2_results={"n_significant": 2})
+    s = _build_cascade_summary(
+        l0_pass=3, l0_total=5, l1_pass=2, l1_total=5,
+        l2_results={"ECG": {"n_significant": 2, "n_tested": 3}},
+    )
     assert isinstance(s, str) and "L2" in s
+    assert "2/3" in s
 
 
 def test_cascade_summary_strong_l2_significant():
     """n_l2_sig >= 4 branch (also references FDR_FEATURES)."""
-    s = _build_cascade_summary(l0_pass=4, l0_total=5, l1_pass=3, l1_total=5,
-                               l2_results={"n_significant": 4})
+    s = _build_cascade_summary(
+        l0_pass=4, l0_total=5, l1_pass=3, l1_total=5,
+        l2_results={"ECG": {"n_significant": 4, "n_tested": 5}},
+    )
     assert isinstance(s, str) and "L2" in s
+    assert "4/5" in s
+
+
+def test_cascade_summary_sums_across_modalities_and_labels_per_modality():
+    """1c: L2 is always modality-keyed, so counts must sum over modalities and
+    the family label must not be inflated to 'all-features' merely because M
+    modalities each tested the primary family."""
+    from multisync.feature_definitions import PRIMARY_FDR_FAMILY
+
+    k = len(PRIMARY_FDR_FAMILY)
+    s = _build_cascade_summary(
+        l0_pass=4, l0_total=5, l1_pass=3, l1_total=5,
+        l2_results={
+            "ECG": {"n_significant": 1, "n_tested": k},
+            "EDA": {"n_significant": 1, "n_tested": k},
+            "RESP": {"error": "not enough dyads"},
+        },
+    )
+    # Counts sum over the two testable modalities; the errored one is excluded
+    # from both numerator and denominator rather than counted as "not significant".
+    assert f"2/{2 * k}" in s
+    assert "primary-FDR, per-modality" in s
+    assert "all-features" not in s
 
 
 def test_fdr_features_importable_at_module_top():
@@ -180,7 +212,10 @@ def cascade_inputs():
     return df, wcc_dict, raw_dict, window, hz
 
 
-@pytest.mark.slow
+# Promoted from the nightly slow layer to the PR gate (2026-08-02): this is the
+# only test that exercises the whole L0->L1->L2 cascade in one call, so a kwarg
+# or key drift between the three pipelines would otherwise reach main and only
+# surface the next night. Measured cost ~11 s.
 def test_run_full_cascade_returns_complete_summary(cascade_inputs):
     df, wcc_dict, raw_dict, window, hz = cascade_inputs
     pipe = InferencePipeline(features_df=df, hz=hz, surrogate_n=50, seed=1)
@@ -215,7 +250,7 @@ def test_run_full_cascade_returns_complete_summary(cascade_inputs):
     assert l2 is not None
 
 
-@pytest.mark.slow
+# Promoted to the PR gate (2026-08-02): guards a kwarg-name contract, ~0.01 s.
 def test_run_full_cascade_l2_param_names_are_correct(cascade_inputs):
     """Directly guards against between_condition_fdr kwarg-name drift:
     a wrong kwarg (e.g. fdr_alpha=/contrast=) would raise TypeError here."""
@@ -309,7 +344,8 @@ def _build_split_dataset():
     return df, wcc_dict, raw_dict, window, hz
 
 
-@pytest.mark.slow
+# Promoted to the PR gate (2026-08-02): a silent L1 denominator inflation is a
+# reported-statistic error, and it costs ~0.26 s to catch.
 def test_run_full_cascade_excludes_inapplicable_l1_from_denominator():
     df, wcc_dict, raw_dict, window, hz = _build_split_dataset()
     pipe = InferencePipeline(features_df=df, hz=hz, surrogate_n=5, seed=1)
@@ -456,7 +492,10 @@ from multisync.validation.l2_between_condition import (
     between_condition_by_modality,
 )
 
-REPO = Path(__file__).resolve().parents[1]  # .../syncpipe
+# This file lives at <repo>/tests/integration/, so the repo root is parents[2].
+# parents[1] would be <repo>/tests, which makes the cross-process subprocess
+# fail with ModuleNotFoundError: No module named 'multisync'.
+REPO = Path(__file__).resolve().parents[2]  # .../syncpipe
 PY = sys.executable
 
 
@@ -567,7 +606,9 @@ def _run_subprocess() -> dict:
     return json.loads(out.stdout.strip().splitlines()[-1])
 
 
-@pytest.mark.slow
+# Promoted to the PR gate (2026-08-02): reproducibility across processes is a
+# v1 release claim, and per-process hash() seeding is a regression that ONLY a
+# cross-process run can see. Measured cost ~6 s (two subprocesses).
 def test_by_modality_seed_stable_across_processes():
     """Two independent Python processes must produce identical per-modality
     p-values. Before the fix this failed because hash() is per-process."""

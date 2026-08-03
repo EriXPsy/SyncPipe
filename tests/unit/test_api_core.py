@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 # === source: test_syncpipe_namespace.py ===
 def test_syncpipe_namespace_exposes_v1_public_api():
     import syncpipe as sp
@@ -30,6 +32,83 @@ def test_legacy_multisync_namespace_still_available():
     assert hasattr(ms, "Dyad")
     assert hasattr(ms, "DynamicAnalyzer")
 
+
+def test_top_level_namespaces_expose_identical_api():
+    """Neither namespace may drift ahead of the other.
+
+    `from multisync import *` honours only `multisync.__all__`, so a name added
+    to multisync without being exported would silently be reachable through one
+    spelling and not the other. Compare the whole surface, and require the same
+    objects rather than merely the same names.
+    """
+    import multisync as ms
+    import syncpipe as sp
+
+    assert set(sp.__all__) == set(ms.__all__)
+    unresolvable = [n for n in ms.__all__ if not hasattr(ms, n)]
+    assert not unresolvable, f"multisync.__all__ lists unresolvable names: {unresolvable}"
+    diverged = [
+        n for n in ms.__all__ if getattr(sp, n, None) is not getattr(ms, n)
+    ]
+    assert not diverged, f"same name resolves to different objects: {diverged}"
+
+
+@pytest.mark.parametrize(
+    "submodule",
+    [
+        "feature_definitions",
+        "feature_pipeline",
+        "inference_pipeline",
+        "computation_pipeline",
+        "pipeline_bridge",
+        "canonical_runner",
+        "validation.l2_between_condition",
+        "realtest.lerique_2024",
+    ],
+)
+def test_syncpipe_submodules_alias_to_multisync(submodule):
+    """`syncpipe.X` must import and be the *same module object* as `multisync.X`.
+
+    Without the alias finder, only top-level names crossed over: every
+    `import syncpipe.feature_definitions` raised ModuleNotFoundError, which forced
+    the docs to switch namespaces mid-example. Identity (not just importability)
+    is asserted so module-level state cannot diverge between the two spellings.
+    """
+    import importlib
+
+    via_syncpipe = importlib.import_module(f"syncpipe.{submodule}")
+    via_multisync = importlib.import_module(f"multisync.{submodule}")
+    assert via_syncpipe is via_multisync
+
+
+def test_syncpipe_cli_is_not_shadowed_by_the_alias():
+    """The alias finder must not hide real modules of the syncpipe package.
+
+    It is appended to sys.meta_path so normal machinery wins first. `syncpipe.cli`
+    is a genuine local shim, so it must stay itself while still exposing the same
+    `main` callable as the implementation it re-exports.
+    """
+    import multisync.cli as mcli
+    import syncpipe.cli as scli
+
+    assert scli is not mcli
+    assert scli.main is mcli.main
+
+
+def test_absent_submodule_still_raises_module_not_found():
+    """A typo must fail loudly instead of resolving to something unexpected."""
+    import importlib
+
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("syncpipe.definitely_not_a_module")
+
+
+def test_cli_prog_name_uses_canonical_brand():
+    """`--help` must say `syncpipe`, matching the distribution and the docs."""
+    from multisync.cli import build_parser
+
+    assert build_parser().prog == "syncpipe"
+
 # === source: test_reproduce_smoke.py ===
 """
 Smoke test for the M2 reproducibility scaffold (A12).
@@ -51,7 +130,11 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+# This file lives at <repo>/tests/unit/, so the repo root is parents[2].
+# `parent.parent` resolved to <repo>/tests, where scripts/ does not exist, so
+# the skipif below silently skipped this reproducibility smoke test on every
+# run it was ever collected in.
+ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "reproduce_lerique_paper.py"
 OUT_CSV = ROOT / "artifacts" / "paper_lerique" / "reproduce_fast_features.csv"
 

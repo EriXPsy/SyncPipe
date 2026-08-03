@@ -66,7 +66,12 @@ def test_summarize_shows_multimodal_l2():
     text = pipe.summarize()
     assert "L2" in text
     assert "EDA" in text and "ECG" in text
-    assert "per-modality" in text or "[EDA]" in text
+    # Both halves of the former `or` are now required: the header must declare
+    # the per-modality scope AND each modality must get its own labelled block.
+    # The `or` let the weaker half satisfy the assertion, so the contract that
+    # results are reported per modality (P0-2) was never actually checked.
+    assert "per-modality" in text
+    assert "[EDA]" in text and "[ECG]" in text
 
 
 def test_summarize_shows_unimodal_l2_via_group_store():
@@ -153,7 +158,10 @@ def test_run_full_cascade_accepts_contrast_and_multimodal_df():
     # multimodal keys
     assert "EDA" in l2 and "ECG" in l2
     assert l2["EDA"]["condition_a"] == "rest"
-    assert "per-modality" in out["cascade_summary"] or "L2" in out["cascade_summary"]
+    # The former `or "L2" in ...` short-circuit made this vacuous: every branch
+    # of _build_cascade_summary emits "L2", so the per-modality scope label was
+    # never verified. Require it outright.
+    assert "per-modality" in out["cascade_summary"]
 
 
 # ===========================================================================

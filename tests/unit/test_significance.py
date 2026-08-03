@@ -475,7 +475,7 @@ from multisync.feature_definitions import (
     get_secondary_fdr_features,
 )
 from multisync.feature_pipeline import get_fdr_features as fp_get_fdr_features
-from multisync.inference_pipeline import InferencePipeline
+from multisync.inference_pipeline import UNSPECIFIED_MODALITY, InferencePipeline
 
 N_FEATURES = 12
 PRIMARY_N = len(PRIMARY_FDR_FAMILY)
@@ -598,7 +598,11 @@ def test_run_full_cascade_carries_full_family_flag():
         n_permutations=200,
         full_family_fdr=True,
     )
-    assert res["l2_results"]["n_tested"] == N_FEATURES
+    # 1c: L2 is always modality-keyed. This fixture has no modality column, so
+    # the single entry is labelled with the explicit sentinel.
+    l2 = res["l2_results"]
+    assert set(l2) == {UNSPECIFIED_MODALITY}
+    assert l2[UNSPECIFIED_MODALITY]["n_tested"] == N_FEATURES
     assert "all-features" in res["cascade_summary"]
 
 
@@ -611,7 +615,9 @@ def test_run_full_cascade_default_is_primary_family():
         wcc_window_size=20,
         n_permutations=200,
     )
-    assert res["l2_results"]["n_tested"] == PRIMARY_N
+    l2 = res["l2_results"]
+    assert set(l2) == {UNSPECIFIED_MODALITY}
+    assert l2[UNSPECIFIED_MODALITY]["n_tested"] == PRIMARY_N
     assert "primary-FDR" in res["cascade_summary"]
 
 # === source: test_per_feature_significance.py ===
@@ -957,4 +963,162 @@ def test_dynamic_analyzer_passes_surrogate_n_into_threshold_meta():
     assert result.threshold_meta
     assert all(meta.get("surrogate_n") == 7 for meta in result.threshold_meta.values())
     assert all(meta.get("mode") == "within_dyad_surrogate" for meta in result.threshold_meta.values())
+
+
+# ---------------------------------------------------------------------------
+# S1: per-modality primary-modality existence gate
+# ---------------------------------------------------------------------------
+from multisync.inference_pipeline import (
+    _existence_gate_by_modality,
+    _modality_from_label,
+)
+
+
+def _sig(flag: bool) -> dict:
+    return {"per_feature_significant": {"peak_amplitude": flag}}
+
+
+@pytest.mark.parametrize(
+    "label,expected",
+    [
+        ("d1__ECG__Rest", "ECG"),
+        ("d1__EDA", "EDA"),
+        ("dyad_x__RESP__Trial2", "RESP"),
+        ("d1", ""),  # no separator -> unnamed bucket, no crash
+    ],
+)
+def test_modality_from_label(label, expected):
+    assert _modality_from_label(label) == expected
+
+
+def test_gate_primary_modality_majority_supports():
+    res = {
+        "d1__ECG__Rest": _sig(True),
+        "d2__ECG__Rest": _sig(True),
+        "d3__ECG__Rest": _sig(False),
+        "d1__EDA__Rest": _sig(False),
+        "d2__EDA__Rest": _sig(False),
+        # RESP passes 3/3 but is NOT a primary modality -> cannot support.
+        "d1__RESP__Rest": _sig(True),
+        "d2__RESP__Rest": _sig(True),
+        "d3__RESP__Rest": _sig(True),
+    }
+    g = _existence_gate_by_modality(res, ["ECG", "EDA"], 0.5)
+    # ECG passes 2/3 (>0.5) -> gate satisfied by at least one primary modality.
+    assert g["primary_pass"] is True
+    assert g["per_modality"]["ECG"]["pass_rate"] == pytest.approx(2 / 3)
+    assert g["per_modality"]["ECG"]["supports"] is True
+    assert g["per_modality"]["EDA"]["supports"] is False
+    assert g["per_modality"]["RESP"]["is_primary"] is False
+    assert g["per_modality"]["RESP"]["supports"] is False
+    assert g["endpoint"] == "peak_amplitude"
+
+
+def test_gate_all_primary_fail_blocks():
+    res = {f"d{i}__ECG": _sig(False) for i in range(4)}
+    res.update({f"d{i}__EDA": _sig(False) for i in range(4)})
+    g = _existence_gate_by_modality(res, ["ECG", "EDA"], 0.5)
+    assert g["primary_pass"] is False
+
+
+def test_gate_exactly_half_is_not_majority():
+    res = {"d1__ECG": _sig(True), "d2__ECG": _sig(False)}
+    g = _existence_gate_by_modality(res, ["ECG"], 0.5)
+    # pass_rate == 0.5 is NOT strictly greater than 0.5 -> not a majority.
+    assert g["per_modality"]["ECG"]["supports"] is False
+    assert g["primary_pass"] is False
+
+
+def test_gate_sensitivity_only_cannot_open():
+    # Only the sensitivity modality passes; primary modalities absent/fail.
+    res = {f"d{i}__RESP": _sig(True) for i in range(5)}
+    g = _existence_gate_by_modality(res, ["ECG", "EDA"], 0.5)
+    assert g["primary_pass"] is False
+
+
+# ---------------------------------------------------------------------------
+# S5: timestamp-type detection must fail loud on the ambiguous 1e6..1e9 zone
+# ---------------------------------------------------------------------------
+from multisync.dataset import _detect_time_type
+
+
+@pytest.mark.parametrize(
+    "vals,expected",
+    [
+        # Unix-seconds absolute (2026) -> absolute.
+        (np.array([1.78e9, 1.78e9 + 1, 1.78e9 + 2]), "absolute"),
+        # Unix-milliseconds absolute (2026) -> absolute (>= ~1.13e12).
+        (np.array([1.78e12, 1.78e12 + 1, 1.78e12 + 2]), "absolute"),
+        # Clean relative axis starting near 0 (seconds) -> relative.
+        (np.arange(0.0, 100.0, 0.5), "relative"),
+        # AMBIGUOUS: millisecond RELATIVE axis that starts away from 0
+        # (device ms clock modulo) — must NOT be trusted as absolute.
+        (np.array([5.0e6, 5.0e6 + 1, 5.0e6 + 2]), "unknown"),
+        (np.array([2.0e8, 2.0e8 + 1000, 2.0e8 + 2000]), "unknown"),
+        # AMBIGUOUS: 1973-2001 Unix-seconds (rare) — same zone, fail loud.
+        (np.array([1.0e9 - 5, 1.0e9 - 4, 1.0e9 - 3]), "unknown"),
+    ],
+)
+def test_detect_time_type_ambiguous_zone_fails_loud(vals, expected):
+    assert _detect_time_type(pd.Series(vals)) == expected
+
+
+def test_millisecond_relative_from_zero_is_relative():
+    # A ms axis that genuinely starts at 0 and stays below 10000 stays relative.
+    vals = np.arange(0.0, 9000.0, 1.0)  # 9 s of ms stamps
+    assert _detect_time_type(pd.Series(vals)) == "relative"
+
+
+# ---------------------------------------------------------------------------
+# 5a: pseudo-pair cross-dyad alignment (mask + length) & length reporting
+# ---------------------------------------------------------------------------
+from multisync.design_controls import design_control_audit
+
+
+def _coupled(n: int, seed: int) -> np.ndarray:
+    rng = np.random.default_rng(seed)
+    return np.cumsum(rng.standard_normal(n)) + rng.standard_normal(n) * 0.1
+
+
+def test_pseudo_pair_reports_aligned_length_distribution():
+    # Two dyads of DIFFERENT lengths; one has a discontinuity mask.
+    rng = np.random.default_rng(0)
+    a1 = _coupled(120, 1); b1 = a1 + rng.standard_normal(120) * 0.2
+    a2 = _coupled(80, 2);  b2 = a2 + rng.standard_normal(80) * 0.2
+    pairs = {"d1": (a1, b1), "d2": (a2, b2)}
+    # d1 mask: first 100 samples in-segment (rest out); d2 fully in-segment.
+    m1 = np.zeros(120, dtype=bool); m1[:100] = True
+    masks = {"d1": m1, "d2": np.ones(80, dtype=bool)}
+    res = design_control_audit(
+        pairs, hz=1.0, window_size=20, seed=0,
+        discontinuity_masks=masks, n_pseudo_per_dyad=3,
+        shift_lags_sec=(-30.0, 30.0),
+    )
+    pp = res["pseudo_pair"]
+    assert pp["enabled"] is True
+    # Cross-dyad pairs are cropped to the shorter partner (80) minus nothing,
+    # so the aligned length cannot exceed the shorter dyad's length.
+    assert pp["aligned_length_max"] <= 80
+    assert pp["aligned_length_min"] >= 1
+    assert pp["aligned_length_min"] <= pp["aligned_length_median"] <= pp["aligned_length_max"]
+    # The audit still produced a per-feature summary across both dyads.
+    assert res["n_dyads"] == 2
+    assert res["feature_summary"]
+
+
+def test_pseudo_pair_equal_length_no_mask_unchanged():
+    # Equal-length dyads, no masks -> aligned length equals the full length
+    # and the control runs cleanly (regression: alignment must not corrupt
+    # the already-clean case).
+    rng = np.random.default_rng(3)
+    a1 = _coupled(100, 4); b1 = a1 + rng.standard_normal(100) * 0.2
+    a2 = _coupled(100, 5); b2 = a2 + rng.standard_normal(100) * 0.2
+    pairs = {"d1": (a1, b1), "d2": (a2, b2)}
+    res = design_control_audit(
+        pairs, hz=1.0, window_size=20, seed=1,
+        n_pseudo_per_dyad=2, shift_lags_sec=(-30.0, 30.0),
+    )
+    pp = res["pseudo_pair"]
+    assert pp["aligned_length_min"] == 100
+    assert pp["aligned_length_max"] == 100
 

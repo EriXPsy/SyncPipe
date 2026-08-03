@@ -691,24 +691,63 @@ class TestJSONSerialization:
 
 class TestMultimodalSynthetic:
 
-    def test_shared_burst_anchors(self):
-        """All modalities in generate_multimodal_dyad must share the same
-        burst time anchors (the fix for the desync bug)."""
+    @staticmethod
+    def _peak_lag(a, b):
+        """Lag (in samples) of the cross-correlation peak between a and b."""
+        a = np.asarray(a, dtype=float)
+        b = np.asarray(b, dtype=float)
+        a = a - a.mean()
+        b = b - b.mean()
+        cc = np.correlate(a, b, mode="full")
+        return int(np.argmax(cc) - (len(b) - 1))
+
+    @pytest.mark.parametrize("seed", [1, 7, 42])
+    def test_shared_burst_anchors(self, seed):
+        """All modalities in generate_multimodal_dyad must share the same burst
+        time anchors, offset only by each modality's fixed lead-lag constant
+        (the fix for the desync bug).
+
+        This is the sole guard on the ground truth of every synthetic
+        validation: if the generator ever drew independent burst times per
+        modality, all simulated cross-modality synchrony would become an
+        artifact. The previous version of this test only asserted that both
+        modalities had a non-empty feature-column list, which passes even under
+        full desynchronisation, so it guarded nothing.
+
+        Falsifiable content: with shared anchors the cross-correlation peak sits
+        at each modality's known lead-lag offset. Measured over 40 seeds the peak
+        deviates from the nominal offset by at most 1 sample (the generator also
+        adds a 45 s sinusoid whose phase is modality-dependent, which shifts the
+        argmax slightly), whereas independently drawn anchors scatter the peak
+        across roughly +/-165 samples. A +/-2 tolerance therefore separates the
+        two regimes by two orders of magnitude.
+
+        Note the peak-to-baseline ratio is deliberately NOT used as evidence of
+        sharing: desynchronised control signals reach ratios above 20 as well,
+        because five isolated Gaussian bursts always produce a tall spurious
+        peak somewhere. Only the peak *location* is diagnostic.
+        """
         from multisync.synthetic import generate_multimodal_dyad
-        import multisync as ms
 
-        ds = generate_multimodal_dyad(
-            duration_sec=300,
-            modalities={"neural": 10.0, "behavior": 1.0},
-            seed=42,
-        )
-        ds.align(target_hz=1.0)
+        # Nominal offsets come from the generator: neural=0, behavior=-5, bio=-3.
+        # "unknown_mod" is deliberately absent from that table, so it inherits
+        # offset 0 and must align with neural at zero lag.
+        for other, expected_lag in (("unknown_mod", 0), ("bio", 3), ("behavior", 5)):
+            ds = generate_multimodal_dyad(
+                duration_sec=300,
+                modalities={"neural": 1.0, other: 1.0},
+                seed=seed,
+            )
+            ds.align(target_hz=1.0)
+            cols = ds.feature_columns
+            v_neural = ds.modalities["neural"][cols["neural"][0]].to_numpy()
+            v_other = ds.modalities[other][cols[other][0]].to_numpy()
 
-        # The synthetic generator creates Gaussian bursts at shared time
-        # points. Verify that cross-modality CCF is non-trivial at short lags.
-        n_feat_a = ds.feature_columns["neural"]
-        n_feat_b = ds.feature_columns["behavior"]
-        assert len(n_feat_a) > 0 and len(n_feat_b) > 0
+            lag = self._peak_lag(v_neural, v_other)
+            assert abs(lag - expected_lag) <= 2, (
+                f"{other}: burst anchors desynchronised — cross-correlation "
+                f"peaks at lag {lag}, expected the fixed offset {expected_lag}"
+            )
 
 # ===========================================================================
 # 9. CLI tests (P1-C2)
@@ -1298,7 +1337,10 @@ from pathlib import Path
 
 import pytest
 
-_BUILD_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "build_feature_table.py"
+# This file lives at <repo>/tests/unit/, so the repo root is parents[2].
+# parents[1] would be <repo>/tests, where scripts/ does not exist — the skipif
+# below then silently skipped every SSoT anti-drift test in this block.
+_BUILD_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "build_feature_table.py"
 _requires_build = pytest.mark.skipif(
     not _BUILD_SCRIPT.exists(),
     reason="build_feature_table.py not found — run scripts/build_feature_table.py first",
@@ -1310,7 +1352,7 @@ from multisync.feature_definitions import (
     MATHEMATICAL_TIER,
 )
 
-REPO = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
 CSV = REPO / "docs" / "FEATURE_TABLE.csv"
 
 
@@ -1972,6 +2014,40 @@ def test_wclr_r2_metric():
     trace_r2 = wclr_coupling_trace(a, b, window_size=10, hz=1.0, max_lag_samples=1, metric="r2")
     assert np.all((trace_r2 >= 0) | np.isnan(trace_r2))
     assert np.all((trace_r2 <= 1) | np.isnan(trace_r2))
+
+
+def test_wclr_beta_trace_bounded_by_tanh():
+    # Standardized partial betas can exceed |1| under suppression; the beta
+    # trace is tanh-normalised so it stays within (-1, 1) like a WCC trace.
+    a, b = _make_dyad(coupling=0.9)
+    for abs_beta in (True, False):
+        trace = wclr_coupling_trace(
+            a, b, window_size=10, hz=1.0, max_lag_samples=2,
+            metric="beta", absolute_beta=abs_beta,
+        )
+        finite = trace[np.isfinite(trace)]
+        assert finite.size > 0
+        assert np.all(np.abs(finite) <= 1.0)
+
+
+def test_wclr_beta_tanh_is_order_preserving():
+    # tanh is monotone, so the ranking of window couplings is unchanged by the
+    # normalisation. Compare the raw trace ranking to itself via a direct
+    # tanh of a monotone sequence — the argsort must be identical.
+    raw = np.array([-3.0, -0.5, 0.0, 0.2, 0.7, 2.5])
+    assert np.array_equal(np.argsort(raw), np.argsort(np.tanh(raw)))
+    # And small |beta| is approximately identity (linearity near 0).
+    assert np.allclose(np.tanh(np.array([0.1, -0.1, 0.3])), np.array([0.1, -0.1, 0.3]), atol=0.01)
+
+
+def test_wclr_r2_not_tanh_transformed():
+    # r2 is already bounded [0,1] and must NOT be passed through tanh (which
+    # would shrink it). An r2 of exactly ~tanh^-1 would differ; we just assert
+    # the r2 path returns values that are plausible un-transformed R² deltas.
+    a, b = _make_dyad(coupling=0.9)
+    trace = wclr_coupling_trace(a, b, window_size=10, hz=1.0, max_lag_samples=1, metric="r2")
+    finite = trace[np.isfinite(trace)]
+    assert np.all((finite >= 0) & (finite <= 1))
 
 # === source: test_window_and_qc_changes.py ===
 """Regression tests for the C (WCC window taper) and D (QC Stage 4) changes.

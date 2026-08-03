@@ -77,16 +77,36 @@ def test_onset_defined_low_at_coupling_zero(small_grid_df):
     )
 
 
-def test_onset_undefined_may_low_at_coupling_one(small_grid_df):
-    """At coupling=1.0, WCC stays near 1.0 for the entire trace.
-    Depending on noise, some seeds may never dip below 0.5,
-    so onset_defined may be 0 for some. This is expected behaviour,
-    not a bug — onset_latency is undefined when no baseline phase exists."""
-    sub = small_grid_df[small_grid_df["coupling"] == 1.0]
-    assert sub["onset_defined"].notna().all()
-    # In a 5-seed small grid, some low fraction is acceptable.
-    # With 30 seeds, this converges to a stable value.
-    assert True  # just checking it doesn't crash
+def test_onset_definedness_increases_with_coupling(small_grid_df):
+    """Onset definedness must be driven by coupling, not by chance.
+
+    The previous version of this test ended in `assert True  # just checking it
+    doesn't crash`, so it could not fail for any behaviour of the pipeline. Its
+    docstring also claimed onset_defined "may be 0 for some seeds" at
+    coupling=1.0; on the pinned grid (seeds 2000-2004) it is in fact 1.0 for
+    every seed, so that rationale did not describe the implementation.
+
+    The falsifiable contract is monotonicity: onset_latency needs a
+    below-threshold baseline followed by a sustained crossing, which strong
+    coupling reliably produces and zero coupling reliably does not. If onset
+    detection ever became threshold-insensitive (or the definedness flag stopped
+    being wired through), these two rates would converge.
+    """
+    frac_by_coupling = (
+        small_grid_df.groupby("coupling")["onset_defined"].mean().sort_index()
+    )
+    assert frac_by_coupling.notna().all(), (
+        f"onset_defined must never be NaN: {frac_by_coupling.to_dict()}"
+    )
+    assert frac_by_coupling.loc[1.0] > frac_by_coupling.loc[0.0], (
+        "onset definedness is not higher under strong coupling than under no "
+        f"coupling: {frac_by_coupling.to_dict()}"
+    )
+    # At coupling=1.0 the two persons share nearly all variance, so a sustained
+    # crossing of the 0.5 threshold must be the rule rather than the exception.
+    assert frac_by_coupling.loc[1.0] >= 0.8, (
+        f"onset rarely defined at coupling=1.0: {frac_by_coupling.loc[1.0]:.2f}"
+    )
 
 
 def test_summary_shape(small_grid_df):

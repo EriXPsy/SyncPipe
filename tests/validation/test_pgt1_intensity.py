@@ -189,7 +189,11 @@ def test_phipson_smyth_two_tailed_symmetric():
 
 
 def test_phipson_smyth_nan_observed():
-    null = rng.normal(0, 1, 99) if 'rng' in dir() else np.random.normal(0, 1, 99)
+    # `'rng' in dir()` was always False (dir() with no argument lists the local
+    # scope, where rng does not exist), so the left branch was dead and the test
+    # silently used the unseeded global np.random — inconsistent with every other
+    # test in this file. Seed it explicitly.
+    null = np.random.default_rng(0).normal(0, 1, 99)
     p = phipson_smyth_p(observed=np.nan, null_values=null, tail="upper")
     assert np.isnan(p)
 

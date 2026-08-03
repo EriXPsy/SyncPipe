@@ -1,10 +1,14 @@
 # SyncPipe Test Suite
 
 This directory holds the SyncPipe test suite, organized as a **layered +
-themed** structure. The 55 former flat `test_*.py` files were consolidated
-into 8 themed suites under `unit/`, `integration/`, `contracts/` (the slow
+themed** structure. The 55 former flat `test_*.py` files were consolidated into
+themed suites under `unit/`, `integration/`, `contracts/` (the slow
 `validation/` layer was already separate and is untouched). `conftest.py`
 stays at the repo root and is auto-discovered by every sub-directory suite.
+
+Every merged file keeps a `# === source: <original>.py ===` banner above the
+block it absorbed, so a document that cites a pre-consolidation filename can
+still be traced by grepping for that banner.
 
 ## Layout
 
@@ -14,14 +18,21 @@ tests/
 ├── __init__.py
 ├── README.md
 ├── test_feature_definitions.py   # PINNED SSoT guard — stays standalone (never merged)
+├── test_latest_hardening.py      # architecture-review hardening regression gate
+├── test_suite_health.py          # guards the suite itself (see below)
 ├── unit/
-│   ├── test_features.py          # feature_definitions / dynamic_features / wcc / core / morphology
-│   ├── test_significance.py      # surrogate / null models / significance / fdr / existence audit
+│   ├── test_features.py          # feature_definitions / dynamic_features / wcc / core / morphology / eligibility
+│   ├── test_significance.py      # surrogate / null models / significance / fdr / existence audit / kuramoto
 │   ├── test_prediction.py        # prediction / cross_modal / failed_fold / seed / finding17 / leakage
-│   ├── test_pipeline_io.py       # computation_pipeline / pipeline_bridge / io / dataset / loader
-│   └── test_api_core.py          # cli / demo / public API entry tests
+│   ├── test_pipeline_io.py       # computation_pipeline / pipeline_bridge / io / dataset / real loaders
+│   ├── test_api_core.py          # cli / demo / public API + namespace entry tests
+│   ├── test_canonical.py         # canonical_runner / config resolution
+│   ├── test_importer.py          # importer / delimiter sniffing
+│   ├── test_realtest.py          # realtest loaders (lerique / gordon) unit level
+│   └── test_session_threshold.py # session-pooled onset threshold
 ├── integration/
-│   └── test_inference.py         # inference_pipeline / l0 / l1 / l2 / design_control / group inference
+│   ├── test_inference.py         # inference_pipeline / l0 / l1 / l2 / design_control / group inference
+│   └── test_canonical_parity.py  # cross-process canonical parity
 ├── contracts/
 │   └── test_release_contracts.py # p2 release hygiene + parity / audit-interface contract tests
 └── validation/                   # SLOW layer — 4 files, all marked @pytest.mark.slow
@@ -79,6 +90,28 @@ Markers are declared in `pyproject.toml` (`[tool.pytest.ini_options]`).
 
 We do **not** use a `fast` marker: the convention is *unmarked = fast*. CI runs
 `not slow` on every PR/push and the full suite only on `main` push / nightly.
+`pyproject.toml` therefore declares `slow` and nothing else — a declared-but-
+never-applied `fast` marker used to sit there, which would let `-m fast` select
+zero tests and look like a clean run.
+
+### Promotions to the PR gate
+
+`slow` means "too expensive for every PR", never "less important". When a test
+guards a cross-pipeline contract that a nightly-only failure would let reach
+`main`, it belongs in the gate if its measured cost is acceptable. Four
+`tests/integration/test_inference.py` tests were promoted on 2026-08-02
+(measured total ≈ 19 s):
+
+| Test | Why it cannot wait for nightly | Cost |
+|---|---|---|
+| `test_run_full_cascade_returns_complete_summary` | Only test exercising L0→L1→L2 in one call; catches key/kwarg drift between the three pipelines. | ~11 s |
+| `test_by_modality_seed_stable_across_processes` | Cross-process reproducibility is a v1 release claim; per-process `hash()` seeding is invisible in-process. | ~6 s |
+| `test_run_full_cascade_excludes_inapplicable_l1_from_denominator` | A silent L1 denominator inflation is a wrong *reported statistic*. | ~0.3 s |
+| `test_run_full_cascade_l2_param_names_are_correct` | `between_condition_fdr` kwarg-name contract. | ~0.01 s |
+
+Each promotion carries an inline comment at the test recording the measured cost
+and the reason, and the `slow` / `not slow` baseline above must be updated in the
+same change (`test_suite_health.py` fails otherwise).
 
 ## Shared fixtures (`conftest.py`)
 
@@ -104,16 +137,41 @@ After the change, the collect-only count must equal the recorded baseline:
 python -m pytest tests/ --collect-only -q | tail -1
 ```
 
+This is **enforced automatically** by `tests/test_suite_health.py`, so the table
+below is not documentation-only: a drifting count fails the suite. When you
+intentionally add or remove tests, update both places in the same commit.
+
 ### Recorded baseline
 
 | Metric                              | Value |
 |------------------------------------|-------|
-| Collected tests (`--collect-only`) | **430** |
-| `slow` subset (`-m slow`)          | 59    |
-| `not slow` subset (`-m "not slow"`)| 371   |
+| Collected tests (`--collect-only`) | **506** |
+| `slow` subset (`-m slow`)          | 55    |
+| `not slow` subset (`-m "not slow"`)| 451   |
 
-> Baselines reflect the current suite, including `tests/test_latest_hardening.py`
-> (architecture-review hardening regression gate) and subsequent additions.
-> Collected total **430** = 371 fast (`not slow`) + 59 `slow`. The regression
-> gate above must track this count: any future consolidation or rename MUST keep
-> the collected total at 430 (59 slow, 371 not-slow).
+> Recorded 2026-08-02. Collected total **506** = 451 fast (`not slow`) + 55
+> `slow`. Enforced automatically by `tests/test_suite_health.py`; changing these
+> numbers is a reviewed act, not a side effect.
+>
+> History: an earlier baseline (430 = 371 + 59) had gone stale. The split then
+> moved from 59/447 to 55/451 when four integration tests were promoted from the
+> nightly slow layer to the PR gate (see "Promotions to the PR gate" below).
+
+## Suite self-health guard (`test_suite_health.py`)
+
+Product-code guards all assume the suite is really executing what it claims to.
+Three historical `parents[1]` / `parent.parent` bugs broke that assumption: a
+miscomputed repo root produced a path that silently did not exist, and the
+`skipif(not path.exists())` guarding on it then skipped forever while reporting
+success. `test_suite_health.py` closes that hole by asserting
+
+- the collection baseline and slow / not-slow split above, and
+- that **every module-level `Path` in every test module actually exists**.
+
+The second check is the static equivalent of a skip-count gate, and it is
+deliberately not implemented by re-running the suite in a subprocess: this guard
+lives under `tests/`, so such a run would re-invoke itself and recurse.
+
+If a test legitimately references a path that does not exist yet (an output
+written during the run), add it to `_ALLOWED_MISSING_PATHS` with a reason so the
+exemption is explicit and reviewable.

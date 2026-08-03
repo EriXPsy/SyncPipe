@@ -115,7 +115,45 @@ def test_global_modality_fdr_is_declared():
     result = InferencePipeline(pd.DataFrame(rows), seed=1).test_l2_by_modality(
         contrast=("A", "B"), n_permutations=20, fdr_scope="global",
     )
-    assert {x["fdr_scope"] for x in result.values()} == {"global_modality_feature"}
+    # S2 (family-pooled-across-modality): L0 and L1 are different null models,
+    # so they must not share one BH denominator. The declared scope therefore
+    # names the family pooling, not a single flat "global" pool.
+    assert {x["fdr_scope"] for x in result.values()} == {
+        "family_pooled_across_modality"
+    }
+
+    # The declaration must match the arithmetic actually performed: each
+    # family's BH denominator is (features of that family actually tested) x
+    # (number of modalities). Only families with a tested member appear, so the
+    # expectation is derived from the returned per_feature list rather than
+    # assuming the whole SSoT was exercised.
+    from multisync.feature_definitions import FDR_FAMILIES
+
+    def _expected_sizes(res, n_modalities):
+        payload = next(iter(res.values()))
+        tested = {r.feature for r in payload["per_feature"]}
+        return payload["fdr_family_size"], {
+            fam: len([f for f in feats if f in tested]) * n_modalities
+            for fam, feats in FDR_FAMILIES.items()
+            if any(f in tested for f in feats)
+        }
+
+    # Default scope tests only the pre-registered primary endpoint, so exactly
+    # one family is pooled.
+    sizes, expected = _expected_sizes(result, 2)
+    assert sizes == expected, f"got {sizes}, expected {expected}"
+
+    # With the full family entered, L0 and L1 must be pooled SEPARATELY: they
+    # rest on different null models, so a shared denominator would be wrong.
+    full = InferencePipeline(pd.DataFrame(rows), seed=1).test_l2_by_modality(
+        contrast=("A", "B"), n_permutations=20, fdr_scope="global",
+        full_family_fdr=True,
+    )
+    sizes_full, expected_full = _expected_sizes(full, 2)
+    assert set(sizes_full) == set(FDR_FAMILIES), (
+        f"both SSoT families must be pooled separately, got {set(sizes_full)}"
+    )
+    assert sizes_full == expected_full, f"got {sizes_full}, expected {expected_full}"
 
 
 def test_pairing_policy_is_explicit_in_manifest():
