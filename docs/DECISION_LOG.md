@@ -6,13 +6,17 @@ This file records **current v1 decisions and changes**. Older exploratory or sup
 
 ## Current v1 feature-family stance
 
-**Decision.** SyncPipe v1 uses a narrow primary FDR family:
+**Decision.** SyncPipe v1 uses a narrow, two-tier confirmatory FDR structure
+(SSoT in `multisync/feature_definitions.py`):
 
-- `peak_amplitude`
-- `dwell_time`
-- `switching_rate`
+- `PRIMARY_FDR_FAMILY` (n = 1, confirmatory primary endpoint): `peak_amplitude`
+- `SECONDARY_FDR_FAMILY` (n = 2, parallel confirmatory): `dwell_time`, `switching_rate`
 
-`mean_synchrony` is a reference comparator. `fraction_above_threshold`, `bimodality_coefficient`, `synchrony_entropy`, `onset_latency`, `rise_time`, `recovery_time`, `first_peak_time`, and `inter_peak_cv` are reported as exploratory / secondary descriptors with paradigm restrictions and definedness reporting where applicable.
+The two families use **different null models** (L0 signal-level IAAFT vs
+L1 WCC-level IAAFT) and are BH-corrected **independently** — they never share
+one BH denominator. `FDR_FEATURES` (m = 3) is the *union* of both families,
+retained for backward-compat and guard logic only; it is **not** the BH
+correction set. `mean_synchrony` is a reference comparator. `fraction_above_threshold`, `bimodality_coefficient`, `synchrony_entropy`, `onset_latency`, `rise_time`, `recovery_time`, `first_peak_time`, and `inter_peak_cv` are reported as exploratory / secondary descriptors with paradigm restrictions and definedness reporting where applicable.
 
 **Rationale.** The v1 contribution is audited measurement infrastructure, not a claim that every WCC-derived descriptor is a validated psychological construct. A narrow primary family reduces multiplicity and keeps interpretation defensible.
 
@@ -20,7 +24,46 @@ This file records **current v1 decisions and changes**. Older exploratory or sup
 
 ---
 
+## 2026-08-03 — FDR family split into PRIMARY (n=1) + SECONDARY (n=2) for independent BH
+
+**Decision.** The previously-frozen m = 3 confirmatory union (`peak_amplitude`,
+`dwell_time`, `switching_rate`) is now split for Benjamini–Hochberg correction
+into two SSoT families:
+
+- `PRIMARY_FDR_FAMILY` (n = 1): `peak_amplitude` — the single universally-clean
+  primary endpoint (low VIF on every real dataset where observed).
+- `SECONDARY_FDR_FAMILY` (n = 2): `dwell_time`, `switching_rate` — parallel
+  confirmatory; dataset-conditional (defensible in Lerique / ECG+EDA, collapses
+  to non-significance on RESP, the negative-control modality).
+
+**Why split.** L0 (signal-level IAAFT) and L1 (WCC-level IAAFT) are different
+null models; pooling them — or pooling modalities within one family — dilutes
+the primary endpoint and lets the reference feature occupy a correction slot.
+BH now runs *within* each family, pooled across modalities, so a family tested
+on M modalities controls the joint family-wise error at M hypotheses. Reference
+features (`mean_synchrony`) are reported (p_raw) but never enter any BH
+denominator (`p_fdr = nan`, never `significant_05`). This is implemented
+identically in `inference_pipeline._apply_global_modality_fdr` and
+`validation/l2_between_condition.between_condition_fdr`.
+
+**What did NOT change.** `FDR_FEATURES` (m = 3) is retained as the union for
+guard / backward-compat logic; `mean_synchrony` stays reference;
+`bimodality_coefficient` / `synchrony_entropy` stay exploratory.
+
+**Source of truth.** `multisync/feature_definitions.py` (`FDR_FAMILIES`,
+`PRIMARY_FDR_FAMILY`, `SECONDARY_FDR_FAMILY`, `REFERENCE_FEATURE`).
+
+---
+
 ## 2026-07-21 — B4 FDR-family bake-off freeze (evidence-driven, ALL-REAL rerun)
+
+> **Superseded (2026-08-03).** The m = 3 confirmatory union below was later split
+> for BH correction into `PRIMARY_FDR_FAMILY` (n = 1: `peak_amplitude`) and
+> `SECONDARY_FDR_FAMILY` (n = 2: `dwell_time`, `switching_rate`), each corrected
+> independently (different null models must not share a denominator). The current
+> corrected families are no longer a single m = 3 denominator — see *Current v1
+> feature-family stance* (2026-08-03) above. `FDR_FEATURES` (m = 3) remains the
+> union, used only for guards / back-compat.
 
 **Decision (frozen).** The v1 primary FDR family is confirmed as:
 
@@ -88,6 +131,13 @@ set that (a) reproduces the canonical `peak_amplitude` result everywhere, (b)
 recovers `dwell_time`/`switching_rate` significance on the modalities where those
 descriptors are real (ECG/EDA), and (c) correctly withholds them on RESP, the
 negative-control. No further family-flag change is warranted.
+
+> **Continuity note (2026-08-03).** The m = 3 union above was later split for
+> BH correction into `PRIMARY_FDR_FAMILY` (n = 1: `peak_amplitude`) and
+> `SECONDARY_FDR_FAMILY` (n = 2: `dwell_time`, `switching_rate`), each
+> BH-corrected independently (different null models must not share a denominator).
+> `FDR_FEATURES` (m = 3) remains the union, used only for guards / back-compat.
+> See *Current v1 feature-family stance* above.
 
 **Source of truth.** `multisync/feature_definitions.py` (`FDR_FEATURES`,
 `FDR_FAMILIES`); `scripts/fdr_family_impact.py`; the frozen input CSV
@@ -322,7 +372,7 @@ or elsewhere was changed.
 **Source of truth.** `multisync/feature_definitions.py`
 (`T_DEF_MIN_WCC_POINTS`, `N_MIN_DYADS_FDR`, `check_eligibility`);
 `multisync/qc.py` (`run_quality_check` eligibility NOTE);
-`tests/test_eligibility_thresholds.py`.
+`tests/unit/test_features.py` (§ "source: test_eligibility_thresholds.py").
 
 ---
 
@@ -576,5 +626,5 @@ remaining gaps left by P1.
 
 **Why it matters.** These are not cosmetic: P2-A/P2-JSON mean reviewers/users see empty L2 text and unusable JSON exports today; P2-pred is a methodological-honesty hole (fabricated chance-level AUC) that contradicts v1.0's "audited measurement infrastructure" claim. All 6 are low-risk, behaviour-local, and pass the curated regression set (66 passed, 0 regression; full-suite re-run pending).
 
-**Source of truth.** `multisync/inference_pipeline.py`, `multisync/prediction.py`, `multisync/feature_definitions.py`; guarded by `tests/test_p2_release_hygiene.py`.
+**Source of truth.** `multisync/inference_pipeline.py`, `multisync/prediction.py`, `multisync/feature_definitions.py`; guarded by `tests/contracts/test_release_contracts.py` (§ "source: test_p2_release_hygiene.py").
 

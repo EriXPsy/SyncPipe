@@ -77,7 +77,16 @@ sp.explain_feature("dwell_time")
 ## Key constants
 - `sp.ONSET_THRESHOLD` = 0.5 — **fallback / sensitivity constant only** (forwarded unchanged for sensitivity sweeps & paper reproduction; also the fallback when a modality's pooled null is degenerate). The scientific canonical default onset threshold is **per-modality pooled** (`compute_session_pooled_thresholds_by_modality`): one IAAFT-derived cut-off per modality, so EDA and ECG get different, calibrated thresholds while every dyad of a modality still shares one. Surrogate-derived thresholds are hard-capped at `SURROGATE_THRESHOLD_MAX = 0.9` (periodicity / strong-autocorrelation protection).
 - `SURROGATE_THRESHOLD_PERCENTILE` = 95 (per-dyad surrogate cut-off).
-- Primary FDR family size = 3 → BH multiplicity denominator m = 3.
+- `sp.PRIMARY_FDR_FAMILY` = `('peak_amplitude',)` — the PRIMARY confirmatory
+  claim rests on **one** pre-registered endpoint, so the primary BH denominator
+  is **m = 1**. A single endpoint is what makes the existence gate and the group
+  claim consistent; an OR across a family would reintroduce a hidden multiple
+  comparison.
+- `sp.SECONDARY_FDR_FAMILY` = `('dwell_time', 'switching_rate')` — reported in
+  parallel, BH-corrected **within its own family** (m = 2). It does not enter the
+  primary denominator.
+- `sp.FDR_FEATURES` = primary + secondary (3 names). It is the descriptive export
+  surface, **not** the primary multiplicity denominator.
 
 ## Mandatory workflow (do not reorder)
 1. **QC gate**: `sp.run_quality_check(dataset)` → handle WARN/FAIL. A FAIL
@@ -85,15 +94,18 @@ sp.explain_feature("dwell_time")
    start times create a false CCF lag.
 2. **Existence audit** (signal-level IAAFT). Necessary, not sufficient.
 3. **Design-control audit** (pseudo-pair + time-shift + across-stimulus).
-4. **Group inference** (dyad-paired permutation + BH-FDR over the 3 features;
-   `mean_synchrony` reported as reference only).
+4. **Group inference** (dyad-paired permutation + BH-FDR). The primary claim is
+   BH over `PRIMARY_FDR_FAMILY` (m = 1); `SECONDARY_FDR_FAMILY` is corrected in
+   parallel within its own family (m = 2); `mean_synchrony` is reported as
+   reference only and is never corrected.
 5. **Report** via the feature status table; include definedness rates for
    exploratory descriptors.
 
 ## Outputs to surface to the user
 - `DEMO_REPORT.md` / `viewer_results.json` (demo).
 - `docs/FEATURE_TABLE.{csv,md}` (authoritative descriptor table).
-- `artifacts/timing_validation/` (block-bootstrap null + incremental AUC).
+- `artifacts/incremental_auc/` (incremental AUC per modality) and
+  `artifacts/prediction/` (prediction gap check).
 - The status table row for any descriptor before reporting it.
 
 ## Pointers

@@ -33,7 +33,7 @@ In this sense, SyncPipe is closer in spirit to DPABI-like scientific infrastruct
 - Accept aligned dyadic time series, typically preprocessed physiological/behavioral envelopes at a common low rate, e.g. ECG/IBI, EDA, respiration, motion energy, or neural envelopes.
 - Compute WCC traces as the default measurement substrate.
 - Extract WCC-derived synchrony descriptors, including intensity, occupancy, structure, distribution-shape, and event-timing descriptors.
-- Provide a simple feature status table via `syncpipe.feature_status_table()` and `artifacts/demo_v1/feature_status_table.csv`.
+- Provide a simple feature status table via `syncpipe.feature_status_table()`; the demo writes it to `artifacts/demo_v1/` (created on demand — see "Reproduce" below).
 - Run a three-step audited evidence chain:
   1. synchrony-existence audit;
   2. design-control audit;
@@ -163,10 +163,16 @@ This layer is where SyncPipe tries to be most useful to the field: not by preten
 Python API:
 
 ```python
-pipe.run_group_condition_inference(
+l2_by_modality = pipe.run_group_condition_inference(
     condition_col="condition",
     dyad_col="dyad_id",
 )
+# Always keyed by modality, even for single-modality data (then one entry;
+# the key is "__unspecified__" if no modality column is available). There is
+# deliberately no cross-modality pooled number: pooling across modalities can
+# cancel opposing real effects.
+for modality, l2 in l2_by_modality.items():
+    print(modality, l2.get("n_significant"), "/", l2.get("n_tested"))
 ```
 
 ---
@@ -176,7 +182,7 @@ pipe.run_group_condition_inference(
 ```python
 import syncpipe as sp
 
-pipe = sp.InferencePipeline(features_df, hz=1.0, wcc_window_sec=20.0, surrogate_n=100)
+pipe = sp.InferencePipeline(features_df, hz=1.0, wcc_window_sec=20.0, surrogate_n=1000)
 
 result = pipe.run_audited_evidence_chain(
     raw_signals,
@@ -199,7 +205,7 @@ to follow it end-to-end. It mirrors `artifacts/reviewer_audit/AUDIT_REPORT.md`
 ### Stage 0 — Load real data
 
 ```python
-from multisync.realtest.lerique_2024 import load_lerique_dataset
+from syncpipe.realtest.lerique_2024 import load_lerique_dataset
 
 records = load_lerique_dataset(
     data_root="/path/to/Lerique-47n3p",
@@ -211,23 +217,29 @@ records = load_lerique_dataset(
 ```
 
 The loader returns dataset records; the three pipelines consume them through
-the bridge `multisync.pipeline_bridge.records_to_inference_inputs`.
+the bridge `syncpipe.pipeline_bridge.records_to_inference_inputs`.
 
 ### Stage 1 — Feature consultation (Pipeline 1, select-only, no computation)
 
 ```python
-from multisync.feature_pipeline import print_feature_table, recommend_features
+from syncpipe.feature_pipeline import print_feature_table, recommend_features
 print(print_feature_table())            # 12 descriptors: Tier / Axis / FDR / Unit
 rec = recommend_features("general")
-# rec["primary"]    == FDR family == ('peak_amplitude', 'dwell_time', 'switching_rate')
+# rec["primary"]    == FDR-eligible union (m=3, back-compat/guards only):
+#                      ('peak_amplitude', 'dwell_time', 'switching_rate')
 # rec["reference"]  == ('mean_synchrony',)   # comparator, NOT in FDR family
 # rec["supplementary"] == exploratory descriptors
+# NOTE: BH-FDR is split by SSoT family, NOT over the union above:
+#       PRIMARY_FDR_FAMILY (n=1: peak_amplitude) and
+#       SECONDARY_FDR_FAMILY (n=2: dwell_time, switching_rate) are each
+#       BH-corrected independently (different null models must not share a
+#       denominator); mean_synchrony is reference and never enters correction.
 ```
 
 ### Stage 2 — Compute (Pipeline 2)
 
 ```python
-from multisync.pipeline_bridge import records_to_inference_inputs
+from syncpipe.pipeline_bridge import records_to_inference_inputs
 inputs = records_to_inference_inputs(
     records, hz=1.0, window_size=30, onset_threshold="session_pooled",
     design_condition="trials_concat",
@@ -244,12 +256,12 @@ per-modality session-pooled for cross-dyad comparability.
 ### Stage 3 — Audited evidence chain (Pipeline 3)
 
 ```python
-from multisync.inference_pipeline import InferencePipeline
-from multisync.feature_definitions import FDR_FEATURES
+from syncpipe.inference_pipeline import InferencePipeline
+from syncpipe.feature_definitions import FDR_FEATURES
 
 pipe = InferencePipeline(
     features_df=inputs.features_df, hz=1.0,
-    wcc_window_sec=30.0, surrogate_n=100, seed=42,
+    wcc_window_sec=30.0, surrogate_n=1000, seed=42,
 )
 chain = pipe.run_audited_evidence_chain(
     raw_signals=inputs.raw_signals,
@@ -280,11 +292,17 @@ permutation + **BH-FDR** **group-condition** inference.
 Pooling modalities inside one FDR family dilutes per-modality effects. This is
 empirically demonstrated: in the synthetic-proxy audit the pooled L2 was 1/3
 significant while EDA and RESP each showed 2/3; on **real Lerique data** EDA
-showed 8/8 descriptors significant (peak_amplitude p_fdr=0.0008, dwell_time
-p_fdr=0.025, switching_rate p_fdr=0.036) while RESP showed only 1/8
-(bimodality_coefficient). Always run `test_l2_by_modality` and report each
-modality's L2 alongside the pooled result. `reviewer_end_to_end.py` and
-`realdata_l2_audit.py` produce `per_modality_l2` automatically.
+showed all 8 tested descriptors significant (peak_amplitude p_fdr=0.0008,
+dwell_time p_fdr=0.025, switching_rate p_fdr=0.036) while RESP showed only 1 of
+the same 8 (bimodality_coefficient). The denominator 8 is that historical run's
+*exploratory* descriptor panel (onset_latency, rise_time, peak_amplitude,
+recovery_time, dwell_time, switching_rate, bimodality_coefficient,
+mean_synchrony — see `artifacts/realdata_audit/REALDATA_COMPARISON.md`); it is
+**not** a current BH denominator. The confirmatory families are
+`PRIMARY_FDR_FAMILY` (n=1) and `SECONDARY_FDR_FAMILY` (n=2).
+Always run `test_l2_by_modality` and report each modality's L2.
+`reviewer_end_to_end.py` and `realdata_l2_audit.py` produce per-modality L2
+automatically.
 
 ---
 
@@ -294,13 +312,22 @@ Before any result enters a manuscript, the analysis MUST use:
 
 | Parameter | Minimum | Default in code |
 |---|---|---|
-| `surrogate_n` (signal-level IAAFT / existence) | ≥ 100 | 100 (`design_controls.py`, `inference_pipeline.py`) |
+| `surrogate_n` (signal-level IAAFT / existence) | ≥ 100 | **1000** on the canonical path (`SyncPipeConfig.surrogate_n`); 100 in the lower-level `design_controls.py` / `inference_pipeline.py` functions |
 | `n_permutations` (dyad-paired L2) | ≥ 10000 | 10000 (`inference_pipeline.py`) |
 | `n_pseudo_per_dyad` (design-control pseudo-pair) | ≥ 10 | 10 (`design_controls.py`) |
 
 These are now the package defaults; lower values are acceptable only for smoke
 tests and demos. Raise further for very small cohorts where the pseudo-pair
 null needs more draws to stabilise.
+
+On `surrogate_n`, the canonical path deliberately defaults **higher than the
+stated minimum**. With 100 surrogates the smallest attainable p is ≈ 1/101
+≈ 0.0099, so a run literally cannot report `p < 0.01` no matter how strong the
+effect; 1000 surrogates take the resolution to ≈ 0.001. The 100 floor remains
+correct for the standalone functions (it is the point at which a percentile-based
+threshold is stable), but a paper-level claim should not be capped by the null's
+granularity, so `SyncPipeConfig` raises it. Both numbers are intentional; neither
+is a leftover.
 
 ---
 
@@ -343,7 +370,8 @@ table = sp.feature_status_table()
 print(table)
 ```
 
-The current Table 1 candidate is exported by the demo as both CSV and LaTeX:
+The current Table 1 candidate is exported **when you run the demo** (these paths
+are generated, not shipped in the repository), as both CSV and LaTeX:
 
 ```text
 artifacts/demo_v1/feature_status_table.csv
@@ -434,9 +462,10 @@ Group-level audited inference:
 ```python
 import syncpipe as sp
 
-pipe = sp.InferencePipeline(features_df, hz=1.0, wcc_window_sec=10.0, surrogate_n=100)
+pipe = sp.InferencePipeline(features_df, hz=1.0, wcc_window_sec=10.0, surrogate_n=1000)
 existence = pipe.run_synchrony_existence_audit(raw_signals, wcc_window_size=10)
 design = pipe.run_design_control_audit(signal_pairs, wcc_window_size=10)
+# Returns {modality: l2_result} — always, including single-modality data.
 group = pipe.run_group_condition_inference(condition_col="condition", dyad_col="dyad_id")
 ```
 

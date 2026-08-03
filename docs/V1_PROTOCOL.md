@@ -2,7 +2,7 @@
 
 > **Status:** Frozen Draft v1.0 (for maintainer ratification)  
 > **Baseline:** GitHub HEAD `e89f461` + observation-opportunity audit hardening  
-> **Test baseline:** 412 collected / 353 not-slow / 59 slow / 0 failed  
+> **Test baseline:** see `tests/README.md` (enforced by `tests/test_suite_health.py`)  
 > **Companion doc:** `V1_CLAIM_CEILING.md` (what v1 does and does NOT claim)  
 >
 > This document freezes the scientific object, statistical design, feature
@@ -217,6 +217,34 @@ causality. Causal coupling is **out of scope** for every v1 claim.
 | **L0** signal-level | "Does a synchrony signal exist beyond noise?" | IAAFT / PRTF surrogate on raw signals |
 | **L1** WCC-level | "Does the WCC trace show structured episodes?" | IAAFT on WCC trace |
 | **L2** between-condition | "Do features differ across conditions?" | dyad-paired permutation + BH-FDR |
+
+### Pre-registered existence gate (locked)
+
+The L0 existence stage is decided by ONE frozen endpoint on a pre-registered
+set of PRIMARY modalities — not by an OR across features or across all
+channels present in the dataset. Deciding "synchrony exists" from whichever
+feature/modality happened to reach p < .05 is an undeclared multiple
+comparison; freezing the endpoint and the modality set removes that freedom.
+
+| Parameter | Code SSoT (`feature_definitions.py`) | v1 value | Rationale |
+|---|---|---|---|
+| Endpoint | `PRIMARY_EXISTENCE_ENDPOINT` | `peak_amplitude` | Same feature as `PRIMARY_FDR_FAMILY` (n=1), so the existence gate and the confirmatory claim cannot diverge |
+| Primary modalities | `PRIMARY_EXISTENCE_MODALITIES` | `("ECG", "EDA")` | Autonomic primary set; ECG and EDA are two readouts of the same autonomic-synchrony construct, so ONE confirming channel suffices (requiring both over-tightens the gate) |
+| Dyad-majority threshold | `EXISTENCE_GATE_MIN_PASS_RATE` | `0.5`, strict `>` | "Synchrony exists in this modality" is indefensible below half the dyads |
+
+Gate logic (`_existence_gate_by_modality` in `inference_pipeline.py`): pass rate
+is computed **per modality** as the fraction of that modality's dyads
+significant on the frozen endpoint; the gate is satisfied when **at least one
+primary modality** has pass rate strictly `> 0.5`. Non-primary modalities
+(e.g. RESP, which is largely paced/entrained by task structure) are **reported
+but excluded** from the gate — they are sensitivity/comparator channels.
+
+`PRIMARY_EXISTENCE_MODALITIES` is **dataset-specific** (the default is the
+Lerique ECG/EDA/RESP composition). Datasets with a different channel
+composition MUST declare their own primary set via
+`SyncPipeConfig.primary_modalities` **before** looking at results; leaving it
+`None` inherits the Lerique default. Both parameters are recorded in the run
+config and report, so the declared set is auditable after the fact.
 
 ### FDR and governance parameters (must be explicit in every run)
 

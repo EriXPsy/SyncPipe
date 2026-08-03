@@ -260,6 +260,10 @@ Implementation:
   `exploratory-proposed`); both have `enters_primary_fdr = False`.
 - Annotated in `scripts/build_feature_table.py`; `FEATURE_TABLE.{md,csv}`
   now list 12 features, still 5 in the FDR family.
+  *(Superseded by §7c.1 — the family was consolidated to 3, then split into
+  `PRIMARY_FDR_FAMILY` (n=1) + `SECONDARY_FDR_FAMILY` (n=2); see §7c.1 and
+  `feature_definitions.py`. This entry records the state at the time of
+  writing and is intentionally left unedited.)*
 - Tests added (`test_timing_descriptors_are_wired_and_non_fdr`,
   `test_timing_descriptors_are_nan_when_undefined`).
 
@@ -486,9 +490,12 @@ Resolved this round:
 
 - **Version SSoT.** Package version is `1.0.0` in `__about__.py`, `pyproject.toml`,
   and `__init__.py`. Added `multisync --version` (reads `__about__.__version__`).
-  `core.py`'s `schema_version "0.2.0"` is annotated as the JSON *output-structure*
-  version, deliberately independent of the package version. (BRM_draft.md keeps
-  its own manuscript revision number; it is not a software version.)
+  `core.py`'s `schema_version` (read from `__about__.ANALYSIS_SCHEMA_VERSION`,
+  `"0.3.0"` at the time of writing) is annotated as the JSON *output-structure*
+  version, deliberately independent of the package version — it is expected to
+  advance on its own whenever the emitted JSON structure changes, so cite the
+  constant rather than a pinned literal. (BRM_draft.md keeps its own manuscript
+  revision number; it is not a software version.)
 - **Docstring↔decision consistency.** Removed stale "circular time-shift null
   pending" / "EXCLUDED pending null-model implementation" language from
   `feature_definitions.py` (FDR_FEATURES, FDR_FAMILIES) and the three event-only

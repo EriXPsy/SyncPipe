@@ -35,8 +35,12 @@ Any code path that produces a figure, table, or reported statistic in the
 paper must have at least one **contract test** that fails if the path is
 silently broken. The loader → bridge → inference chain and the simulation
 ground-truth generators are the highest-value fuses (see
-`tests/test_realtest_and_bridge_contracts.py`,
-`tests/test_simulation_kuramoto.py`).
+`tests/unit/test_pipeline_io.py`, `tests/unit/test_significance.py`).
+
+The suite's own integrity is itself a fuse: `tests/test_suite_health.py` pins the
+collection baseline and asserts that every module-level path in every test module
+resolves, because three `parents[1]` bugs had previously turned guard tests into
+permanent skips that still reported success.
 
 Rationale (Blind Spot B): `multisync/realtest/*` and `pipeline_bridge` had
 **zero** dedicated tests at v1.0, despite being exactly where the

@@ -89,12 +89,13 @@ coupling parameter, a dropped segment-boundary mask) would produce validation
 output that *looks* completely normal while the floor is wrong. Contract tests
 now exercise these paths end-to-end:
 
-- `tests/test_realtest_and_bridge_contracts.py` — the pipeline-bridge mask
-  propagation, **and** `load_lerique_dataset` / `load_gordon_dataset` called
-  on synthetic on-disk datasets (including the P1/P2 discontinuity-mask AND
-  logic — the original single-sided mask-drop bug site).
-- `tests/test_simulation_kuramoto.py` — the Kuramoto coupling → synchrony
-  generator pulled into `multisync/simulation/kuramoto.py`.
+- `tests/unit/test_pipeline_io.py` — the pipeline-bridge mask propagation,
+  **and** `load_lerique_dataset` / `load_gordon_dataset` called on synthetic
+  on-disk datasets (including the P1/P2 discontinuity-mask AND logic — the
+  original single-sided mask-drop bug site).
+- `tests/unit/test_significance.py` (§ "source: test_simulation_kuramoto.py") —
+  the Kuramoto coupling → synchrony generator pulled into
+  `multisync/simulation/kuramoto.py`.
 
 > **Honesty note on loader coverage.** The loader *bodies* are only
 > partially covered. The `preprocess=False` (raw passthrough) and

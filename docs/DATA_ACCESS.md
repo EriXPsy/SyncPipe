@@ -82,7 +82,7 @@ python scripts/reproduce_lerique_paper.py --fast
 
 # Publication-floor run (requires local mirror)
 python scripts/reproduce_lerique_paper.py --pub   --data-root "$LERIQUE_ROOT"   -o artifacts/paper_lerique
-# defaults: surrogate_n=100, n_permutations=10000
+# defaults: surrogate_n=1000 (canonical publication-grade; lower-level InferencePipeline default 100), n_permutations=10000
 ```
 
 Outputs:

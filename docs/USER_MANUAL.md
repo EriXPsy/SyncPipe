@@ -70,6 +70,7 @@ Each stage returns PASS / WARN / FAIL; a FAIL raises `DataQualityError`.
 | **1. Temporal alignment** | whether modalities share a time base / co-start | misaligned start times create a **false CCF lag** equal to the offset — the single most dangerous silent error in lag-based synchrony |
 | **2. NaN integrity** | location and fraction of missing values | NaN runs distort WCC windows and episode definitions |
 | **3. Sampling uniformity** | constant sampling interval | non-uniform sampling invalidates the fixed-window WCC |
+| **4. Signal integrity** | zero/near-zero variance, flatline runs, optional physiological range | a flatline passes the NaN and interval checks trivially, yet zeroes the WCC denominator (→ NaN) or yields a degenerate coupling estimate; declared marker channels are exempt from the zero-variance FAIL |
 
 The demo deliberately surfaces the alignment warning so you can see the gate
 working. Treat WARN as "confirm this is expected", FAIL as "fix before trusting
@@ -115,11 +116,17 @@ This is the conceptual core. Do not skip steps or reorder them.
    the effect partner-specific and time-locked, or an artifact of shared input?*
 
 3. **Group condition inference** — `InferencePipeline`.
-   Dyad-paired permutation tests with **Benjamini–Hochberg FDR** across the
-   **3-feature primary family**: `peak_amplitude`, `dwell_time`, `switching_rate`.
-   `mean_synchrony` is reported as a **reference comparator** but is *not* in the
-   multiplicity correction. Question: *do the audited descriptors differ across
-   conditions/groups?*
+   Dyad-paired permutation tests with **Benjamini–Hochberg FDR**, applied within
+   pre-registered families rather than one flat pool:
+   - **primary** (`PRIMARY_FDR_FAMILY`): `peak_amplitude` alone, so the primary
+     BH denominator is **m = 1**;
+   - **secondary** (`SECONDARY_FDR_FAMILY`): `dwell_time`, `switching_rate`,
+     corrected within their own family (**m = 2**) and reported in parallel.
+
+   The two are kept apart because they rest on different null models (L0 vs L1),
+   so a shared denominator would not be valid. `mean_synchrony` is reported as a
+   **reference comparator** and is *not* corrected at all. Question: *do the
+   audited descriptors differ across conditions/groups?*
 
 ---
 
@@ -130,8 +137,11 @@ The single source of truth is `multisync/feature_definitions.py` (math) and
 emits `docs/FEATURE_TABLE.csv` / `.md`.
 
 Key facts (v1.0):
-- **Primary FDR family (confirmatory):** `peak_amplitude`, `dwell_time`,
-  `switching_rate`.
+- **Primary FDR family (confirmatory, m = 1):** `peak_amplitude`.
+- **Secondary FDR family (parallel, m = 2):** `dwell_time`, `switching_rate` —
+  BH-corrected within their own family, never pooled into the primary denominator.
+- `FDR_FEATURES` is primary + secondary (3 names) and is the descriptive export
+  surface, not the primary multiplicity denominator.
 - **Reference comparator:** `mean_synchrony` (reported, not FDR-corrected).
 - **Exploratory / secondary** (reported with definedness, never confirmatory):
   `bimodality_coefficient`, `synchrony_entropy`, `fraction_above_threshold`,
