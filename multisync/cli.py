@@ -1,14 +1,16 @@
 """
 CLI — Command-line interface for SyncPipe (distribution: syncpipe).
 
-Usage:
+Usage (``syncpipe`` is the canonical brand; ``multisync`` is the legacy alias
+and accepts exactly the same arguments):
+
     # Canonical v1 audited evidence chain (manifest + config -> report bundle)
-    python -m multisync analyze -m manifest.csv -c config.toml -o results/
+    python -m syncpipe analyze -m manifest.csv -c config.toml -o results/
 
     # Design-agnostic descriptor path on ad-hoc CSVs (exploratory)
-    python -m multisync describe -i neural.csv,bio.csv -n neural,bio --hz 1.0 -o out.json
+    python -m syncpipe describe -i neural.csv,bio.csv -n neural,bio --hz 1.0 -o out.json
 
-    python -m multisync demo --output demo_results.json
+    python -m syncpipe demo --output demo_results.json
 """
 
 from __future__ import annotations
@@ -42,8 +44,8 @@ def cmd_describe(args: argparse.Namespace) -> None:
     confirmatory scientific path; for paper-level audited analysis use
     ``analyze`` (the canonical evidence chain via ``canonical_runner``).
     """
-    input_files = args.input.split(",")
-    names = args.names.split(",") if args.names else [
+    input_files = [p.strip() for p in args.input.split(",") if p.strip()]
+    names = [n.strip() for n in args.names.split(",") if n.strip()] if args.names else [
         f"modality_{i}" for i in range(len(input_files))
     ]
 
@@ -51,7 +53,7 @@ def cmd_describe(args: argparse.Namespace) -> None:
         print("Error: number of input files must match number of names.", file=sys.stderr)
         sys.exit(1)
 
-    hz = float(args.hz)
+    hz = args.hz  # already validated as positive float by argparse type
     modalities = {}
     for name, path in zip(names, input_files):
         print(f"  Loading {name}: {path}")
@@ -418,8 +420,9 @@ def cmd_demo(args: argparse.Namespace) -> None:
     print(f"  Table 1 LaTeX exported to: {feature_status_tex_path}")
     print(f"  Audit report exported to: {report_path}")
 
+    p_values = existence.get("p_values", {})
     raw_p = [
-        v for v in existence.get("p_values", {}).values()
+        v for v in p_values.values()
         if isinstance(v, (int, float)) and np.isfinite(v)
     ]
     n_raw = int(sum(1 for p in raw_p if p < 0.05))
@@ -431,10 +434,29 @@ def cmd_demo(args: argparse.Namespace) -> None:
         n_fdr = int(sum(fdr_sig))
     else:
         n_fdr = 0
+
+    # Lead with the PRE-REGISTERED primary endpoint (peak_amplitude), not an
+    # any-of-k "some feature was significant" count — the latter is a hidden
+    # multiple-comparison. The remaining features are reported alongside as
+    # reference, mirroring the per-modality primary-endpoint gate used in the
+    # canonical evidence chain.
+    from .feature_definitions import PRIMARY_EXISTENCE_ENDPOINT
+    primary_p = p_values.get(PRIMARY_EXISTENCE_ENDPOINT)
+    primary_sig = (
+        isinstance(primary_p, (int, float))
+        and np.isfinite(primary_p)
+        and primary_p < 0.05
+    )
     print("\n  Synchrony-existence audit (signal-level IAAFT):")
+    if primary_p is not None and np.isfinite(primary_p):
+        verdict = "SIGNIFICANT" if primary_sig else "not significant"
+        print(
+            f"    Pre-registered primary endpoint '{PRIMARY_EXISTENCE_ENDPOINT}': "
+            f"p = {primary_p:.4f} ({verdict} at α=0.05)."
+        )
     print(
-        f"    {n_fdr} feature(s) significant after BH-FDR correction (α=0.05); "
-        f"{n_raw} raw p < 0.05 before correction."
+        f"    Reference: {n_fdr} feature(s) significant after BH-FDR correction "
+        f"(α=0.05); {n_raw} raw p < 0.05 before correction."
     )
     if n_raw and not n_fdr:
         print(
@@ -442,9 +464,39 @@ def cmd_demo(args: argparse.Namespace) -> None:
         )
 
 
+def _positive_float(value: str) -> float:
+    """argparse type: a float that must be > 0 (friendly error, no traceback)."""
+    try:
+        f = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid float value: {value!r}")
+    if f <= 0:
+        raise argparse.ArgumentTypeError(f"value must be > 0, got {f}")
+    return f
+
+
+def _min_int(lo: int):
+    """argparse type factory: an int that must be >= lo."""
+    def _check(value: str) -> int:
+        try:
+            i = int(value)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"invalid int value: {value!r}")
+        if i < lo:
+            raise argparse.ArgumentTypeError(f"value must be >= {lo}, got {i}")
+        return i
+    return _check
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="multisync",
+        # The distribution, the docs and the primary console script are all named
+        # "syncpipe"; `multisync` is only the legacy alias. Reporting the
+        # canonical brand here keeps --help consistent no matter which of the two
+        # console scripts (or `python -m ...` form) was used to reach this
+        # parser. argparse's own default is not usable: under `python -m` it
+        # derives prog from sys.argv[0] and prints "__main__.py".
+        prog="syncpipe",
         description="SyncPipe: Dynamic process analysis for multimodal synchrony.",
     )
     parser.add_argument(
@@ -481,10 +533,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_describe.add_argument("-i", "--input", required=True, help="Comma-separated CSV paths.")
     p_describe.add_argument("-n", "--names", help="Comma-separated modality names.")
-    p_describe.add_argument("--hz", default=1.0, help="Target sampling rate.")
+    p_describe.add_argument("--hz", type=_positive_float, default=1.0, help="Target sampling rate.")
     p_describe.add_argument("-o", "--output", default="results.json", help="Output JSON path.")
-    p_describe.add_argument("--window-size", type=int, default=10, help="WCC window size.")
-    p_describe.add_argument("--surrogates", type=int, default=500, help="Number of surrogates.")
+    p_describe.add_argument("--window-size", type=_min_int(2), default=10, help="WCC window size.")
+    p_describe.add_argument("--surrogates", type=_min_int(1), default=500, help="Number of surrogates.")
     p_describe.add_argument(
         "--max-lag", type=float, default=0.0,
         help="v1 supports zero-lag WCC only; non-zero values fail loudly.",

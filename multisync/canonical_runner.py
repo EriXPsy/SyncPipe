@@ -123,9 +123,22 @@ class SyncPipeConfig:
     onset_threshold: Union[float, str] = "session_pooled"
     n_permutations: int = 10000
     seed: int = 42
-    surrogate_n: int = 100
+    # Publication-grade default: 1000 surrogates gives p-value resolution down
+    # to ~1/1001 ≈ 0.001, enough to report p < 0.01. The previous default of
+    # 100 (min p ≈ 0.0099) could not resolve p < 0.01 and was a demo-grade
+    # value leaking into the canonical scientific path.
+    surrogate_n: int = 1000
     design_threshold: float = 0.5
     design_condition: Optional[str] = None
+    # ③ Existence gate: pre-registered primary modalities (per-modality
+    # dyad-majority gate). None -> use the SSoT default
+    # (PRIMARY_EXISTENCE_MODALITIES = ECG + EDA, the autonomic primary set).
+    # Dataset-specific: override for datasets whose channel composition
+    # differs (e.g. single-channel HR/SCR datasets, behavioural Gordon).
+    primary_modalities: Optional[Tuple[str, ...]] = None
+    # Dyad-majority threshold: a primary modality supports existence only when
+    # its pass rate strictly exceeds this (> 0.5 = genuine majority).
+    existence_min_pass_rate: float = 0.5
 
     def __post_init__(self) -> None:
         if int(self.window_size) != self.window_size or self.window_size < 2:
@@ -148,6 +161,8 @@ class SyncPipeConfig:
             raise ValueError("config.n_permutations and surrogate_n must be >= 1")
         if not -1.0 <= self.design_threshold <= 1.0:
             raise ValueError("config.design_threshold must lie in [-1, 1]")
+        if not 0.0 <= self.existence_min_pass_rate < 1.0:
+            raise ValueError("config.existence_min_pass_rate must lie in [0, 1)")
 
     def resolved_contrast(self) -> Tuple[str, str]:
         if not self.contrast or len(self.contrast) != 2:
@@ -451,11 +466,17 @@ def _environment(seed: int) -> Dict[str, Any]:
 
 
 def _derive_claimability(chain: Dict[str, Any]) -> Dict[str, Any]:
-    """Extract per-feature claimability from the L2 result of the chain."""
+    """Extract per-feature claimability from the L2 result of the chain.
+
+    ``group_condition_inference`` is always the modality-keyed shape
+    ``{modality: l2_dict}`` (1c), so each entry is walked and the modality is
+    recorded on every row — a claim about ECG and a claim about EDA are distinct
+    hypotheses and must not be collapsed into one anonymous feature list.
+    """
     group = chain.get("group_condition_inference") or {}
     per_feature: List[Dict[str, Any]] = []
 
-    def _collect(l2: Any) -> None:
+    def _collect(modality: str, l2: Any) -> None:
         if not isinstance(l2, dict):
             return
         pf = l2.get("per_feature")
@@ -467,6 +488,7 @@ def _derive_claimability(chain: Dict[str, Any]) -> Dict[str, Any]:
             if feat is None:
                 continue
             per_feature.append({
+                "modality": modality,
                 "feature": feat,
                 "p_fdr": _safe_float(getattr(r, "p_fdr", None)),
                 "significant_05": bool(getattr(r, "significant_05", False)),
@@ -476,12 +498,8 @@ def _derive_claimability(chain: Dict[str, Any]) -> Dict[str, Any]:
                 "n_dyads": _safe_float(getattr(r, "n_dyads", None)),
             })
 
-    if "per_feature" in group:
-        _collect(group)
-    else:
-        for mod, sub in group.items():
-            if isinstance(sub, dict):
-                _collect(sub)
+    for mod in sorted(group.keys(), key=str):
+        _collect(str(mod), group[mod])
 
     return {
         "stage_status": chain.get("stage_status", {}),
@@ -674,6 +692,8 @@ def run_canonical(
         n_permutations=cfg.n_permutations,
         design_threshold=design_threshold,
         feature_cols=list(FDR_FEATURES) + list(REFERENCE_FEATURE),
+        primary_modalities=cfg.primary_modalities,
+        existence_min_pass_rate=cfg.existence_min_pass_rate,
     )
 
     claimability = _derive_claimability(chain)
@@ -851,12 +871,18 @@ def _write_report_bundle(
 
     # existence / design / group inference / claimability
     _dump_json("existence_audit.json", chain.get("synchrony_existence"))
+    _dump_json("existence_gate.json", chain.get("existence_gate"))
     _dump_json("design_control_audit.json", chain.get("design_controls"))
     _dump_json("group_inference.json", chain.get("group_condition_inference"))
     _dump_json("claimability.json", claimability)
 
-    # REPORT.md
-    report_md = _build_report_md(records, cfg, chain, qc, exclusions, environment)
+    # REPORT.md. `paths` is passed so the report's "Output files" section is
+    # derived from what was actually written rather than a hand-kept literal
+    # list — the previous hard-coded list had silently gone stale and omitted
+    # existence_gate.json, i.e. the existence-gate verdict itself.
+    report_md = _build_report_md(
+        records, cfg, chain, qc, exclusions, environment, paths
+    )
     report_path = output_dir / "REPORT.md"
     report_path.write_text(report_md, encoding="utf-8")
     paths["REPORT.md"] = str(report_path)
@@ -865,7 +891,7 @@ def _write_report_bundle(
 
 
 def _build_report_md(
-    records, cfg, chain, qc, exclusions, environment
+    records, cfg, chain, qc, exclusions, environment, paths=None
 ) -> str:
     """Human-readable markdown summary of a canonical run."""
     lines = [
@@ -900,9 +926,14 @@ def _build_report_md(
             )
         lines.append("")
     lines += ["## Output files", ""]
-    lines.append("See `manifest_resolved.json`, `config_resolved.toml`, "
-                 "`features.csv`, `wcc_traces/`, `existence_audit.json`, "
-                 "`design_control_audit.json`, `group_inference.json`, "
-                 "`claimability.json`, `qc_report.json`, `exclusion_report.csv`, "
-                 "`environment.json`.")
+    if paths:
+        # Derived from the actual write log, so a newly dumped artifact can never
+        # go unreported. REPORT.md itself is not in `paths` yet at this point,
+        # which is correct: this is that file.
+        for name in sorted(paths, key=str):
+            lines.append(f"- `{name}`")
+    else:
+        lines.append(
+            "(Output inventory unavailable: report rendered without a write log.)"
+        )
     return "\n".join(lines)

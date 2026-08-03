@@ -190,9 +190,8 @@ class DataImporter:
     ) -> np.ndarray:
         """Load one numeric signal column from a CSV/TSV file.
 
-        This small helper backs ``ComputationPipeline.load_from_files``.  It
-        deliberately returns only the requested 1-D signal array; alignment and
-        time handling are the caller's responsibility in that low-level API.
+        It deliberately returns only the requested 1-D signal array; alignment
+        and time handling are the caller's responsibility in this low-level API.
         """
         loaded = self.load_csv(
             filepath,
@@ -601,5 +600,9 @@ class DataImporter:
             sniffer = csv.Sniffer()
             dialect = sniffer.sniff(sample, delimiters=",;\t|")
             return dialect.delimiter
-        except Exception:
+        except csv.Error:
+            # Sniffer could not determine a dialect (single-column, uniform
+            # rows, etc.) — fall back to comma. Only swallow the sniff
+            # failure; a missing/unreadable file must surface, not be
+            # misreported downstream as a delimiter problem.
             return ","

@@ -191,6 +191,14 @@ def windowed_cross_lagged_regression(
         estimate in the i-th window; ``lag_trace[i]`` is the lag (in samples)
         at which that maximum was achieved. Positive lag means ``x`` leads
         ``y``.
+
+        For ``metric="beta"`` the trace is scale-normalised by ``tanh`` into
+        (-1, 1) so it is interchangeable with a WCC correlation trace for
+        downstream threshold/peak features (a standardized partial beta can
+        exceed |1| under suppression). The transform is monotone, so all
+        rank/threshold/surrogate comparisons are preserved; it is a scale
+        convention, not a statistical correction. ``metric="r2"`` is already
+        bounded in [0, 1] and is returned unchanged.
     """
     if metric not in ("beta", "r2"):
         raise ValueError(f"metric must be 'beta' or 'r2', got {metric!r}")
@@ -290,6 +298,20 @@ def windowed_cross_lagged_regression(
         # Remember the signed value for the next window's stabilisation.
         if metric == "beta" and not absolute_beta and np.isfinite(final_val):
             prev_signed = final_val
+
+    if metric == "beta":
+        # Scale-normalise the standardized-beta trace to the WCC-comparable
+        # (-1, 1) range via tanh. A standardized PARTIAL beta (with y_{t-1} in
+        # the model) can exceed |1| under suppression / multicollinearity,
+        # which would break the downstream threshold/peak contract designed
+        # for a correlation-scale trace. tanh is monotone (order-preserving),
+        # ≈ identity for |β| ≤ 1, and smoothly saturates only pathological
+        # large |β| — it preserves every rank/threshold/surrogate comparison
+        # while restoring scale interchangeability with WCC. NOTE: this is a
+        # scale convention, NOT a statistical correction; a tanh(β) of 0.5 is
+        # NOT equivalent in "correlation strength" to a Pearson r of 0.5.
+        # The R² metric is already bounded in [0, 1] and is left untouched.
+        wclr_trace = np.tanh(wclr_trace)
 
     return wclr_trace, lag_trace
 

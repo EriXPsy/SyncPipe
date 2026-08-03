@@ -392,15 +392,15 @@ def _interp_outlier_ibi(
         return ibi_sec.astype(np.float64, copy=True), ibi_mid_t
 
     if not good.any():
-        # All beats flagged — bail out with a constant placeholder
-        # (1.0 s = 60 bpm); a fully unusable dyad will hit downstream
-        # quality gates anyway.
-        logger.warning(
-            "IBI artifact rate = 100%% over %d beats; using fallback "
-            "constant 1.0s. This trace likely needs exclusion downstream.",
-            len(ibi_sec),
+        # All beats flagged as artifacts: there is NO genuine IBI to report.
+        # Raising here (instead of returning a fabricated constant) lets the
+        # caller route this dyad to the mask=False placeholder path, so the
+        # trace is gated out downstream rather than correlated as a fake
+        # 60 bpm signal.
+        raise ValueError(
+            f"IBI artifact rate = 100% over {len(ibi_sec)} beats; "
+            "no physiological IBI recoverable."
         )
-        return np.full_like(ibi_sec, 1.0, dtype=np.float64), ibi_mid_t
 
     clean = ibi_sec.astype(np.float64, copy=True)
     bad_idx = np.where(~good)[0]
@@ -440,21 +440,20 @@ def _preprocess_ecg(
     if rpeaks_idx.size < 2:
         logger.warning(
             "ECG: only %d R-peaks detected in %.1fs of trace; emitting "
-            "zero-mean placeholder.",
+            "placeholder trace with mask=False (unusable, not a real signal).",
             int(rpeaks_idx.size), len(raw) / raw_fs,
         )
         n_target = int(np.floor(len(raw) * target_fs / raw_fs))
+        # Signal is a zero placeholder purely to satisfy the shape contract;
+        # the mask is ALL False so downstream WCC gates this trace out.
+        # Returning a real mask here would let a fabricated constant series
+        # be correlated as if it were a genuine IBI trace.
         sig = np.zeros(n_target, dtype=np.float32)
-        mask = (
-            _resample_mask_to_target(boundary_mask, raw_fs, target_fs, n_target)
-            if boundary_mask is not None
-            else np.ones(n_target, dtype=bool)
-        )
+        mask = np.zeros(n_target, dtype=bool)
         return sig, mask
 
     rpeak_t = rpeaks_idx.astype(np.float64) / raw_fs
     ibi_sec = np.diff(rpeak_t)
-    ibi_clean, ibi_mid_t = _interp_outlier_ibi(ibi_sec, rpeak_t)
 
     duration_sec = len(raw) / raw_fs
     n_target = int(np.floor(duration_sec * target_fs))
@@ -462,6 +461,16 @@ def _preprocess_ecg(
         return np.zeros(max(n_target, 0), dtype=np.float32), np.zeros(
             max(n_target, 0), dtype=bool,
         )
+
+    try:
+        ibi_clean, ibi_mid_t = _interp_outlier_ibi(ibi_sec, rpeak_t)
+    except ValueError as exc:
+        # 100% IBI artifact rate — no genuine IBI recoverable. Emit the same
+        # mask=False placeholder as the too-few-R-peaks path so this trace is
+        # gated out downstream, never correlated as a fabricated signal.
+        logger.warning("ECG: %s; emitting placeholder trace with mask=False.", exc)
+        return np.zeros(n_target, dtype=np.float32), np.zeros(n_target, dtype=bool)
+
     t_target = np.arange(n_target, dtype=np.float64) / target_fs
     # Extrapolate constantly at the edges (np.interp default behaviour)
     ibi_resampled = np.interp(t_target, ibi_mid_t, ibi_clean).astype(np.float32)

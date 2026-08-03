@@ -54,6 +54,11 @@ import numpy as np
 import pandas as pd
 
 from ..batch import _bh_fdr_correction, dedupe_fdr_input
+from ..feature_definitions import (
+    FDR_FAMILIES,
+    PRIMARY_FDR_FAMILY,
+    REFERENCE_FEATURE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -593,13 +598,40 @@ def between_condition_fdr(
             claimable=claimable,
         ))
 
-    # ── BH-FDR across features ─────────────────────────────────────────
-    p_raw_arr = np.array([r.p_raw for r in results], dtype=float)
-    p_fdr_arr = _bh_fdr(p_raw_arr)
+    # ── BH-FDR, stratified by SSoT FDR family ──────────────────────────
+    # L0 (signal-level IAAFT null) and L1 (WCC-level IAAFT null) are
+    # DIFFERENT null models, so they must NOT share one BH denominator —
+    # mixing them dilutes the primary endpoint and lets the reference
+    # feature occupy a correction slot. Correct within each SSoT family
+    # instead (Axis D of feature_definitions). Reference features are
+    # reported (p_raw) but never enter any BH denominator.
+    family_of: Dict[str, str] = {
+        feat: fam for fam, feats in FDR_FAMILIES.items() for feat in feats
+    }
+    reference_set = set(REFERENCE_FEATURE)
 
+    # Group result indices by their SSoT family; unknown features get their
+    # own singleton group (BH over a single p is identity — fail-safe).
+    groups: Dict[str, List[int]] = {}
     for i, r in enumerate(results):
-        r.p_fdr = float(p_fdr_arr[i]) if np.isfinite(p_fdr_arr[i]) else 1.0
-        r.significant_05 = bool(r.p_fdr < alpha and r.claimable)
+        if r.feature in reference_set:
+            continue  # reference: reported, not corrected
+        groups.setdefault(family_of.get(r.feature, r.feature), []).append(i)
+
+    for fam, idxs in groups.items():
+        p_raw_grp = np.array([results[i].p_raw for i in idxs], dtype=float)
+        p_fdr_grp = np.asarray(_bh_fdr_correction(p_raw_grp)[0], dtype=float)
+        for j, i in enumerate(idxs):
+            r = results[i]
+            r.p_fdr = float(p_fdr_grp[j]) if np.isfinite(p_fdr_grp[j]) else 1.0
+            r.significant_05 = bool(r.p_fdr < alpha and r.claimable)
+
+    # Reference features: report p_raw, but p_fdr is undefined (not corrected)
+    # and they can never be declared significant in the confirmatory claim.
+    for r in results:
+        if r.feature in reference_set:
+            r.p_fdr = float("nan")
+            r.significant_05 = False
 
     n_significant = sum(1 for r in results if r.significant_05)
 

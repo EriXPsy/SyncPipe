@@ -590,6 +590,50 @@ if PRIMARY_EXISTENCE_ENDPOINT not in PRIMARY_FDR_FAMILY:
 
 
 # ---------------------------------------------------------------------------
+# ③ Existence gate: per-modality primary-modality structure
+# ---------------------------------------------------------------------------
+# The existence gate is NOT "any dyad significant" (an any-of-k hidden
+# multiple-comparison whose false-positive rate explodes with N). It is
+# evaluated PER MODALITY against a dyad-majority threshold, and only the
+# pre-registered PRIMARY modalities decide the gate. The physiological
+# rationale for the default primary set is frozen here so the choice is
+# defensible a priori (NOT selected because these modalities "looked best"
+# in the data — that would be circular endpoint selection).
+#
+#   * ECG (→ IBI/HRV) and EDA (→ SCL) are purely autonomic outputs that a
+#     participant cannot voluntarily control, so their synchrony is the most
+#     objective readout of physiological coupling (Berntson/Cacioppo/Quigley
+#     1991; Palumbo et al. 2017; Chatel-Goldman 2014). EDA is the purest
+#     (single sympathetic innervation, no parasympathetic antagonism).
+#   * RESP is the one physiological channel that is BOTH autonomic and
+#     voluntarily controllable (breath-hold / paced breathing), so its
+#     synchrony can reflect co-regulated breathing strategy rather than
+#     spontaneous coupling. It is a SENSITIVITY/comparator modality: reported
+#     but excluded from the gate.
+#
+# This set is DATASET-SPECIFIC (Lerique ECG/EDA/RESP). Datasets with other
+# channel compositions must define their own primary set via config; the
+# default below is the Lerique physiological primary set.
+PRIMARY_EXISTENCE_MODALITIES: Tuple[str, ...] = ("ECG", "EDA")
+"""Pre-registered primary modalities for the existence gate (Lerique).
+
+Each primary modality must independently reach a dyad-majority pass rate on
+PRIMARY_EXISTENCE_ENDPOINT for that modality to count as supporting
+existence; the gate is satisfied if AT LEAST ONE primary modality does so
+(ECG and EDA are two readouts of the same autonomic-synchrony construct, so
+one channel's confirmation suffices — requiring both would over-tighten the
+gate and reproduce the false-negative problem this design avoids)."""
+
+EXISTENCE_GATE_MIN_PASS_RATE: float = 0.5
+"""Dyad-majority threshold for the per-modality existence gate.
+
+A primary modality supports existence only when the fraction of its dyads
+significant on PRIMARY_EXISTENCE_ENDPOINT strictly EXCEEDS this value
+(> 0.5, i.e. a genuine majority). Chosen because a "synchrony exists in this
+modality" claim is indefensible below half the dyads."""
+
+
+# ---------------------------------------------------------------------------
 # Full feature set for reviewer-proof FDR (critique A, 2026-07-07)
 # ---------------------------------------------------------------------------
 # ALL_FEATURES is the complete set of 12 implemented features (the union of
@@ -682,6 +726,18 @@ TEMPORAL_FEATURES: Tuple[str, ...] = (
 )
 """Features reporting the timing of synchrony events —
 when episodes occur within an interaction."""
+
+FEATURE_AXIS: Dict[str, str] = {
+    **{name: "intensity" for name in INTENSITY_FEATURES},
+    **{name: "structure" for name in STRUCTURE_FEATURES},
+    **{name: "temporal" for name in TEMPORAL_FEATURES},
+}
+"""Informational axis for every feature (Axis B), derived from the three
+axis tuples above so there is exactly ONE source of truth for the mapping.
+
+Consumers (e.g. feature_pipeline's user-facing catalog) must read the axis
+from here rather than restating it, so an edit to the tuples above can never
+drift out of sync with a hand-maintained copy."""
 
 CORE_FEATURES: Tuple[str, ...] = tuple(
     name for name, tier in FEATURE_TIER.items() if tier == "core"
@@ -1369,7 +1425,10 @@ def compute_bimodality_coefficient(wcc: np.ndarray) -> float:
     sk = float(skew(finite))
     kt_excess = float(kurtosis(finite))  # scipy returns excess kurtosis
     kurt = kt_excess + 3.0  # convert to proper kurtosis
-    if kurt <= 0:
+    # Only guard against division-by-zero. Negative proper kurtosis
+    # (platykurtic) is a legitimate distribution shape and must NOT be
+    # blanked to NaN; BC with a negative denominator is interpretable.
+    if abs(kurt) < 1e-12:
         return float("nan")
     return (sk ** 2 + 1.0) / kurt
 
@@ -1823,6 +1882,8 @@ __all__ = [
     "FDR_FEATURES",
     "REFERENCE_FEATURE",
     "PRIMARY_EXISTENCE_ENDPOINT",
+    "PRIMARY_EXISTENCE_MODALITIES",
+    "EXISTENCE_GATE_MIN_PASS_RATE",
     "ALL_FEATURES",
     "get_fdr_features",
     "CORE_FEATURES",

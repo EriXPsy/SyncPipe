@@ -271,6 +271,47 @@ def design_control_audit(
     def _mask_for(pair_id: str):
         return discontinuity_masks.get(pair_id) if discontinuity_masks is not None else None
 
+    def _align_pseudo_pair(sig_a, sig_b, mask_a, mask_b):
+        """Jointly align a cross-dyad pseudo-pair and build a combined mask.
+
+        A pseudo-pair combines dyad X's person A with dyad Y's person B. The
+        previous implementation passed dyad X's discontinuity mask alongside
+        dyad Y's B signal — a mask that describes a DIFFERENT recording and
+        therefore gates the wrong samples. It also let ``_finite_pair``
+        truncate silently, so the pseudo arm ran on a shorter effective length
+        than the real arm (a length confound in the null).
+
+        Here we (1) crop both signals to a common length, (2) keep only the
+        jointly-finite sample indices, and (3) build a combined
+        discontinuity mask = mask_a AND mask_b sampled at those SAME kept
+        indices, so a pseudo window is valid only where BOTH source signals
+        are internal to a segment. Returns (a, b, combined_mask, n_kept).
+        """
+        a = np.asarray(sig_a, dtype=float)
+        b = np.asarray(sig_b, dtype=float)
+        n = min(a.size, b.size)
+        a = a[:n]
+        b = b[:n]
+
+        def _crop(m):
+            if m is None:
+                return None
+            m = np.asarray(m, dtype=bool)
+            return m[:n] if m.size >= n else None
+
+        ma = _crop(mask_a)
+        mb = _crop(mask_b)
+
+        finite = np.isfinite(a) & np.isfinite(b)
+        a_f = a[finite]
+        b_f = b[finite]
+        combined = None
+        if ma is not None or mb is not None:
+            ca = ma[finite] if ma is not None else np.ones(int(finite.sum()), dtype=bool)
+            cb = mb[finite] if mb is not None else np.ones(int(finite.sum()), dtype=bool)
+            combined = ca & cb
+        return a_f, b_f, combined, int(finite.sum())
+
     real: Dict[str, Dict[str, float]] = {}
     for dyad_id in ids:
         a, b = signal_pairs[dyad_id]
@@ -283,6 +324,7 @@ def design_control_audit(
     pseudo_values: Dict[str, Dict[str, list]] = {
         dyad_id: {f: [] for f in feature_names} for dyad_id in ids
     }
+    pseudo_lengths: list = []  # effective (post-alignment) length per pseudo-pair
     if len(ids) >= 2:
         for dyad_id in ids:
             partners = [p for p in ids if p != dyad_id]
@@ -290,11 +332,16 @@ def design_control_audit(
             chosen = rng.choice(partners, size=n_pseudo_per_dyad, replace=replace)
             a, _ = signal_pairs[dyad_id]
             for partner_id in chosen:
-                _, b_partner = signal_pairs[str(partner_id)]
+                partner_id = str(partner_id)
+                _, b_partner = signal_pairs[partner_id]
+                a_al, b_al, mask_al, n_kept = _align_pseudo_pair(
+                    a, b_partner, _mask_for(dyad_id), _mask_for(partner_id)
+                )
+                pseudo_lengths.append(n_kept)
                 feats = extract_pair_features(
-                    a, b_partner, hz=hz, window_size=window_size,
+                    a_al, b_al, hz=hz, window_size=window_size,
                     threshold=_threshold_for(dyad_id), feature_names=feature_names,
-                    window_type=window_type, discontinuity_mask=_mask_for(dyad_id),
+                    window_type=window_type, discontinuity_mask=mask_al,
                 )
                 for f in feature_names:
                     if np.isfinite(feats.get(f, np.nan)):
@@ -383,6 +430,19 @@ def design_control_audit(
         "pseudo_pair": {
             "enabled": len(ids) >= 2,
             "n_pseudo_per_dyad": int(n_pseudo_per_dyad),
+            # Length-transparency for reviewers: pseudo-pairs are jointly
+            # aligned (crop to common length + joint finite + combined
+            # mask_a AND mask_b). Report the effective-length distribution so
+            # a length confound in the null is visible, not hidden.
+            "aligned_length_min": (
+                int(np.min(pseudo_lengths)) if pseudo_lengths else 0
+            ),
+            "aligned_length_median": (
+                float(np.median(pseudo_lengths)) if pseudo_lengths else float("nan")
+            ),
+            "aligned_length_max": (
+                int(np.max(pseudo_lengths)) if pseudo_lengths else 0
+            ),
             "interpretation": (
                 "If real pairs exceed pseudo-pairs, evidence is more dyad-specific. "
                 "If real ≈ pseudo, shared context/stimulus/co-presence remains plausible."

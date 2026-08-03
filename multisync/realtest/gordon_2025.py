@@ -441,9 +441,22 @@ def gordon_record_to_multisync_dyad(
             columns={ch: "value"}
         )
 
+    # The resample step marks out-of-overlap grid points as NaN (see
+    # _resample_to_common_grid). Carry those positions into a discontinuity
+    # mask so downstream WCC gates out the fabricated-free boundary samples
+    # instead of correlating NaN. A sample is usable only if BOTH persons
+    # have a finite value in EVERY exported channel.
+    n = len(rec.person_a)
+    mask = np.ones(n, dtype=bool)
+    for ch in channels:
+        a_ok = np.isfinite(rec.person_a[ch].to_numpy(dtype=float))
+        b_ok = np.isfinite(rec.person_b[ch].to_numpy(dtype=float))
+        mask &= a_ok & b_ok
+
     dyad = Dyad(
         hz=rec.target_hz,
         dyad_id=rec.dyad_id,
+        discontinuity_mask=mask,
         **modalities,
     )
     return dyad

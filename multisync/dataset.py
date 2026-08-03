@@ -31,10 +31,16 @@ def _detect_time_type(time_series: pd.Series) -> str:
     Detect if a time column is ABSOLUTE or RELATIVE.
 
     Detection logic:
-    - ABSOLUTE: values look like Unix timestamps (> 1e9, i.e., > 2001-09-09)
+    - ABSOLUTE: values look like Unix timestamps (> 1e9, i.e., > 2001-09-09;
+      this also captures Unix-millisecond stamps, which are >= ~1.13e12)
       or ISO-like strings containing 'T' or ':'.
     - RELATIVE: values are small floats starting near 0 (typical CSV export
       with "Time" column starting at 0.00).
+    - UNKNOWN: the 1e6..1e9 ambiguous zone (could be a millisecond RELATIVE
+      axis or a 1973-2001 Unix-seconds stamp — indistinguishable by
+      magnitude), or anything else. align() warns / blocks on unknown rather
+      than silently trusting it, so a mislabelled axis cannot fabricate a
+      false cross-device lag.
 
     Returns
     -------
@@ -54,13 +60,23 @@ def _detect_time_type(time_series: pd.Series) -> str:
     min_val = float(np.min(vals))
     max_val = float(np.max(vals))
 
-    # Unix timestamp heuristic: values > 1e9 (year 2001+) are likely absolute
+    # Unix-seconds absolute (year 2001+): clearly absolute. Unix-milliseconds
+    # absolute (2001+) is >= ~1.13e12, so it is also captured by this branch.
     if min_val > 1e9:
         return "absolute"
 
-    # Values > 1e6 might be millisecond timestamps
+    # AMBIGUOUS ZONE 1e6..1e9. A value here could be:
+    #   * a MILLISECOND *relative* axis (1e6 ms ≈ 16.7 min … 1e9 ms ≈ 11.5 days)
+    #     that happens to start away from 0 (e.g. a device ms clock modulo), or
+    #   * a Unix-SECONDS absolute timestamp from 1973–2001 (vanishingly rare in
+    #     modern physiological recordings).
+    # We CANNOT tell these apart from magnitude alone. Judging it "absolute"
+    # (the old behaviour) silently skips the cross-device co-start safety net
+    # and can fabricate a false synchrony lag. Fail loud instead: report
+    # "unknown" so align() warns (or blocks under require_co_start) and the
+    # user explicitly confirms the time base.
     if min_val > 1e6:
-        return "absolute"
+        return "unknown"
 
     # Small values starting near 0 → relative
     if min_val >= 0 and max_val < 10000:
@@ -350,11 +366,24 @@ class SynchronyDataset:
         # falls on, conservatively invalidating windows near segment seams.
         if getattr(self, "discontinuity_mask", None) is not None:
             dm = np.asarray(self.discontinuity_mask, dtype=bool)
+            # Gather ALL length-matching candidate source axes. Equal length
+            # alone is NOT proof of correspondence: two modalities can share
+            # a length yet sample at different instants, which would pin the
+            # mask to the wrong samples. Fail loud on ambiguity.
+            candidates = [ot for ot in orig_times.values() if len(ot) == len(dm)]
             src_time = None
-            for name, ot in orig_times.items():
-                if len(ot) == len(dm):
-                    src_time = ot
-                    break
+            if candidates:
+                src_time = candidates[0]
+                # If several axes share the length but disagree on values,
+                # we cannot know which the mask refers to — refuse to guess.
+                for ot in candidates[1:]:
+                    if not np.array_equal(ot, src_time):
+                        raise ValueError(
+                            "discontinuity_mask length matches multiple "
+                            "modalities whose time axes differ; cannot infer "
+                            "which modality the mask belongs to. Provide "
+                            "per-modality masks or disambiguate the source."
+                        )
             if src_time is not None and len(src_time) == len(dm):
                 # Map to common_time via zero-order hold whenever the target
                 # grid is not literally the same array as the source axis.

@@ -65,6 +65,14 @@ CANONICAL_PATH = "DynamicAnalyzer.fit_transform"
 CANONICAL_DESCRIPTOR_PATH = CANONICAL_PATH
 OPT_IN_PATH = "prediction.rolling_origin_cv"
 
+# EVIDENCE_CHAIN_PATH names the SCIENTIFIC canonical — the audited evidence
+# chain (pipeline_bridge.records_to_inference_inputs +
+# InferencePipeline.run_audited_evidence_chain, reached by CLI `analyze`).
+# It is intentionally a DIFFERENT name from CANONICAL_PATH so the two routes
+# can never be conflated: "canonical" alone is ambiguous, use the explicit
+# DESCRIPTOR_ / EVIDENCE_CHAIN_ names when precision matters.
+EVIDENCE_CHAIN_PATH = "InferencePipeline.run_audited_evidence_chain"
+
 
 class Dyad(SynchronyDataset):
     """
@@ -568,6 +576,12 @@ class DynamicAnalyzer:
                 "feature_importance": pred.feature_importance,
                 "warning": pred.warning,
                 "n_features_used": pred.n_features_used,
+                # Methodological evidence columns consumed by report.py: how the
+                # AUC was actually produced (gap auto-adjust, class imbalance,
+                # dropped folds). Without these the report shows NaN/0/blank.
+                "feature_to_sample_ratio": pred.feature_to_sample_ratio,
+                "n_failed_folds": pred.n_failed_folds,
+                "diagnostics": pred.diagnostics,
                 "folds": [
                     {
                         "fold_id": f.fold_id,

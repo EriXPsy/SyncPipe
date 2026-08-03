@@ -20,7 +20,7 @@ from .dynamic_features import (
     _apply_discontinuity_mask,
     extract_dynamic_features,
 )
-from .importer import DataImporter
+from .feature_definitions import DynamicFeatures
 from .wclr import wclr_coupling_trace
 from .session_threshold import (
     compute_session_pooled_threshold,
@@ -81,7 +81,7 @@ class ComputationPipeline:
         self._sig_a: Optional[np.ndarray] = None
         self._sig_b: Optional[np.ndarray] = None
         self._wcc: Optional[np.ndarray] = None
-        self._features: Optional[Dict[str, float]] = None
+        self._features: Optional[DynamicFeatures] = None
         self._metadata: Dict[str, object] = {}
         # Per-sample segment-boundary mask (True = internal to a segment).
         # When set, cross-boundary coupling windows are NaN'd so features
@@ -140,29 +140,6 @@ class ComputationPipeline:
         self._metadata = {"label": label, **metadata}
         self._wcc = None
         self._features = None
-
-    def load_from_files(
-        self,
-        path_a: Union[str, Path],
-        path_b: Union[str, Path],
-        column_a: str = "signal",
-        column_b: str = "signal",
-        label: Optional[str] = None,
-        **metadata,
-    ):
-        """Load signals from CSV files.
-
-        Parameters
-        ----------
-        path_a, path_b : str or Path
-            Paths to CSV files.
-        column_a, column_b : str
-            Column names containing the signal data.
-        """
-        importer = DataImporter()
-        sig_a = importer.load_signal(path_a, column=column_a)
-        sig_b = importer.load_signal(path_b, column=column_b)
-        self.load_signals(sig_a, sig_b, label=label, **metadata)
 
     # ---- WCC computation ------------------------------------------------
 
@@ -245,7 +222,7 @@ class ComputationPipeline:
 
     def extract_features(
         self,
-    ) -> Dict[str, float]:
+    ) -> DynamicFeatures:
         """Extract all dynamic features from the WCC/WCLR coupling series.
 
         Surrogate testing is handled by the InferencePipeline; this method
@@ -253,8 +230,9 @@ class ComputationPipeline:
 
         Returns
         -------
-        features : dict
-            Feature name → value mapping.
+        features : DynamicFeatures
+            The SSoT feature dataclass (see ``feature_definitions``). Call
+            ``.to_dict()`` for a plain ``{name: value}`` mapping.
         """
         if self._wcc is None:
             raise ValueError("Call compute_wcc() first.")
@@ -561,7 +539,7 @@ class PairResult:
     """
 
     wcc: np.ndarray
-    features: Any  # dynamic-feature object exposing .to_dict()
+    features: DynamicFeatures  # SSoT feature object exposing .to_dict()
     hz: float
     window_size: int
     label: Optional[str] = None

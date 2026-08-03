@@ -30,10 +30,14 @@ from .design_controls import (
 )
 from .dynamic_features import sliding_window_wcc, wcc_surrogate_test
 from .feature_definitions import (
+    EXISTENCE_GATE_MIN_PASS_RATE,
+    FDR_FAMILIES,
     FDR_FEATURES,
     ONSET_THRESHOLD,
     PRIMARY_EXISTENCE_ENDPOINT,
+    PRIMARY_EXISTENCE_MODALITIES,
     PRIMARY_FDR_FAMILY,
+    REFERENCE_FEATURE,
     extract_features,
     get_fdr_features,
 )
@@ -44,24 +48,67 @@ from .validation.l2_between_condition import (
     _bh_fdr,
 )
 
+UNSPECIFIED_MODALITY = "__unspecified__"
+"""Key used for L2 results whose modality cannot be honestly named.
+
+L2 results are ALWAYS keyed by modality (P0-2: pooling across modalities can
+cancel real effects, so the modality is the only admissible index unit for a
+between-condition claim). When the feature table carries no usable modality
+column — or carries one with missing values, so we cannot assert that every row
+belongs to the single observed modality — we label the result with this explicit
+sentinel rather than inventing a modality name.
+"""
+
 
 def _apply_global_modality_fdr(results: Dict[str, Any], alpha: float) -> Dict[str, Any]:
-    """Apply BH once across all modality × feature hypotheses."""
-    items = []
+    """Apply BH within each SSoT FDR family, pooled across modalities.
+
+    L0 (signal-level IAAFT null) and L1 (WCC-level IAAFT null) are different
+    null models and must NOT share one BH denominator. We therefore group the
+    modality × feature hypotheses by their SSoT family (Axis D of
+    feature_definitions) and run BH *within* each family, pooling across
+    modalities so a family tested on M modalities controls the joint
+    family-wise error at M hypotheses (not M separate chances). Reference
+    features are reported (p_raw) but never enter any BH denominator.
+    """
+    family_of: Dict[str, str] = {
+        feat: fam for fam, feats in FDR_FAMILIES.items() for feat in feats
+    }
+    reference_set = set(REFERENCE_FEATURE)
+
+    # Collect (modality, result) per family; reference features excluded.
+    by_family: Dict[str, List[tuple]] = {}
+    all_items = []
     for modality, payload in results.items():
         if isinstance(payload, dict) and "per_feature" in payload:
             for result in payload["per_feature"]:
-                items.append((modality, result))
-    if not items:
+                all_items.append((modality, result))
+                if result.feature in reference_set:
+                    continue
+                fam = family_of.get(result.feature, result.feature)
+                by_family.setdefault(fam, []).append((modality, result))
+    if not all_items:
         return results
-    adjusted = _bh_fdr(np.asarray([r.p_raw for _, r in items], dtype=float))
-    for (_, result), p_adj in zip(items, adjusted):
-        result.p_fdr = float(p_adj) if np.isfinite(p_adj) else 1.0
-        result.significant_05 = bool(result.p_fdr < alpha and result.claimable)
+
+    # BH within each family, pooled across that family's modalities.
+    for fam, items in by_family.items():
+        adjusted = _bh_fdr(np.asarray([r.p_raw for _, r in items], dtype=float))
+        for (_, result), p_adj in zip(items, adjusted):
+            result.p_fdr = float(p_adj) if np.isfinite(p_adj) else 1.0
+            result.significant_05 = bool(result.p_fdr < alpha and result.claimable)
+
+    # Reference features: report p_raw, never corrected, never significant.
+    for _, result in all_items:
+        if result.feature in reference_set:
+            result.p_fdr = float("nan")
+            result.significant_05 = False
+
     for payload in results.values():
         if isinstance(payload, dict) and "per_feature" in payload:
-            payload["fdr_scope"] = "global_modality_feature"
-            payload["fdr_family_size"] = len(items)
+            payload["fdr_scope"] = "family_pooled_across_modality"
+            payload["fdr_family_size"] = {
+                fam: len(items) for fam, items in by_family.items()
+            }
             payload["summary_df"] = pd.DataFrame([
                 {
                     "feature": r.feature, "observed_diff": r.observed_diff,
@@ -77,6 +124,73 @@ def _apply_global_modality_fdr(results: Dict[str, Any], alpha: float) -> Dict[st
                 for r in payload["per_feature"]
             ])
     return results
+
+
+def _modality_from_label(label: str) -> str:
+    """Extract the modality token from a raw_signals label.
+
+    Labels are ``"<dyad>__<modality>"`` or ``"<dyad>__<modality>__<condition>"``
+    (double-underscore separated). The modality is the second segment. Labels
+    without a separator carry no modality and return "" so they group under a
+    single unnamed bucket rather than crashing the gate.
+    """
+    parts = str(label).split("__")
+    return parts[1] if len(parts) >= 2 else ""
+
+
+def _existence_gate_by_modality(
+    existence_results: Dict[str, Any],
+    primary_modalities: Sequence[str],
+    min_pass_rate: float,
+) -> Dict[str, Any]:
+    """Evaluate the L0 existence gate per modality on the primary endpoint.
+
+    For every modality we compute the dyad pass rate on
+    PRIMARY_EXISTENCE_ENDPOINT (fraction of that modality's dyads whose
+    per_feature_significant flag is True). Only ``primary_modalities`` decide
+    the gate; the gate is satisfied when AT LEAST ONE primary modality has a
+    pass rate strictly greater than ``min_pass_rate`` (a dyad majority).
+    Non-primary (sensitivity) modalities are reported but excluded.
+    """
+    # Accumulate pass/total per modality.
+    pass_n: Dict[str, int] = {}
+    tot_n: Dict[str, int] = {}
+    for label, r in existence_results.items():
+        if not isinstance(r, dict):
+            continue
+        mod = _modality_from_label(label)
+        sig = bool(
+            r.get("per_feature_significant", {}).get(PRIMARY_EXISTENCE_ENDPOINT, False)
+        )
+        tot_n[mod] = tot_n.get(mod, 0) + 1
+        pass_n[mod] = pass_n.get(mod, 0) + int(sig)
+
+    per_modality: Dict[str, Dict[str, Any]] = {}
+    for mod in sorted(tot_n):
+        total = tot_n[mod]
+        passed = pass_n.get(mod, 0)
+        rate = passed / total if total else 0.0
+        is_primary = mod in set(primary_modalities)
+        per_modality[mod] = {
+            "n_dyads": total,
+            "n_pass": passed,
+            "pass_rate": rate,
+            "is_primary": is_primary,
+            # Only primary modalities can "support"; sensitivity modalities
+            # are reported but their support flag is always False.
+            "supports": bool(is_primary and rate > min_pass_rate),
+        }
+
+    primary_pass = any(
+        m["supports"] for m in per_modality.values() if m["is_primary"]
+    )
+    return {
+        "primary_pass": primary_pass,
+        "per_modality": per_modality,
+        "primary_modalities": list(primary_modalities),
+        "min_pass_rate": float(min_pass_rate),
+        "endpoint": PRIMARY_EXISTENCE_ENDPOINT,
+    }
 
 
 class InferencePipeline:
@@ -297,18 +411,36 @@ class InferencePipeline:
     ) -> Dict[str, Any]:
         """Step 3: test whether features differentiate experimental conditions.
 
-        Multimodal datasets (e.g. EDA/ECG/RESP) are routed to per-modality L2
-        (``test_l2_by_modality``) because pooled L2 across modalities silently
-        averages cross-modality rows and can cancel real effects (P0-2). The
-        returned dict is then keyed by modality. Unimodal data keeps the
-        original single pooled-result shape.
+        L2 is ALWAYS computed per modality and the return value is ALWAYS
+        ``{modality: l2_result_dict}``, including when the dataset carries a
+        single modality (then the dict has exactly one entry). Rationale: pooled
+        L2 across modalities averages cross-modality rows and can cancel real
+        effects (P0-2), so the modality is the only admissible index unit for a
+        between-condition claim. A single-modality dataset is not a different
+        kind of result — it is the same result with M=1.
+
+        The key is the real modality label when one can be read from
+        ``modality_col``; if that column is absent, or has any missing value (so
+        we cannot assert every row belongs to the one observed modality), the key
+        is ``UNSPECIFIED_MODALITY`` rather than an invented modality name.
+
+        Returns
+        -------
+        dict
+            ``{modality: l2_result_dict}``. Each value matches the return format
+            of ``between_condition_fdr``, or is ``{"error": str}`` if that
+            modality could not be tested.
         """
-        n_mod = (
-            self.df[modality_col].dropna().nunique()
-            if (modality_col in self.df.columns and self.df[modality_col].notna().any())
-            else 1
+        has_mod_col = modality_col in self.df.columns
+        mod_values = (
+            self.df[modality_col].dropna().unique() if has_mod_col else []
         )
-        if n_mod > 1:
+        fully_labelled = (
+            has_mod_col
+            and len(mod_values) > 0
+            and bool(self.df[modality_col].notna().all())
+        )
+        if len(mod_values) > 1:
             # P1-R1: forward contrast / threshold_scope / seed — previously
             # dropped, so multimodal scientific path ignored caller contrast
             # and fell back to sorted condition labels.
@@ -330,20 +462,30 @@ class InferencePipeline:
                 n_min_dyads=n_min_dyads,
             )
         else:
-            result = self.test_l2_condition(
-                condition_col=condition_col,
-                dyad_col=dyad_col,
-                feature_cols=feature_cols,
-                fdr_alpha=fdr_alpha,
-                n_permutations=n_permutations,
-                contrast=contrast,
-                full_family_fdr=full_family_fdr,
-                threshold_scope=threshold_scope,
-                undefined_policy=undefined_policy,
-                observation_policy=observation_policy,
-                eligibility_policy=eligibility_policy,
-                n_min_dyads=n_min_dyads,
-            )
+            # Single modality (or none nameable): still key the result so the
+            # shape is invariant. Note the deliberate asymmetry with the M>1
+            # branch: `between_condition_by_modality` traps a per-modality
+            # ValueError so one untestable modality does not destroy the others,
+            # but with M=1 there is nothing to protect, so an untestable design
+            # must propagate (fail-loud) rather than become a silent
+            # ``{"error": ...}`` payload that reads as "0 significant".
+            key = str(mod_values[0]) if fully_labelled else UNSPECIFIED_MODALITY
+            result = {
+                key: self.test_l2_condition(
+                    condition_col=condition_col,
+                    dyad_col=dyad_col,
+                    feature_cols=feature_cols,
+                    fdr_alpha=fdr_alpha,
+                    n_permutations=n_permutations,
+                    contrast=contrast,
+                    full_family_fdr=full_family_fdr,
+                    threshold_scope=threshold_scope,
+                    undefined_policy=undefined_policy,
+                    observation_policy=observation_policy,
+                    eligibility_policy=eligibility_policy,
+                    n_min_dyads=n_min_dyads,
+                )
+            }
         self._group_inference_results = result
         return result
 
@@ -373,6 +515,8 @@ class InferencePipeline:
         observation_policy: str = "warn",
         eligibility_policy: str = "warn",
         n_min_dyads: int = 10,
+        primary_modalities: Optional[Sequence[str]] = None,
+        existence_min_pass_rate: float = EXISTENCE_GATE_MIN_PASS_RATE,
     ) -> Dict[str, Any]:
         """Run the recommended v1 evidence chain end-to-end.
 
@@ -421,13 +565,21 @@ class InferencePipeline:
             n_min_dyads=n_min_dyads,
         )
         existence_results = existence.get("results", {})
-        primary_pass = any(
-            bool(r.get("per_feature_significant", {}).get(PRIMARY_EXISTENCE_ENDPOINT, False))
-            for r in existence_results.values() if isinstance(r, dict)
+        prim_mods = (
+            list(primary_modalities)
+            if primary_modalities is not None
+            else list(PRIMARY_EXISTENCE_MODALITIES)
         )
+        gate = _existence_gate_by_modality(
+            existence_results,
+            primary_modalities=prim_mods,
+            min_pass_rate=existence_min_pass_rate,
+        )
+        primary_pass = gate["primary_pass"]
         return {
             "evidence_chain_version": "v1",
             "synchrony_existence": existence,
+            "existence_gate": gate,
             "design_controls": design,
             "across_stimulus_shuffle": across,
             "group_condition_inference": group,
@@ -471,28 +623,24 @@ class InferencePipeline:
         if group is None:
             parts.append("Group condition inference was not run.")
         else:
-            # P1-R1: multimodal path returns {modality: l2_dict}; unimodal
-            # returns a single l2_dict with top-level n_significant.
-            if "n_significant" in group:
-                n_sig = int(group.get("n_significant", 0))
-                parts.append(
-                    f"Group condition inference found {n_sig} significant feature(s)."
-                )
-            else:
-                n_sig = 0
-                mod_bits = []
-                for mod, sub in group.items():
-                    if not isinstance(sub, dict) or "error" in sub:
-                        mod_bits.append(f"{mod}=error")
-                        continue
-                    k = int(sub.get("n_significant", 0))
-                    n_sig += k
-                    mod_bits.append(f"{mod}:{k}")
-                parts.append(
-                    "Group condition inference (per-modality) found "
-                    f"{n_sig} significant feature-test(s) "
-                    f"[{', '.join(mod_bits)}]."
-                )
+            # 1c: `group` is ALWAYS {modality: l2_dict} (M=1 included), so there
+            # is a single code path here — no shape sniffing, hence no way to
+            # read a modality-keyed dict as if it were one pooled result and
+            # silently report zero significant features.
+            n_sig = 0
+            mod_bits = []
+            for mod, sub in sorted(group.items(), key=lambda kv: str(kv[0])):
+                if not isinstance(sub, dict) or "error" in sub:
+                    mod_bits.append(f"{mod}=error")
+                    continue
+                k = int(sub.get("n_significant", 0))
+                n_sig += k
+                mod_bits.append(f"{mod}:{k}")
+            parts.append(
+                "Group condition inference (per-modality) found "
+                f"{n_sig} significant feature-test(s) "
+                f"[{', '.join(mod_bits)}]."
+            )
         parts.append(
             "Admissible claims per step — "
             "L0 (signal-level IAAFT): establishes only EXISTENCE of synchrony "
@@ -928,13 +1076,15 @@ class InferencePipeline:
 
     @classmethod
     def _format_l2_summary_lines(cls, l2_display: Dict[str, Any]) -> List[str]:
-        """Format unimodal or modality-keyed L2 results for summarize()."""
+        """Format modality-keyed L2 results for summarize().
+
+        Expects the invariant shape ``{modality: l2_dict}`` produced by
+        ``run_group_condition_inference`` (1c). The caller is responsible for
+        wrapping a bare legacy ``test_l2_condition`` result, so this formatter
+        never has to guess which shape it was handed.
+        """
         if not isinstance(l2_display, dict):
             return ["L2: (unavailable)"]
-        if "per_feature" in l2_display or "n_significant" in l2_display:
-            return cls._format_one_l2_block(
-                l2_display, heading="L2 (between-condition + BH-FDR)"
-            )
         lines: List[str] = ["L2 (between-condition + BH-FDR, per-modality):"]
         for mod in sorted(l2_display.keys(), key=lambda x: str(x)):
             sub = l2_display[mod]
@@ -980,11 +1130,13 @@ class InferencePipeline:
                 "temporal organization, not co-presence / shared-stimulus alternatives."
             )
 
-        # Scientific path stores results in _group_inference_results (unimodal
-        # dict OR {modality: dict}). test_l2_condition alone fills _l2_results.
+        # The scientific path stores the modality-keyed result (1c invariant).
+        # The legacy `test_l2_condition` path fills `_l2_results` with a single
+        # bare L2 dict, so wrap it here into the same modality-keyed shape rather
+        # than making the formatter sniff which one it received.
         _l2_display = self._group_inference_results
-        if _l2_display is None:
-            _l2_display = self._l2_results
+        if _l2_display is None and self._l2_results:
+            _l2_display = {UNSPECIFIED_MODALITY: self._l2_results}
         if _l2_display:
             lines.append("")
             lines.extend(self._format_l2_summary_lines(_l2_display))
@@ -1073,28 +1225,31 @@ def _build_cascade_summary(
     l1_total: int,
     l2_results: Dict[str, Any],
 ) -> str:
-    """Build a narrative summary of the L0→L1→L2 cascade."""
+    """Build a narrative summary of the L0→L1→L2 cascade.
+
+    ``l2_results`` is the invariant modality-keyed shape ``{modality: l2_dict}``
+    produced by ``run_group_condition_inference`` (1c), with one entry when the
+    dataset carries a single modality.
+    """
     l0_rate = l0_pass / max(l0_total, 1)
     l1_rate = l1_pass / max(l1_total, 1)
-    if (
-        isinstance(l2_results, dict)
-        and "n_significant" not in l2_results
-        and "per_feature" not in l2_results
-    ):
-        n_l2_sig = 0
-        n_l2_total = 0
-        for _sub in l2_results.values():
-            if isinstance(_sub, dict) and "error" not in _sub:
-                n_l2_sig += int(_sub.get("n_significant", 0))
-                n_l2_total += int(_sub.get("n_tested", 0))
-        fam = "per-modality"
-    else:
-        n_l2_sig = l2_results.get("n_significant", 0)
-        n_l2_total = l2_results.get("n_tested", len(PRIMARY_FDR_FAMILY))
-        # Family label: the frozen PRIMARY FDR family (single descriptor)
-        # is the primary endpoint; full_family_fdr=True enters all 12 features
-        # into one BH-FDR step (reviewer-proof against "cherry-picking").
-        fam = "all-features" if n_l2_total > len(PRIMARY_FDR_FAMILY) else "primary-FDR"
+    n_l2_sig = 0
+    n_l2_total = 0
+    widest_family = 0
+    for _sub in (l2_results or {}).values():
+        if isinstance(_sub, dict) and "error" not in _sub:
+            n_l2_sig += int(_sub.get("n_significant", 0))
+            _tested = int(_sub.get("n_tested", 0))
+            n_l2_total += _tested
+            widest_family = max(widest_family, _tested)
+    # Family label: the frozen PRIMARY FDR family (single descriptor) is the
+    # primary endpoint; full_family_fdr=True enters all 12 features into one
+    # BH-FDR step (reviewer-proof against "cherry-picking"). Judge this from the
+    # widest single-modality family, not the cross-modality sum, so M modalities
+    # x the primary family is not mislabelled "all-features".
+    fam = "all-features" if widest_family > len(PRIMARY_FDR_FAMILY) else "primary-FDR"
+    if len(l2_results or {}) > 1:
+        fam = f"{fam}, per-modality"
 
     parts = []
 
