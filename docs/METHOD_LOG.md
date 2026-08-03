@@ -436,11 +436,15 @@ null (the block-bootstrap null is methodologically sound but its
 existence-test status is deferred to v2; see Part 1), so they are not
 promoted to confirmatory status in v1.
 
-Artifacts: `artifacts/timing_validation/timing_validation_summary.json`,
-`artifacts/timing_validation/block_permute_null_egt.csv`,
-`artifacts/timing_validation/block_permute_null_real.csv`. The falsified
-round-3 circular-shift script is archived at
-`experimental/scripts/circular_shift_timing_null_FALSIFIED.py`.
+Artifacts (generated on demand, **not committed**): `scripts/validate_timing_descriptors.py`
+writes `timing_validation_summary.json`, `block_permute_null_egt.csv`, and
+`block_permute_null_real.csv` under `artifacts/timing_validation/` (the
+directory is on-disk only — `.gitignore` does not list it, but the generated
+files are absent from the repo and reproducible from the script, so they are
+not in-repo evidence and should not be cited as such). The FALSIFIED
+circular-shift script (`experimental/scripts/circular_shift_timing_null_FALSIFIED.py`)
+writes `timing_validation_summary.json` and `l2_circular_shift_null.csv` to the
+same directory.
 
 ## 7d. 2026-06-29 update: block-bootstrap null lineage + v1.0 final code audit
 
