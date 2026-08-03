@@ -139,6 +139,12 @@ class SyncPipeConfig:
     # Dyad-majority threshold: a primary modality supports existence only when
     # its pass rate strictly exceeds this (> 0.5 = genuine majority).
     existence_min_pass_rate: float = 0.5
+    # Worker processes for the per-pair existence audit. Default 1 (serial).
+    # This is a pure wall-clock knob: the audit distributes *pairs*, each of
+    # which seeds its own Generator, so any n_workers yields bit-identical
+    # numbers. It is recorded in the run manifest so a reader can confirm that
+    # a reported result does not depend on it.
+    n_workers: int = 1
 
     def __post_init__(self) -> None:
         if int(self.window_size) != self.window_size or self.window_size < 2:
@@ -163,6 +169,8 @@ class SyncPipeConfig:
             raise ValueError("config.design_threshold must lie in [-1, 1]")
         if not 0.0 <= self.existence_min_pass_rate < 1.0:
             raise ValueError("config.existence_min_pass_rate must lie in [0, 1)")
+        if int(self.n_workers) != self.n_workers or self.n_workers < 1:
+            raise ValueError("config.n_workers must be an integer >= 1")
 
     def resolved_contrast(self) -> Tuple[str, str]:
         if not self.contrast or len(self.contrast) != 2:
@@ -309,6 +317,7 @@ def parse_config(path: Union[str, Path]) -> SyncPipeConfig:
         surrogate_n=int(section.get("surrogate_n", DEFAULT_CONFIG.surrogate_n)),
         design_threshold=float(section.get("design_threshold", DEFAULT_CONFIG.design_threshold)),
         design_condition=design_condition,
+        n_workers=int(section.get("n_workers", DEFAULT_CONFIG.n_workers)),
     )
 
 
@@ -632,6 +641,7 @@ def run_canonical(
         wcc_window_sec=cfg.window_size / hz,
         surrogate_n=cfg.surrogate_n,
         seed=cfg.seed,
+        n_workers=cfg.n_workers,
     )
     threshold_scope = (
         "per_modality" if isinstance(cfg.onset_threshold, str)
@@ -834,6 +844,10 @@ def _write_report_bundle(
         f'design_threshold = {cfg.design_threshold}',
         (f'design_condition = {_toml_str(cfg.design_condition)}'
          if cfg.design_condition else 'design_condition = ""'),
+        # Recorded for provenance only: n_workers changes wall-clock, never
+        # numbers (each pair seeds its own Generator). Replaying this config
+        # with a different n_workers reproduces the same results.
+        f'n_workers = {cfg.n_workers}',
     ]
     cfg_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     paths["config_resolved.toml"] = str(cfg_path)

@@ -16,6 +16,7 @@ of dyad-specific interpersonal coupling or psychological mechanism.
 """
 
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import json
 
@@ -126,6 +127,27 @@ def _apply_global_modality_fdr(results: Dict[str, Any], alpha: float) -> Dict[st
     return results
 
 
+def _existence_audit_one(task: Tuple[Any, ...]) -> Tuple[str, Dict[str, Any]]:
+    """Run one pair's existence audit. Module-level so it is picklable.
+
+    Defined at module scope (not as a closure or lambda) because
+    ProcessPoolExecutor pickles the callable by qualified name; a nested
+    function would raise PicklingError on the Windows spawn start method.
+    """
+    (label, sig_a, sig_b, hz, window_size, surrogate_n, seed,
+     window_type, dm) = task
+    return label, synchrony_existence_audit(
+        sig_a,
+        sig_b,
+        hz=hz,
+        window_size=window_size,
+        surrogate_n=surrogate_n,
+        seed=seed,
+        window_type=window_type,
+        discontinuity_mask=dm,
+    )
+
+
 def _modality_from_label(label: str) -> str:
     """Extract the modality token from a raw_signals label.
 
@@ -209,6 +231,12 @@ class InferencePipeline:
         Number of surrogate iterations for L0/L1 tests. Default 100.
     seed : int
         Random seed for reproducibility.
+    n_workers : int
+        Number of worker processes for the per-pair existence audit. Default 1
+        (serial). Values > 1 distribute *pairs* across processes; results are
+        bit-identical to serial because each pair's audit seeds its own
+        Generator from ``seed`` and shares no RNG state with any other pair
+        (see :meth:`run_synchrony_existence_audit`).
 
     Examples
     --------
@@ -231,12 +259,16 @@ class InferencePipeline:
         wcc_window_sec: Optional[float] = None,
         surrogate_n: int = 100,
         seed: int = 42,
+        n_workers: int = 1,
     ):
+        if int(n_workers) < 1:
+            raise ValueError("n_workers must be >= 1")
         self.df = features_df.copy()
         self.hz = hz
         self.wcc_window_sec = wcc_window_sec
         self.surrogate_n = surrogate_n
         self.seed = seed
+        self.n_workers = int(n_workers)
 
         self._l0_results: Dict[str, Any] = {}
         self._l1_results: Dict[str, Any] = {}
@@ -276,9 +308,25 @@ class InferencePipeline:
             Optional mapping from the same labels -> per-sample boundary mask
             (signal-resolution). When provided, each pair's existence audit
             gates out coupling windows straddling a segment seam.
+
+        Notes
+        -----
+        With ``n_workers > 1`` the *pairs* are distributed across processes.
+        This is bit-exact rather than merely reproducible: every pair calls
+        ``synchrony_existence_audit(..., seed=self.seed)``, which builds its own
+        ``default_rng(seed)`` inside ``_signal_level_surrogate_test``, so no RNG
+        state is carried from one pair to the next and completion order cannot
+        enter any number. Results are reassembled in ``selected`` order, so the
+        returned dict has the same key order as the serial path too.
+
+        The pair is the right parallel granularity: surrogate generation is
+        argsort-bound and does not release the GIL (threads capped at 1.39x and
+        degraded with more of them), while a per-surrogate process pool loses to
+        Windows spawn overhead (~1s vs 1.5-2.6s of work per pair). One pair is a
+        large enough unit of work to amortise spawn.
         """
         selected = list(labels) if labels is not None else list(raw_signals.keys())
-        results: Dict[str, Any] = {}
+        tasks = []
         for label in selected:
             if label not in raw_signals:
                 continue
@@ -288,16 +336,21 @@ class InferencePipeline:
                 if discontinuity_mask is not None
                 else None
             )
-            results[label] = synchrony_existence_audit(
-                sig_a,
-                sig_b,
-                hz=self.hz,
-                window_size=wcc_window_size,
-                surrogate_n=self.surrogate_n,
-                seed=self.seed,
-                window_type=window_type,
-                discontinuity_mask=dm,
-            )
+            tasks.append((
+                label, sig_a, sig_b, self.hz, wcc_window_size,
+                self.surrogate_n, self.seed, window_type, dm,
+            ))
+
+        if self.n_workers > 1 and len(tasks) > 1:
+            n = min(self.n_workers, len(tasks))
+            with ProcessPoolExecutor(max_workers=n) as pool:
+                # `map` preserves input order, so `results` is keyed in
+                # `selected` order regardless of which worker finishes first.
+                completed = list(pool.map(_existence_audit_one, tasks))
+        else:
+            completed = [_existence_audit_one(t) for t in tasks]
+
+        results: Dict[str, Any] = {label: res for label, res in completed}
         self._synchrony_existence_results = results
         return {
             "step": "synchrony_existence_audit",
