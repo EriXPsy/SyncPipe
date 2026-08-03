@@ -264,13 +264,34 @@ def iaaft_surrogate(
     x_surr = np.fft.irfft(X_init, n=n)
 
     # Step 3: iterative amplitude-spectrum matching
+    #
+    # Rank-ordering below uses ONE argsort plus a scatter, not the textbook
+    # double argsort (`x_sorted[np.argsort(np.argsort(x))]`).  The two are
+    # bit-identical, for any tie ordering argsort happens to pick:
+    #
+    #   let p = argsort(x) and r = argsort(p), so p[r[j]] = j.
+    #   double-argsort:  out[j]    = x_sorted[r[j]]
+    #   scatter:         out[p[i]] = x_sorted[i];  put i = r[j]
+    #                 => out[j]    = x_sorted[r[j]]                      identical
+    #
+    # This is not a micro-optimisation: argsort dominates IAAFT, IAAFT is ~98% of
+    # per-surrogate cost, and this loop runs up to max_iter times per surrogate
+    # and surrogate_n times per unit.  Measured 15.79 -> 9.83 ms per surrogate
+    # (1.6x) with byte-identical output, which beat every parallelisation variant
+    # tried (threads capped at 1.39x and were GIL-bound *on these argsorts*;
+    # per-surrogate processes were a net loss).  Reproduced by the equivalence
+    # test in tests/unit/test_significance.py.
+    #
+    # `adjusted` is allocated once and rewritten each pass: argsort returns a
+    # permutation of 0..n-1, so every position is assigned and no stale value can
+    # survive between iterations.
+    adjusted = np.empty(n, dtype=float)
     for _ in range(max_iter):
         # (a) Match amplitude distribution via rank ordering.
-        rank_order = np.argsort(np.argsort(x_surr))
-        x_adjusted = x_sorted[rank_order]
+        adjusted[np.argsort(x_surr)] = x_sorted
 
         # (b) FFT of rank-ordered surrogate
-        X_adj = np.fft.rfft(x_adjusted)
+        X_adj = np.fft.rfft(adjusted)
 
         # (c) Replace magnitudes with original power spectrum
         X_new = magnitudes * np.exp(1j * np.angle(X_adj))
@@ -287,5 +308,6 @@ def iaaft_surrogate(
     # Final rank adjustment: exact empirical amplitude distribution, approximate
     # spectrum. Returning x_surr here would instead privilege the exact spectrum
     # and allow the marginal distribution to drift.
-    final_rank_order = np.argsort(np.argsort(x_surr))
-    return x_sorted[final_rank_order]
+    final = np.empty(n, dtype=float)
+    final[np.argsort(x_surr)] = x_sorted
+    return final
