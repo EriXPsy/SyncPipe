@@ -15,6 +15,7 @@ dependencies = [
     "pandas>=2.0",
     "scikit-learn>=1.2",
     "neurokit2>=0.2.7",
+    "tomli>=2.0; python_version<'3.11'",
 ]
 
 [project.optional-dependencies]
@@ -34,7 +35,11 @@ include = ["multisync*", "syncpipe*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Only ONE marker is declared, deliberately. The suite convention is
+# "unmarked = fast" (see tests/README.md), so a `fast` marker would be a second,
+# never-applied way to say the same thing -- and a declared-but-unused marker
+# invites `-m fast` runs that silently select zero tests. Selection is
+# `-m "not slow"` on every PR and the full suite nightly.
 markers = [
-    "fast: quick unit/smoke tests suitable for pre-commit checks",
     "slow: long-running validation or integration tests",
 ]
