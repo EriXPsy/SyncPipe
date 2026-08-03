@@ -1122,3 +1122,115 @@ def test_pseudo_pair_equal_length_no_mask_unchanged():
     assert pp["aligned_length_min"] == 100
     assert pp["aligned_length_max"] == 100
 
+
+# === source: test_iaaft_rank_scatter_equivalence.py ===
+"""
+IAAFT rank-ordering: argsort+scatter must equal the textbook double argsort.
+
+`iaaft_surrogate` performs its rank adjustment as
+
+    adjusted[np.argsort(x)] = x_sorted          # one argsort + scatter
+
+instead of the textbook
+
+    adjusted = x_sorted[np.argsort(np.argsort(x))]   # two argsorts
+
+The two are algebraically identical for ANY tie ordering argsort picks (see the
+derivation in `multisync/surrogate.py`), and the substitution was made because
+argsort dominates IAAFT's cost. These tests pin BOTH halves of that claim:
+
+  1. the rank-ordering primitive itself is bit-identical, including under heavy
+     ties, which is the only case where an argsort-based rewrite could diverge;
+  2. `iaaft_surrogate` still satisfies the contract its docstring promises
+     (exact empirical amplitude distribution, deterministic under a fixed seed,
+     one RNG draw per call).
+
+Point 2 matters because a future "optimisation" could silently break the
+amplitude-distribution guarantee while remaining fast, and the surrogate would
+then be testing a different null than the one documented.
+"""
+import numpy as np
+
+from multisync.surrogate import iaaft_surrogate as _iaaft_for_rank_tests
+
+
+def _rank_order_double_argsort(x, x_sorted):
+    """Textbook form, kept here purely as the reference implementation."""
+    return x_sorted[np.argsort(np.argsort(x))]
+
+
+def _rank_order_scatter(x, x_sorted):
+    """The form actually used inside iaaft_surrogate."""
+    out = np.empty(x.size, dtype=float)
+    out[np.argsort(x)] = x_sorted
+    return out
+
+
+def test_rank_scatter_matches_double_argsort_on_distinct_values():
+    rng = np.random.default_rng(0)
+    for _ in range(20):
+        x = rng.standard_normal(257)
+        x_sorted = np.sort(x)
+        assert np.array_equal(
+            _rank_order_scatter(x, x_sorted),
+            _rank_order_double_argsort(x, x_sorted),
+        )
+
+
+def test_rank_scatter_matches_double_argsort_under_heavy_ties():
+    # Ties are the only regime where the two forms could conceivably diverge:
+    # argsort's tie order is arbitrary, so the equivalence must hold for
+    # whatever order it picks, not just for strictly ordered input.
+    rng = np.random.default_rng(1)
+    for n_distinct in (2, 3, 5):
+        x = rng.integers(0, n_distinct, size=400).astype(float)
+        x_sorted = np.sort(x)
+        assert np.array_equal(
+            _rank_order_scatter(x, x_sorted),
+            _rank_order_double_argsort(x, x_sorted),
+        )
+
+
+def test_rank_scatter_handles_all_equal_input():
+    x = np.full(64, 2.5)
+    x_sorted = np.sort(x)
+    assert np.array_equal(
+        _rank_order_scatter(x, x_sorted),
+        _rank_order_double_argsort(x, x_sorted),
+    )
+
+
+def test_iaaft_preserves_empirical_amplitude_distribution_exactly():
+    # The documented contract: the surrogate is a permutation of the input
+    # values, so the multiset of values is preserved exactly (not approximately).
+    rng = np.random.default_rng(2)
+    x = np.cumsum(rng.standard_normal(512))
+    surr = _iaaft_for_rank_tests(x, rng=np.random.default_rng(3))
+    assert np.array_equal(np.sort(surr), np.sort(x))
+
+
+def test_iaaft_is_deterministic_for_a_fixed_seed():
+    # Cross-process reproducibility is a v1 release claim, and it rests on the
+    # surrogate being a pure function of (input, seed).
+    x = np.cumsum(np.random.default_rng(4).standard_normal(300))
+    a = _iaaft_for_rank_tests(x, rng=np.random.default_rng(99))
+    b = _iaaft_for_rank_tests(x, rng=np.random.default_rng(99))
+    assert np.array_equal(a, b)
+
+
+def test_iaaft_consumes_exactly_one_rng_draw_per_call():
+    # Any change to RNG consumption silently reshuffles every downstream null,
+    # so the draw count is part of the contract, not an implementation detail.
+    x = np.cumsum(np.random.default_rng(5).standard_normal(256))
+    n_phase = np.fft.rfft(x).size
+
+    spent = np.random.default_rng(7)
+    _iaaft_for_rank_tests(x, rng=spent)
+    after_call = spent.uniform(size=4)
+
+    emulated = np.random.default_rng(7)
+    emulated.uniform(-np.pi, np.pi, size=n_phase)
+    after_emulated = emulated.uniform(size=4)
+
+    assert np.array_equal(after_call, after_emulated)
+

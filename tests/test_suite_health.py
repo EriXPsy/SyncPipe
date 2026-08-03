@@ -36,12 +36,17 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 
 # Recorded 2026-08-02. Any consolidation or rename MUST update both this and
 # tests/README.md — changing the baseline is a reviewed act, not a side effect.
-_EXPECTED_COLLECTED = 506
+_EXPECTED_COLLECTED = 515
 # 2026-08-02: 4 tests promoted from the nightly slow layer to the PR gate
 # (whole-cascade summary, L2 kwarg names, L1 denominator, cross-process seed
 # stability), so slow went 59 -> 55 and not-slow 447 -> 451.
+# 2026-08-03: +9 tests pinning the IAAFT argsort+scatter rewrite (six in
+# test_significance: rank-order equivalence incl. ties, amplitude-distribution
+# preservation, determinism, RNG draw count; three in test_inference: n_workers
+# bit-exact parity, pair-count integrity, invalid-value guard), so collected
+# 506 -> 515 and not-slow 451 -> 460.
 _EXPECTED_SLOW = 55
-_EXPECTED_NOT_SLOW = 451
+_EXPECTED_NOT_SLOW = 460
 
 # Module-level Path constants that are legitimately allowed not to exist
 # (e.g. output paths written during a test run). Keyed by "module:attribute"

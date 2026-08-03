@@ -1004,3 +1004,86 @@ def test_p1_r3_mask_length_mismatch_raises():
             discontinuity_masks=[None],  # wrong length
         )
 
+# === source: test_existence_audit_worker_parity.py ===
+"""``n_workers`` on the existence audit must be a pure wall-clock knob.
+
+The pair-level process pool is only admissible if it cannot move a number.
+That holds because ``synchrony_existence_audit`` reseeds
+``default_rng(seed)`` per pair, so no RNG state crosses pairs and worker
+completion order is irrelevant. These tests pin that claim: bit-exact
+equality (``==`` on floats, not ``approx``) between the serial and the
+parallel path, plus identical key order in the returned dict.
+
+Falsifiability: make ``_signal_level_surrogate_test`` draw from a
+module-level Generator instead of a per-call one, or drop the
+order-preserving ``pool.map`` for ``as_completed``, and
+``test_existence_audit_is_bit_exact_across_worker_counts`` fails.
+"""
+
+
+def _worker_parity_raw_signals():
+    # Four pairs so the pool actually has more than one task to schedule and
+    # the two workers interleave; distinct seeds so the pairs are not
+    # accidentally identical (which would hide an ordering bug).
+    return {
+        f"dyad_{i}__EDA__task": _signals(700 + i, n=160, coupling=0.6)
+        for i in range(4)
+    }
+
+
+def _existence_fingerprint(step: dict) -> list:
+    """Full-precision fingerprint: every p-value and observed statistic."""
+    out = []
+    for label, res in step["results"].items():
+        out.append((
+            label,
+            tuple(sorted(res.get("p_values", {}).items())),
+            tuple(sorted(res.get("observed", {}).items())),
+            tuple(sorted(res.get("per_feature_significant", {}).items())),
+            res.get("n_wcc"),
+            res.get("n_surrogates"),
+        ))
+    return out
+
+
+def test_existence_audit_is_bit_exact_across_worker_counts():
+    df = _feature_df()
+    raw = _worker_parity_raw_signals()
+    kwargs = dict(hz=1.0, wcc_window_sec=20.0, surrogate_n=12, seed=7)
+
+    serial = InferencePipeline(df, n_workers=1, **kwargs)
+    parallel = InferencePipeline(df, n_workers=2, **kwargs)
+
+    fp_serial = _existence_fingerprint(
+        serial.run_synchrony_existence_audit(raw, wcc_window_size=20)
+    )
+    fp_parallel = _existence_fingerprint(
+        parallel.run_synchrony_existence_audit(raw, wcc_window_size=20)
+    )
+
+    # Exact equality, not approx: a parallel path that only *approximately*
+    # reproduces the serial numbers is a broken parallel path.
+    assert fp_serial == fp_parallel
+    # Key order too, so downstream code that iterates the dict (e.g. the
+    # existence gate's per-modality tally) sees an identical sequence.
+    assert list(serial._synchrony_existence_results) == list(
+        parallel._synchrony_existence_results
+    )
+
+
+def test_existence_audit_worker_count_does_not_change_pair_count():
+    df = _feature_df()
+    raw = _worker_parity_raw_signals()
+    step = InferencePipeline(
+        df, hz=1.0, wcc_window_sec=20.0, surrogate_n=8, seed=7, n_workers=3,
+    ).run_synchrony_existence_audit(raw, wcc_window_size=20)
+    # A pool that silently drops a failed task would show up here.
+    assert step["n_pairs"] == len(raw)
+    assert set(step["results"]) == set(raw)
+
+
+def test_invalid_n_workers_raises():
+    df = _feature_df()
+    with pytest.raises(ValueError, match="n_workers"):
+        InferencePipeline(df, hz=1.0, wcc_window_sec=20.0, n_workers=0)
+

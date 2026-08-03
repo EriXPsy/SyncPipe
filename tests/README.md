@@ -145,17 +145,20 @@ intentionally add or remove tests, update both places in the same commit.
 
 | Metric                              | Value |
 |------------------------------------|-------|
-| Collected tests (`--collect-only`) | **506** |
+| Collected tests (`--collect-only`) | **515** |
 | `slow` subset (`-m slow`)          | 55    |
-| `not slow` subset (`-m "not slow"`)| 451   |
+| `not slow` subset (`-m "not slow"`)| 460   |
 
-> Recorded 2026-08-02. Collected total **506** = 451 fast (`not slow`) + 55
+> Recorded 2026-08-03. Collected total **515** = 460 fast (`not slow`) + 55
 > `slow`. Enforced automatically by `tests/test_suite_health.py`; changing these
 > numbers is a reviewed act, not a side effect.
 >
 > History: an earlier baseline (430 = 371 + 59) had gone stale. The split then
 > moved from 59/447 to 55/451 when four integration tests were promoted from the
 > nightly slow layer to the PR gate (see "Promotions to the PR gate" below).
+> On 2026-08-03 nine tests were added to pin the IAAFT `argsort`+scatter
+> rewrite and the `n_workers` parallel-existence-audit parity: six in
+> test_significance and three in test_inference (506 → 515, 451 → 460).
 
 ## Suite self-health guard (`test_suite_health.py`)
 
