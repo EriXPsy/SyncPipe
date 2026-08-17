@@ -55,3 +55,5 @@ artifacts/bakeoff/
 artifacts/figures/
 artifacts/incremental_value/
 artifacts/realdata_full/
+artifacts/timing_validation/
+artifacts/timing_feature_audit.csv
