@@ -1,37 +1,36 @@
-# Experimental / V2.0 Modules
+# Experimental / out-of-scope code
 
-These modules and scripts were moved here on 2026-06-13 as part of the v1.0 BRM submission cleanup.
-They are NOT part of the v1.0 SyncPipe public API and are NOT required to reproduce BRM paper results.
+These files are **not** part of the SyncPipe v1 package and are **not** required
+to reproduce v1 results. They are retained as a development staging area only.
 
-## Modules (`experimental/syncpipe/`)
+## `prediction.py`
 
-| File | Status | Notes |
-|------|--------|-------|
-| `segmentation.py` | EXPERIMENTAL D4 | Gaussian HMM / HSMM-lite state segmenter — not integrated into main pipeline |
-| `transition_detection.py` | Unintegrated | Treur-style transition detection — not connected to core API |
-| `morphology.py` | Optional off-ramp | Epoch morphology descriptor — v0.1 (2026-06-08), not in public API |
-| `arima_wcc.py` | New (2026-06-07) | ARIMA prewhitening for ISC confound control — never integrated |
-| `metrics.py` | Non-default | Alternative synchrony metrics (WCLC, PLV, CRQA, MI) — WCC is default |
-| `realtest/templeton_2022.py` | Unused dataset | Templeton 2022 loader — no data in artifacts, not used in BRM paper |
+Removed from the v1 package on 2026-08-17 (rolling-origin CV, cross-modal
+prediction, AR baseline). v1's scientific scope is same-modality measurement +
+audited inference; the cross-modal prediction regression family contradicted
+that scope, so it was moved here out of the package.
 
-## Scripts (`experimental/scripts/`)
+## `scripts/`
 
-All scripts except the 6 BRM-paper core scripts:
-- `run_lerique_pilot.py` (kept in `scripts/`)
-- `run_lerique_incremental_auc.py` (kept)
-- `run_kuramoto_l23_taxonomy.py` (kept)
-- `run_gordon_case_study.py` (kept)
-- `surrogate_controls.py` (kept)
+One-off diagnostics, superseded validation runners, falsified experiments, and
+dataset-local analyses from the v0.x development history. They may be useful
+for v2 work but are not v1 trunk.
 
-### Dataset-local scripts moved out of v1 trunk
+### Negative-evidence scripts — KEPT TEMPORARILY, DEPRECATION WATCH
 
-- `run_lerique_shuffle.py` is archived under `experimental/scripts/`. It is a Lerique-local robustness/shuffle analysis that depends on local derived data and legacy migration utilities, so it is not required for v1 public reproduction.
+The following scripts are referenced by `docs/METHOD_LOG.md` /
+`docs/SCRIPT_MAP.md` as the record of *negative* or *retired* results. They are
+kept so those citations stay resolvable, but they are **candidates for removal
+once the referenced method sections are rewritten** — do not rely on them as
+maintained code:
 
-The archived scripts include: validation runners (level1/2/3), GT-series, Kuramoto benchmarks, Treur validations, plotting scripts, exploration scripts, and data migration scripts. They may be useful for v2.0 development but are not needed for BRM v1.0.
+- `circular_shift_timing_null_FALSIFIED.py` — the falsified circular-shift
+  timing null (retired; see METHOD_LOG §7d).
+- `analyze_pgt2_fixed.py` — one-off "fixed" analysis reading `pgt2_grid_results.csv`.
+- `diagnose_pgt2_drift.py` — one-off drift diagnosis.
+- `diagnose_h2_switching_entropy.py` — one-off switching/entropy noise diagnosis.
+- `run_lerique_shuffle.py` — Lerique-local shuffle/robustness analysis.
 
-## GitHub Note
-
-Before pushing to GitHub for BRM submission, review these files and decide which to:
-- Keep in repo (with a note they are experimental)
-- Move to a separate `v2-dev` branch
-- Delete entirely
+> **Deprecation watch:** if any of the above is deleted, first update the
+> METHOD_LOG / SCRIPT_MAP citations to either drop the reference or relocate the
+> evidence into `docs/`.
