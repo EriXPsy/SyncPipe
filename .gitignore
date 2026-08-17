@@ -58,3 +58,4 @@ artifacts/realdata_full/
 artifacts/timing_validation/
 artifacts/timing_feature_audit.csv
 artifacts/autocorr_robustness.json
+artifacts/bizzego_convergence.json
