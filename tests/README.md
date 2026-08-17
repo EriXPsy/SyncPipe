@@ -145,11 +145,11 @@ intentionally add or remove tests, update both places in the same commit.
 
 | Metric                              | Value |
 |------------------------------------|-------|
-| Collected tests (`--collect-only`) | **470** |
+| Collected tests (`--collect-only`) | **475** |
 | `slow` subset (`-m slow`)          | 55    |
-| `not slow` subset (`-m "not slow"`)| 415   |
+| `not slow` subset (`-m "not slow"`)| 420   |
 
-> Recorded 2026-08-17. Collected total **470** = 415 fast (`not slow`) + 55
+> Recorded 2026-08-17. Collected total **475** = 420 fast (`not slow`) + 55
 > `slow`. Enforced automatically by `tests/test_suite_health.py`; changing these
 > numbers is a reviewed act, not a side effect.
 >
@@ -163,7 +163,8 @@ intentionally add or remove tests, update both places in the same commit.
 > dual-namespace/`sys.meta_path` alias tests in `test_api_core.py` (515 → 505,
 > 460 → 450), and the `prediction.py` move-out removed its unit/parity/hardening
 > tests (505 → 469, 450 → 414). The existence-gate rewrite to a second-order
-> group surrogate test added one net test (469 → 470, 414 → 415).
+> group surrogate test added one net test (469 → 470, 414 → 415). The
+> autocorrelation-robustness validation added 5 tests (470 → 475, 415 → 420).
 
 ## Suite self-health guard (`test_suite_health.py`)
 

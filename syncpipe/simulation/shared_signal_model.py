@@ -102,6 +102,36 @@ class PGTResult:
 
 
 # ---------------------------------------------------------------------------
+# Noise models
+# ---------------------------------------------------------------------------
+
+def _white_noise(rng: np.random.Generator, n: int) -> np.ndarray:
+    """Unit-variance white noise (lag-1 autocorrelation ≈ 0)."""
+    return rng.normal(0.0, 1.0, n)
+
+
+def _ar1_noise(rng: np.random.Generator, n: int, phi: float) -> np.ndarray:
+    """Stationary unit-variance AR(1) noise with lag-1 autocorrelation ``phi``.
+
+    ``x[0] ~ N(0,1)`` and ``x[t] = phi * x[t-1] + sqrt(1 - phi^2) * eps[t]``
+    yield a stationary process with variance 1 and lag-1 autocorrelation
+    exactly ``phi`` (up to finite-sample noise).  ``phi`` ≈ 0.9 matches the
+    slow, persistent structure of real low-frequency physiological envelopes
+    (EDA, HRV, respiration); the earlier generator used pure white noise for
+    the independent component, which is unrealistically "clean".
+    """
+    if not -1.0 < phi < 1.0:
+        raise ValueError(f"ar_phi must be in (-1, 1), got {phi}")
+    x = np.empty(n, dtype=float)
+    x[0] = rng.normal(0.0, 1.0)
+    eps = rng.normal(0.0, 1.0, n)
+    scale = np.sqrt(1.0 - phi * phi)
+    for i in range(1, n):
+        x[i] = phi * x[i - 1] + scale * eps[i]
+    return x
+
+
+# ---------------------------------------------------------------------------
 # Core generator
 # ---------------------------------------------------------------------------
 
@@ -112,6 +142,8 @@ def generate_signals(
     noise_sigma: float = 0.3,
     micro_lag_sec: float = 0.0,
     seed: int = 42,
+    noise_model: str = "white",
+    ar_phi: float = 0.9,
     scenario_params: Optional[dict] = None,
 ) -> PGTResult:
     """Generate dyadic signals under time-varying coupling c(t).
@@ -145,6 +177,17 @@ def generate_signals(
         Tiny phase lag for Person B (seconds).  Non-zero values
         simulate physiological conduction delay without creating a
         meaningful lead-lag structure.  Default 0.0.
+    noise_model : {"white", "ar1"}
+        Temporal structure of the independent and measurement noise terms.
+        ``"white"`` (default, backward compatible) draws unit-variance white
+        noise — unrealistically clean, with zero autocorrelation. ``"ar1"``
+        draws stationary AR(1) noise with lag-1 autocorrelation ``ar_phi``,
+        matching the persistent structure of real low-frequency physiological
+        envelopes. The ``"ar1"`` mode is what exercises SyncPipe's IAAFT
+        autocorrelation-preserving null on realistic data.
+    ar_phi : float
+        AR(1) lag-1 autocorrelation used when ``noise_model="ar1"``.
+        Default 0.9 (typical of EDA/HRV envelopes).
     seed : int
         RNG seed for reproducible noise and shared rhythm phases.
     scenario_params : dict, optional
@@ -155,6 +198,14 @@ def generate_signals(
     PGTResult
         Generated signals with ground-truth coupling trajectory.
     """
+    if noise_model not in ("white", "ar1"):
+        raise ValueError(f"noise_model must be 'white' or 'ar1', got {noise_model!r}")
+
+    def _noise(rng: np.random.Generator, n: int) -> np.ndarray:
+        if noise_model == "ar1":
+            return _ar1_noise(rng, n, ar_phi)
+        return _white_noise(rng, n)
+
     rng = np.random.default_rng(seed)
 
     n = int(duration_sec * hz)
@@ -193,12 +244,17 @@ def generate_signals(
         s_b = s
 
     # --- Independent noise (same variance as shared rhythm = 1.0) ---
-    n_a = rng.normal(0, 1.0, n)
-    n_b = rng.normal(0, 1.0, n)
+    n_a = _noise(rng, n)
+    n_b = _noise(rng, n)
 
     # --- Mix ---
-    x_a = c_arr * s + (1 - c_arr) * n_a + noise_sigma * rng.normal(0, 1.0, n)
-    x_b = c_arr * s_b + (1 - c_arr) * n_b + noise_sigma * rng.normal(0, 1.0, n)
+    x_a = c_arr * s + (1 - c_arr) * n_a + noise_sigma * _noise(rng, n)
+    x_b = c_arr * s_b + (1 - c_arr) * n_b + noise_sigma * _noise(rng, n)
+
+    params = dict(scenario_params or {})
+    params.setdefault("noise_model", noise_model)
+    if noise_model == "ar1":
+        params.setdefault("ar_phi", ar_phi)
 
     return PGTResult(
         x_A=x_a,
@@ -207,7 +263,7 @@ def generate_signals(
         t=t,
         hz=hz,
         noise_sigma=noise_sigma,
-        params=scenario_params or {},
+        params=params,
     )
 
 

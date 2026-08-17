@@ -87,6 +87,11 @@ from .l2_between_condition import (
     between_condition_fdr,
     between_condition_by_modality,
 )
+from .autocorr_robustness import (
+    measure_fpr,
+    measure_power,
+    run_autocorr_robustness,
+)
 
 __all__ = [
     # Level 1
@@ -147,4 +152,8 @@ __all__ = [
     "L2Result",
     "between_condition_fdr",
     "between_condition_by_modality",
+    # Autocorrelation robustness of the signal-level existence audit
+    "measure_fpr",
+    "measure_power",
+    "run_autocorr_robustness",
 ]
