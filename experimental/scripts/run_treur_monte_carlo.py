@@ -24,11 +24,11 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from multisync.simulation.treur_dyad_v2 import scenario_emergent_sync
-from multisync.epoch_detection import dual_stream_epoch_analysis
-from multisync.dynamic_features import sliding_window_wcc
-from multisync.adaptive_threshold import calibrate_threshold_from_signals
-from multisync.transition_detection import detect_transitions
+from syncpipe.simulation.treur_dyad_v2 import scenario_emergent_sync
+from syncpipe.epoch_detection import dual_stream_epoch_analysis
+from syncpipe.dynamic_features import sliding_window_wcc
+from syncpipe.adaptive_threshold import calibrate_threshold_from_signals
+from syncpipe.transition_detection import detect_transitions
 
 
 # -- Config ---------------------------------------------------------------

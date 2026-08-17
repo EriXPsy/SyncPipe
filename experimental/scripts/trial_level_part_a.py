@@ -1,6 +1,6 @@
 """Trial-level Part A: per-trial synchrony feature extraction + slope test.
 
-Key contract (verified against multisync.realtest.lerique_2024):
+Key contract (verified against syncpipe.realtest.lerique_2024):
     _preprocess_*(raw, raw_fs, target_fs, boundary_mask=None)
         -> (sig_out: np.ndarray, mask_out: np.ndarray of bool)
     LeriqueDyadCondition fields = (dyad_id, dyad_label, modality,
@@ -46,7 +46,7 @@ def _build_per_trial_records(
     dyad_whitelist: Sequence[str] | None,
 ):
     """One LeriqueDyadCondition per (dyad, modality, trial_k=1..18)."""
-    from multisync.realtest.lerique_2024 import (
+    from syncpipe.realtest.lerique_2024 import (
         MODALITIES, RAW_FS_HZ, TRIAL_SEGMENT_COUNT, MIN_DURATION_SEC,
         LeriqueDyadCondition,
         _PREPROC_DISPATCH,
@@ -135,10 +135,10 @@ def _build_per_trial_records(
 
 
 def _analyze_per_trial(records, *, target_hz, wcc_window_sec, onset_threshold):
-    from multisync.core import DynamicAnalyzer
-    from multisync.batch import DyadResult
-    from multisync.realtest.lerique_2024 import lerique_record_to_multisync_dyad
-    from multisync.feature_definitions import (
+    from syncpipe.core import DynamicAnalyzer
+    from syncpipe.batch import DyadResult
+    from syncpipe.realtest.lerique_2024 import lerique_record_to_syncpipe_dyad
+    from syncpipe.feature_definitions import (
         CONFIRMATORY_FEATURES, DIAGNOSTIC_FEATURES,
     )
 
@@ -164,7 +164,7 @@ def _analyze_per_trial(records, *, target_hz, wcc_window_sec, onset_threshold):
     rows = []
     for i, rec in enumerate(records, 1):
         try:
-            dyad = lerique_record_to_multisync_dyad(rec)
+            dyad = lerique_record_to_syncpipe_dyad(rec)
             dyad.align(target_hz=target_hz, require_co_start=False)
             dyad.zscore()
             res = analyzer.fit_transform(dyad)
@@ -192,7 +192,7 @@ def _trial_slope_test(df: pd.DataFrame) -> pd.DataFrame:
     """Per (modality, feature): per-dyad OLS slope of feature ~ trial_index,
        then one-sample Wilcoxon on slopes against zero."""
     from scipy.stats import wilcoxon
-    from multisync.feature_definitions import CONFIRMATORY_FEATURES
+    from syncpipe.feature_definitions import CONFIRMATORY_FEATURES
 
     rows = []
     for modality, mod_df in df.groupby("modality"):

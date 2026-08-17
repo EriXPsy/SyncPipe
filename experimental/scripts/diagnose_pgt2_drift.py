@@ -11,8 +11,8 @@ sys.path.insert(0, ".")
 
 import numpy as np
 import pandas as pd
-from multisync.simulation.shared_signal_model import generate_signals, alternating_coupling
-from multisync.dynamic_features import sliding_window_wcc
+from syncpipe.simulation.shared_signal_model import generate_signals, alternating_coupling
+from syncpipe.dynamic_features import sliding_window_wcc
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt

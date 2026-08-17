@@ -7,10 +7,10 @@ Pipeline 3  inference_pipeline.py   -> audited evidence chain
 This script is written *as a fresh reviewer would operate SyncPipe* on a
 real dataset (Lerique-47n3p).  Because the published .mat files are not
 shipped with the repo, it generates a FAITHFUL synthetic proxy using the
-package's own ``multisync.synthetic.generate_ground_truth_dyad`` (true
+package's own ``syncpipe.synthetic.generate_ground_truth_dyad`` (true
 inter-personal coupling in the TASK condition, ~zero coupling in REST),
 which reproduces the exact data contract of
-``multisync.realtest.lerique_2024.LeriqueDyadCondition``.
+``syncpipe.realtest.lerique_2024.LeriqueDyadCondition``.
 
 Pass ``--data-root <path/to/Lerique-47n3p>`` to use the REAL loader instead.
 
@@ -66,7 +66,7 @@ def _make_synthetic_records(n_dyads: int = 10, seed: int = 0) -> List[Record]:
     Uses the package's own coupled-signal generator so the WCC features and
     the synchrony-existence IAAFT audit behave exactly as on real data.
     """
-    from multisync.synthetic import generate_ground_truth_dyad
+    from syncpipe.synthetic import generate_ground_truth_dyad
 
     recs: List[Record] = []
     modalities = {"EDA": "behavior", "RESP": "neural"}
@@ -92,7 +92,7 @@ def _make_synthetic_records(n_dyads: int = 10, seed: int = 0) -> List[Record]:
 
 
 def _load_real_records(data_root: Path, limit: int | None = None) -> List[Record]:
-    from multisync.realtest.lerique_2024 import load_lerique_dataset
+    from syncpipe.realtest.lerique_2024 import load_lerique_dataset
 
     raw = load_lerique_dataset(
         data_root=data_root, preprocess=True,
@@ -120,7 +120,7 @@ def _load_real_records(data_root: Path, limit: int | None = None) -> List[Record
 # Stage 1 — Feature pipeline (consult / select)
 # ---------------------------------------------------------------------------
 def stage_feature_consult():
-    from multisync.feature_pipeline import print_feature_table, recommend_features
+    from syncpipe.feature_pipeline import print_feature_table, recommend_features
     log.info("=== STAGE 1 (feature_pipeline): consult & select ===")
     print(print_feature_table())
     rec = recommend_features("general")
@@ -133,9 +133,9 @@ def stage_feature_consult():
 # Stages 2+3 — bridge -> computation -> inference
 # ---------------------------------------------------------------------------
 def run_pipeline(recs, surrogate_n: int):
-    from multisync.pipeline_bridge import records_to_inference_inputs
-    from multisync.inference_pipeline import InferencePipeline
-    from multisync.feature_definitions import FDR_FEATURES
+    from syncpipe.pipeline_bridge import records_to_inference_inputs
+    from syncpipe.inference_pipeline import InferencePipeline
+    from syncpipe.feature_definitions import FDR_FEATURES
 
     design_condition = TASK_CONDITION if any(
         r.condition == TASK_CONDITION for r in recs) else None

@@ -41,7 +41,7 @@ sys.path.insert(0, REPO)
 import numpy as np
 import pandas as pd
 
-from multisync.feature_definitions import (
+from syncpipe.feature_definitions import (
     compute_onset_latency, compute_rise_time, compute_recovery_time,
     compute_peak_amplitude, compute_dwell_time, compute_switching_rate,
     compute_mean_synchrony, compute_synchrony_entropy, find_dominant_peak,

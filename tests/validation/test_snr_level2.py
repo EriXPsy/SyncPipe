@@ -7,7 +7,7 @@ import pytest
 
 pytestmark = [pytest.mark.slow]
 
-from multisync.validation.snr import (
+from syncpipe.validation.snr import (
     Level2Config,
     run_level2_grid,
     summarise_level2,

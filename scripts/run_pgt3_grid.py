@@ -9,7 +9,7 @@ sys.path.insert(0, ".")
 
 import time
 import pandas as pd
-from multisync.validation.pgt3_temporal import PGT3Config, run_pgt3_grid, summarise_pgt3, test_pgt3_hypotheses
+from syncpipe.validation.pgt3_temporal import PGT3Config, run_pgt3_grid, summarise_pgt3, test_pgt3_hypotheses
 
 print("Starting PGT-3 Core (Temporal Recovery) grid (810 cells)...")
 t0 = time.time()

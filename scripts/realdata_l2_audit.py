@@ -24,8 +24,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 import pandas as pd
-from multisync.validation.l2_between_condition import between_condition_fdr
-from multisync.feature_definitions import FDR_FEATURES
+from syncpipe.validation.l2_between_condition import between_condition_fdr
+from syncpipe.feature_definitions import FDR_FEATURES
 
 OSF = "E:/OSF"
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -39,7 +39,7 @@ ALPHA = 0.05
 # Paired-design datasets the new L2 layer can consume directly.
 PAIRED = {
     "Lerique": dict(
-        path=f"{OSF}/Lerique-47n3p/multisync_results/lerique_dyads.csv",
+        path=f"{OSF}/Lerique-47n3p/syncpipe_results/lerique_dyads.csv",
         dyad="dyad_label", modality="modality", condition="condition",
         contrast=("rest1", "trials_concat"),
         fdr=["peak_amplitude", "dwell_time", "switching_rate"],
@@ -48,7 +48,7 @@ PAIRED = {
         note="paired key = dyad_label (31 dyads); per-modality L2 is the mandated report",
     ),
     "Gordon": dict(
-        path=f"{OSF}/Gordon-349su/multisync_results/multisync_gordon_46dyads.csv",
+        path=f"{OSF}/Gordon-349su/syncpipe_results/syncpipe_gordon_46dyads.csv",
         dyad="dyad_id", modality="modality", condition="condition",
         contrast=(1, 4),   # bookend blocks (int); exploratory (paper uses pull_sync vs pull_seg)
         fdr=["peak_amplitude", "dwell_time", "switching_rate"],
@@ -60,9 +60,9 @@ PAIRED = {
 
 # Between-dyad / cross-pair datasets: read prior diagnosis outputs only.
 PRIOR_DIAGNOSIS = {
-    "Andersen": f"{OSF}/Andersen-hj4k6/multisync_results/andersen_diagnosis_bhfdr.csv",
-    "Han":      f"{OSF}/Han-bzkdy/multisync_results/han_diagnosis_bhfdr.csv",
-    "Gordon":   f"{OSF}/Gordon-349su/multisync_results/gordon_diagnosis_bhfdr.csv",
+    "Andersen": f"{OSF}/Andersen-hj4k6/syncpipe_results/andersen_diagnosis_bhfdr.csv",
+    "Han":      f"{OSF}/Han-bzkdy/syncpipe_results/han_diagnosis_bhfdr.csv",
+    "Gordon":   f"{OSF}/Gordon-349su/syncpipe_results/gordon_diagnosis_bhfdr.csv",
 }
 
 

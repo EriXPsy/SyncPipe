@@ -11,7 +11,7 @@ effect of the methodological rigour upgrade is visible:
 
 For each method it computes, per modality (predicting rest1 vs trials_concat):
   - order-unbiased incremental AUC (Shapley marginal + LOFO), DROP vs KEEP mean_synchrony
-Plus a shared (1) collinearity block via multisync.feature_vif_test.
+Plus a shared (1) collinearity block via syncpipe.feature_vif_test.
 
 The point of keeping both in one file: METHOD B is the publication-grade result;
 METHOD A is shown only to demonstrate that the honest CV does NOT inflate the story
@@ -148,7 +148,7 @@ def vif_bootstrap_ci(df, features, groupcol, n_boot, seed=SEED):
     not enough. We resample DYADS (clusters), recompute VIF, and report the
     median + 95% percentile interval per feature.
     """
-    from multisync.feature_vif_test import feature_vif
+    from syncpipe.feature_vif_test import feature_vif
     rng = np.random.default_rng(seed)
     groups = df[groupcol].unique()
     point = feature_vif(df, features)
@@ -216,11 +216,11 @@ def main(argv=None):
          "- Both shown so the rigour upgrade (A→B) is auditable.\n"]
 
     # ---- (1) collinearity (shared) ----
-    from multisync.feature_vif_test import collinearity_report
+    from syncpipe.feature_vif_test import collinearity_report
     rep = collinearity_report(df, ALL_FEATURES)
     rep["vif"].round(2).to_frame().to_csv(outdir / "vif.csv")
     rep["correlation"].round(3).to_csv(outdir / "corr.csv")
-    L.append("\n## (1) Collinearity — multisync.feature_vif_test\n")
+    L.append("\n## (1) Collinearity — syncpipe.feature_vif_test\n")
     L.append(rep["vif"].round(2).to_frame().to_markdown())
     L.append(f"\n{rep['interpretation']}\n")
     L.append("\nTop correlated pairs:\n")

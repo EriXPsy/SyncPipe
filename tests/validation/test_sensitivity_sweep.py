@@ -10,7 +10,7 @@ import pytest
 
 pytestmark = [pytest.mark.slow]
 
-from multisync.feature_definitions import FDR_FEATURES
+from syncpipe.feature_definitions import FDR_FEATURES
 
 
 def _load_module(name: str, path: Path):

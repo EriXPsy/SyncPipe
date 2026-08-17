@@ -9,7 +9,7 @@ import os
 # Add repo root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from multisync.validation.pgt2_structure import run_pgt2_grid, PGT2Config
+from syncpipe.validation.pgt2_structure import run_pgt2_grid, PGT2Config
 import pandas as pd
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "artifacts")

@@ -27,11 +27,10 @@ dev = [
 
 [project.scripts]
 syncpipe = "syncpipe.cli:main"
-multisync = "multisync.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["multisync*", "syncpipe*"]
+include = ["syncpipe*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

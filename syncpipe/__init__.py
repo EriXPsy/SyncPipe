@@ -1,109 +1,120 @@
-"""SyncPipe — preferred public namespace.
+"""
+syncpipe — public v1 API for SyncPipe.
 
-Use ``import syncpipe as sp`` for the clean public API. ``import multisync`` is
-the legacy compatibility alias and remains available during the transition.
-
-Submodule aliasing
-------------------
-``from multisync import *`` only re-exports the names in ``multisync.__all__``,
-so it makes the *top-level* API available but leaves ``syncpipe.<submodule>``
-unimportable. That asymmetry is user-visible and awkward to document: the README
-would have to tell readers to use ``syncpipe`` for top-level objects but switch
-to ``multisync`` the moment they need ``feature_definitions`` or
-``pipeline_bridge``.
-
-The finder installed below maps any ``syncpipe.X[.Y...]`` to ``multisync.X[.Y...]``
-on demand, so both spellings resolve to the *same module objects*.
-
-It must be installed at the *front* of ``sys.meta_path``. Appending it is not
-enough: once ``syncpipe.validation`` is aliased, its ``__path__`` points at the
-real ``multisync/validation`` directory, so the standard ``PathFinder`` — which
-runs earlier — happily loads ``syncpipe.validation.l2_between_condition``
-straight from that file as a *second, independent* module object. Two live copies
-of a module that owns FDR family definitions is exactly the kind of split state
-this alias exists to prevent, so the alias has to win first.
-
-Winning first means the finder must then step aside for modules that genuinely
-belong to this package (``syncpipe.cli``, ``syncpipe.__main__``); those names are
-discovered by scanning this package's own directory rather than hard-coded, and
-likewise the alias is a name mapping rather than an enumeration of ``multisync``
-submodules — so neither side can drift out of sync as modules are added.
+The top-level namespace is intentionally small.  Import advanced, experimental,
+or dataset-specific utilities from their submodules (for example
+``syncpipe.synthetic`` or ``syncpipe.morphology``) rather than treating them as
+stable v1 public API.
 """
 
-import importlib
-import importlib.abc
-import importlib.machinery
-import importlib.util
-import pathlib
-import sys
+from .__about__ import (
+    __version__,
+    PACKAGE_VERSION,
+    ANALYSIS_SCHEMA_VERSION,
+    CONFIG_SCHEMA_VERSION,
+)
 
-from multisync import *  # noqa: F401,F403
-from multisync import __all__ as _MULTISYNC_ALL
-from multisync.__about__ import __version__  # noqa: F401
+# Core user objects
+from .core import AnalysisResults, Dyad, DynamicAnalyzer
+from .dataset import ContextLabel, SynchronyDataset
 
-__all__ = list(_MULTISYNC_ALL)  # __version__ already in multisync.__all__
+# Computation and inference pipelines
+from .computation_pipeline import (
+    BatchComputationPipeline,
+    ComputationPipeline,
+    PairResult,
+    batch_compute,
+    compute_pair_pipeline,
+    quick_compute,
+)
+from .inference_pipeline import InferencePipeline
+from .pipeline_bridge import InferenceInputs, records_to_inference_inputs
+from .canonical_runner import (
+    CanonicalResult,
+    DEFAULT_CONFIG,
+    ManifestRecord,
+    SyncPipeConfig,
+    parse_config,
+    parse_manifest,
+    run_canonical,
+)
 
-_ALIAS_PREFIX = "syncpipe."
-_TARGET_PREFIX = "multisync."
+# Feature/status governance
+from .feature_definitions import FDR_FEATURES, ONSET_THRESHOLD, REFERENCE_FEATURE
+from .feature_status import FEATURE_STATUS_ROWS, feature_status_latex, feature_status_table
+from .feature_pipeline import explain_feature
 
+# Quality-control and audit layer
+from .qc import (
+    DataQualityError,
+    DataQualityReport,
+    StageResult,
+    StageVerdict,
+    format_qc_report,
+    run_quality_check,
+)
+from .design_controls import (
+    DEFAULT_AUDIT_FEATURES,
+    design_control_audit,
+    extract_pair_features,
+    synchrony_existence_audit,
+)
+from .session_threshold import (
+    compute_condition_pooled_thresholds,
+    compute_session_pooled_threshold,
+    compute_session_pooled_thresholds_by_modality,
+)
 
-class _AliasLoader(importlib.abc.Loader):
-    """Loader that returns the already-imported target module unchanged."""
-
-    def __init__(self, target_name: str) -> None:
-        self._target_name = target_name
-
-    def create_module(self, spec):
-        # Returning the target module makes `syncpipe.X is multisync.X` true, so
-        # isinstance checks and module-level state (caches, registries) cannot
-        # diverge between the two spellings.
-        return importlib.import_module(self._target_name)
-
-    def exec_module(self, module):
-        # Already executed when the target was imported; re-executing it would
-        # duplicate module-level side effects.
-        pass
-
-
-def _own_top_level_modules() -> frozenset:
-    """Top-level module names that really live in this package.
-
-    Scanned from the directory instead of hard-coded, so adding a real module
-    beside ``cli.py`` does not silently get shadowed by the alias.
-    """
-    here = pathlib.Path(__file__).resolve().parent
-    names = {p.stem for p in here.glob("*.py")} | {
-        p.name for p in here.iterdir() if (p / "__init__.py").is_file()
-    }
-    return frozenset(names - {"__init__"})
-
-
-_OWN_MODULES = _own_top_level_modules()
-
-
-class _SyncpipeAliasFinder(importlib.abc.MetaPathFinder):
-    """Resolve ``syncpipe.X`` to the module ``multisync.X``."""
-
-    def find_spec(self, fullname, path=None, target=None):
-        if not fullname.startswith(_ALIAS_PREFIX):
-            return None
-        suffix = fullname[len(_ALIAS_PREFIX):]
-        # Step aside for modules that genuinely belong to this package, so that
-        # sitting at the front of sys.meta_path does not shadow them.
-        if suffix.split(".", 1)[0] in _OWN_MODULES:
-            return None
-        target_name = _TARGET_PREFIX + suffix
-        try:
-            if importlib.util.find_spec(target_name) is None:
-                return None
-        except (ImportError, AttributeError, ValueError):
-            # No such module under multisync either: defer to normal machinery
-            # so the user gets the usual ModuleNotFoundError for their name.
-            return None
-        return importlib.machinery.ModuleSpec(fullname, _AliasLoader(target_name))
-
-
-# Prepended: see the module docstring. PathFinder would otherwise load a second,
-# independent copy of any nested submodule via the aliased parent's __path__.
-if not any(isinstance(f, _SyncpipeAliasFinder) for f in sys.meta_path):
-    sys.meta_path.insert(0, _SyncpipeAliasFinder())
+__all__ = [
+    "__version__",
+    "PACKAGE_VERSION",
+    "ANALYSIS_SCHEMA_VERSION",
+    "CONFIG_SCHEMA_VERSION",
+    # Core user objects
+    "Dyad",
+    "DynamicAnalyzer",
+    "AnalysisResults",
+    "SynchronyDataset",
+    "ContextLabel",
+    # Computation and inference
+    "ComputationPipeline",
+    "BatchComputationPipeline",
+    "compute_pair_pipeline",
+    "PairResult",
+    "quick_compute",
+    "batch_compute",
+    "InferencePipeline",
+    # Data-layer -> pipeline bridge (reviewer entry point)
+    "records_to_inference_inputs",
+    "InferenceInputs",
+    # Canonical scientific runner (Gate 1 single entry point)
+    "run_canonical",
+    "parse_manifest",
+    "parse_config",
+    "ManifestRecord",
+    "SyncPipeConfig",
+    "CanonicalResult",
+    "DEFAULT_CONFIG",
+    # Feature/status governance
+    "FDR_FEATURES",
+    "REFERENCE_FEATURE",
+    "ONSET_THRESHOLD",
+    "FEATURE_STATUS_ROWS",
+    "feature_status_table",
+    "feature_status_latex",
+    "explain_feature",
+    # QC and audits
+    "run_quality_check",
+    "format_qc_report",
+    "DataQualityReport",
+    "StageResult",
+    "StageVerdict",
+    "DataQualityError",
+    "DEFAULT_AUDIT_FEATURES",
+    "design_control_audit",
+    "extract_pair_features",
+    "synchrony_existence_audit",
+    "compute_session_pooled_threshold",
+    "compute_session_pooled_thresholds_by_modality",
+    "compute_condition_pooled_thresholds",
+]

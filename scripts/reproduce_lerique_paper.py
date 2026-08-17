@@ -39,8 +39,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from multisync.pipeline_bridge import records_to_inference_inputs
-from multisync.inference_pipeline import InferencePipeline
+from syncpipe.pipeline_bridge import records_to_inference_inputs
+from syncpipe.inference_pipeline import InferencePipeline
 
 logger = logging.getLogger("reproduce_lerique_paper")
 
@@ -139,7 +139,7 @@ def _write_manifest(
     data_root: Optional[str],
     n_feature_rows: int,
 ) -> Path:
-    from multisync import __version__
+    from syncpipe import __version__
 
     manifest = {
         "schema": "syncpipe.paper_manifest/v1",
@@ -166,8 +166,8 @@ def _write_manifest(
             ),
         },
         "canonical_pipeline": {
-            "bridge": "multisync.pipeline_bridge.records_to_inference_inputs",
-            "inference": "multisync.inference_pipeline.InferencePipeline.run_audited_evidence_chain",
+            "bridge": "syncpipe.pipeline_bridge.records_to_inference_inputs",
+            "inference": "syncpipe.inference_pipeline.InferencePipeline.run_audited_evidence_chain",
             "evidence_chain": [
                 "synchrony_existence_signal_level_IAAFT",
                 "design_controls_pseudo_pair_time_shift",
@@ -307,7 +307,7 @@ def run_pub(
         return 2
     logger.info("PUB mode: loading ECSU-PCE / Lerique from %s", root)
     try:
-        from multisync.realtest.lerique_2024 import load_lerique_dataset
+        from syncpipe.realtest.lerique_2024 import load_lerique_dataset
     except Exception as e:  # pragma: no cover
         logger.error("Could not import the Lerique loader: %s", e)
         return 2

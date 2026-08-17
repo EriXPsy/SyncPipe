@@ -37,11 +37,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from multisync.feature_definitions import (
+from syncpipe.feature_definitions import (
     CONFIRMATORY_FEATURES,
     DIAGNOSTIC_FEATURES,
 )
-from multisync.validation import (
+from syncpipe.validation import (
     Level1Config,
     run_level1_grid,
     summarise_level1,

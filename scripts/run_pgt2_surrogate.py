@@ -26,7 +26,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
-from multisync.validation.pgt2_structure import (
+from syncpipe.validation.pgt2_structure import (
     PGT2Config,
     run_pgt2_grid,
     summarise_pgt2,

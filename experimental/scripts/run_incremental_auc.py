@@ -44,12 +44,12 @@ from sklearn.metrics import roc_auc_score
 # ===========================================================================
 
 def _find_feature_definitions_path(start: Path) -> Path:
-    """Walk up from *start* until ``multisync/feature_definitions.py``
+    """Walk up from *start* until ``syncpipe/feature_definitions.py``
     or ``feature_definitions.py`` is found.
     """
     current = start.resolve()
     for _ in range(10):
-        candidate = current / "multisync" / "feature_definitions.py"
+        candidate = current / "syncpipe" / "feature_definitions.py"
         if candidate.exists():
             return candidate
         candidate2 = current / "feature_definitions.py"
@@ -79,7 +79,7 @@ def _setup_imports(project_root: Optional[Path] = None):
         script_dir = Path(__file__).resolve().parent
         fd_path = _find_feature_definitions_path(script_dir)
     else:
-        fd_path = project_root / "multisync" / "feature_definitions.py"
+        fd_path = project_root / "syncpipe" / "feature_definitions.py"
         if not fd_path.exists():
             fd_path = project_root / "feature_definitions.py"
         if not fd_path.exists():

@@ -39,9 +39,9 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr, pearsonr
 
-from multisync.dynamic_features import sliding_window_wcc, extract_dynamic_features
-from multisync.metrics import wclc_synchrony, plv_synchrony
-from multisync.feature_definitions import CONFIRMATORY_FEATURES
+from syncpipe.dynamic_features import sliding_window_wcc, extract_dynamic_features
+from syncpipe.metrics import wclc_synchrony, plv_synchrony
+from syncpipe.feature_definitions import CONFIRMATORY_FEATURES
 
 HZ = 1.0
 DURATION = 300

@@ -54,13 +54,13 @@ from sklearn.preprocessing import StandardScaler
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from multisync.feature_definitions import (  # noqa: E402
+from syncpipe.feature_definitions import (  # noqa: E402
     ONSET_THRESHOLD,
     compute_first_peak_time,
     compute_inter_peak_cv,
     compute_mean_synchrony,
 )
-from multisync.validation import phipson_smyth_p  # noqa: E402
+from syncpipe.validation import phipson_smyth_p  # noqa: E402
 
 OUT_DIR = ROOT / "artifacts" / "timing_validation"
 OUT_DIR.mkdir(parents=True, exist_ok=True)

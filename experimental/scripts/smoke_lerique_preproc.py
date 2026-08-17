@@ -25,7 +25,7 @@ def main():
     # ----------------------------------------------------------------
     # 0. Import test subjects
     # ----------------------------------------------------------------
-    from multisync.realtest.lerique_2024 import (
+    from syncpipe.realtest.lerique_2024 import (
         load_lerique_dataset,
         RAW_FS_HZ,
         TARGET_FS_HZ,
@@ -163,8 +163,8 @@ def main():
             ibi_frac = _ecg_ibi_fraction(pre_rec)
             # Dyad conversion
             try:
-                from multisync.realtest.lerique_2024 import lerique_record_to_multisync_dyad
-                _ = lerique_record_to_multisync_dyad(pre_rec)
+                from syncpipe.realtest.lerique_2024 import lerique_record_to_syncpipe_dyad
+                _ = lerique_record_to_syncpipe_dyad(pre_rec)
                 dyad_ok = "YES"
             except Exception:
                 dyad_ok = "FAIL"

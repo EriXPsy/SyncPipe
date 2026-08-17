@@ -6,8 +6,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from multisync.dynamic_features import extract_dynamic_features, sliding_window_wcc
-from multisync.inference_pipeline import InferencePipeline
+from syncpipe.dynamic_features import extract_dynamic_features, sliding_window_wcc
+from syncpipe.inference_pipeline import InferencePipeline
 
 
 def _signals(seed: int, n: int = 180, coupling: float = 0.7):
@@ -98,7 +98,7 @@ case. These tests exercise BOTH branches so the bug cannot silently return.
 """
 import pytest
 
-from multisync.inference_pipeline import _build_cascade_summary
+from syncpipe.inference_pipeline import _build_cascade_summary
 
 
 def test_cascade_summary_no_l2_significant():
@@ -136,7 +136,7 @@ def test_cascade_summary_sums_across_modalities_and_labels_per_modality():
     """1c: L2 is always modality-keyed, so counts must sum over modalities and
     the family label must not be inflated to 'all-features' merely because M
     modalities each tested the primary family."""
-    from multisync.feature_definitions import PRIMARY_FDR_FAMILY
+    from syncpipe.feature_definitions import PRIMARY_FDR_FAMILY
 
     k = len(PRIMARY_FDR_FAMILY)
     s = _build_cascade_summary(
@@ -156,7 +156,7 @@ def test_cascade_summary_sums_across_modalities_and_labels_per_modality():
 
 def test_fdr_features_importable_at_module_top():
     """FDR_FEATURES must be bound at module global scope (the actual fix)."""
-    import multisync.inference_pipeline as ip
+    import syncpipe.inference_pipeline as ip
     assert hasattr(ip, "FDR_FEATURES")
     assert len(ip.FDR_FEATURES) >= 1
 
@@ -175,9 +175,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.inference_pipeline import InferencePipeline
-from multisync.dynamic_features import sliding_window_wcc, extract_dynamic_features
-from multisync.feature_definitions import FDR_FEATURES
+from syncpipe.inference_pipeline import InferencePipeline
+from syncpipe.dynamic_features import sliding_window_wcc, extract_dynamic_features
+from syncpipe.feature_definitions import FDR_FEATURES
 
 
 def _make_dyad_signals(rng, coupling, n=600):
@@ -277,9 +277,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.inference_pipeline import InferencePipeline
-from multisync.dynamic_features import wcc_surrogate_test, sliding_window_wcc
-from multisync.feature_definitions import extract_features
+from syncpipe.inference_pipeline import InferencePipeline
+from syncpipe.dynamic_features import wcc_surrogate_test, sliding_window_wcc
+from syncpipe.feature_definitions import extract_features
 
 
 def _make_signals(rng, coupling, n=300):
@@ -401,7 +401,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.validation.l2_between_condition import between_condition_fdr
+from syncpipe.validation.l2_between_condition import between_condition_fdr
 
 
 def _small_df(n_dyads=4, seed=0):
@@ -487,14 +487,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.validation.l2_between_condition import (
+from syncpipe.validation.l2_between_condition import (
     _modality_seed_offset,
     between_condition_by_modality,
 )
 
 # This file lives at <repo>/tests/integration/, so the repo root is parents[2].
 # parents[1] would be <repo>/tests, which makes the cross-process subprocess
-# fail with ModuleNotFoundError: No module named 'multisync'.
+# fail with ModuleNotFoundError: No module named 'syncpipe'.
 REPO = Path(__file__).resolve().parents[2]  # .../syncpipe
 PY = sys.executable
 
@@ -570,7 +570,7 @@ _SUBPROCESS_SCRIPT = """
 import json, sys
 sys.path.insert(0, r"{repo}")
 import numpy as np, pandas as pd
-from multisync.validation.l2_between_condition import between_condition_by_modality
+from syncpipe.validation.l2_between_condition import between_condition_by_modality
 
 rng = np.random.default_rng({data_seed})
 rows = []
@@ -627,7 +627,7 @@ it (warn + report) rather than silently drop frozen features.
 import numpy as np
 import pandas as pd
 
-from multisync.validation.l2_between_condition import between_condition_fdr
+from syncpipe.validation.l2_between_condition import between_condition_fdr
 
 
 def _make_df(rng, n, extra=None):
@@ -686,8 +686,8 @@ import pytest
 
 def test_p0_1_l0_peak_matches_ssot_smoothed_peak():
     """Existence-null obs peak must equal SSoT peak_amplitude (smoothed)."""
-    from multisync.feature_definitions import extract_features, smoothed_wcc, compute_peak_amplitude
-    from multisync.dynamic_features import _signal_level_surrogate_test
+    from syncpipe.feature_definitions import extract_features, smoothed_wcc, compute_peak_amplitude
+    from syncpipe.dynamic_features import _signal_level_surrogate_test
 
     rng = np.random.default_rng(0)
     # Spiky WCC: raw max >> smoothed peak
@@ -723,7 +723,7 @@ def test_p0_1_l0_peak_matches_ssot_smoothed_peak():
 
 
 def test_p0_2_l2_refuses_multimodal_pool():
-    from multisync.validation.l2_between_condition import between_condition_fdr
+    from syncpipe.validation.l2_between_condition import between_condition_fdr
 
     rows = []
     for d in range(8):
@@ -762,7 +762,7 @@ def test_p0_2_l2_refuses_multimodal_pool():
 
 
 def test_p0_2_single_modality_still_works():
-    from multisync.validation.l2_between_condition import between_condition_fdr
+    from syncpipe.validation.l2_between_condition import between_condition_fdr
 
     rows = []
     for d in range(8):
@@ -792,7 +792,7 @@ def test_p0_2_single_modality_still_works():
 
 
 def test_p0_3_finite_pair_warns_on_length_mismatch():
-    from multisync.design_controls import _finite_pair
+    from syncpipe.design_controls import _finite_pair
 
     a = np.arange(100.0)
     b = np.arange(70.0)
@@ -804,14 +804,14 @@ def test_p0_3_finite_pair_warns_on_length_mismatch():
 
 
 def test_p0_3_finite_pair_raise_mode():
-    from multisync.design_controls import _finite_pair
+    from syncpipe.design_controls import _finite_pair
 
     with pytest.raises(ValueError, match="unequal lengths"):
         _finite_pair(np.arange(10.0), np.arange(7.0), on_length_mismatch="raise")
 
 
 def test_p1_1_dwell_splits_across_nan_seam():
-    from multisync.feature_definitions import compute_dwell_time
+    from syncpipe.feature_definitions import compute_dwell_time
 
     # two elevated runs of length 3 separated by NaN seam
     w = np.array([0.1, 0.1, 0.8, 0.8, 0.8, np.nan, 0.8, 0.8, 0.8, 0.1, 0.1])
@@ -826,7 +826,7 @@ def test_p1_1_dwell_splits_across_nan_seam():
 
 
 def test_p1_4_nan_fraction_set_in_ssot():
-    from multisync.feature_definitions import extract_features
+    from syncpipe.feature_definitions import extract_features
 
     w = np.array([0.1, 0.2, np.nan, 0.8, 0.9, 0.7, np.nan, 0.1])
     f = extract_features(w, hz=1.0, wcc_window_sec=5.0)
@@ -839,14 +839,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.computation_pipeline import ComputationPipeline
-from multisync.feature_definitions import compute_dwell_time, extract_features
-from multisync.inference_pipeline import InferencePipeline
-from multisync.session_threshold import (
+from syncpipe.computation_pipeline import ComputationPipeline
+from syncpipe.feature_definitions import compute_dwell_time, extract_features
+from syncpipe.inference_pipeline import InferencePipeline
+from syncpipe.session_threshold import (
     compute_session_pooled_threshold,
     _generate_surrogate_coupling_matrix,
 )
-from multisync.dynamic_features import sliding_window_wcc, _apply_discontinuity_mask
+from syncpipe.dynamic_features import sliding_window_wcc, _apply_discontinuity_mask
 
 
 def _multimodal_df(n_dyads=8):

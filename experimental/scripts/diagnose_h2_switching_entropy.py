@@ -14,11 +14,11 @@ import numpy as np
 import pandas as pd
 import scipy.stats as stats
 
-from multisync.simulation.shared_signal_model import (
+from syncpipe.simulation.shared_signal_model import (
     generate_signals, alternating_coupling, constant_coupling,
 )
-from multisync.dynamic_features import sliding_window_wcc
-from multisync.feature_definitions import (
+from syncpipe.dynamic_features import sliding_window_wcc
+from syncpipe.feature_definitions import (
     extract_features, ONSET_THRESHOLD,
     compute_switching_rate, compute_synchrony_entropy,
 )

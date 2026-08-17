@@ -11,7 +11,7 @@
 ## 2. What is actually happening (code-level)
 
 `dwell_time` = mean duration (seconds) of *sustained above-threshold WCC runs*.
-In `multisync/feature_definitions.py::compute_dwell_time`:
+In `syncpipe/feature_definitions.py::compute_dwell_time`:
 
 ```python
 above = _binarize_with_hysteresis(wcc, threshold, hysteresis_delta)
@@ -116,7 +116,7 @@ number."
 
 ## 7. Where this is enforced
 
-- `multisync/feature_definitions.py` — `compute_dwell_time` / `compute_switching_rate` return `NaN` when no run.
-- `multisync/validation/l2_between_condition.py` — `defined_a` / `defined_b` / `p_definedness`; skips undefined dyads.
-- `multisync/inference_pipeline.py::summarize()` — emits `[WARN] … definedness diff`.
+- `syncpipe/feature_definitions.py` — `compute_dwell_time` / `compute_switching_rate` return `NaN` when no run.
+- `syncpipe/validation/l2_between_condition.py` — `defined_a` / `defined_b` / `p_definedness`; skips undefined dyads.
+- `syncpipe/inference_pipeline.py::summarize()` — emits `[WARN] … definedness diff`.
 - `README.md` (SOP) — "Handling undefined descriptors" rule.

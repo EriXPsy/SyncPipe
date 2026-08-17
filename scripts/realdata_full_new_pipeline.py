@@ -47,13 +47,13 @@ from sklearn.metrics import adjusted_rand_score
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from multisync.pipeline_bridge import records_to_inference_inputs
-from multisync.inference_pipeline import InferencePipeline
-from multisync.morphology import MorphologyAnalyzer
-from multisync.dynamic_features import _sliding_window_wcc_cumsum
-from multisync.feature_definitions import FDR_FEATURES, REFERENCE_FEATURE
-from multisync.realtest.lerique_2024 import load_lerique_dataset
-from multisync.realtest.gordon_2025 import load_gordon_dataset
+from syncpipe.pipeline_bridge import records_to_inference_inputs
+from syncpipe.inference_pipeline import InferencePipeline
+from syncpipe.morphology import MorphologyAnalyzer
+from syncpipe.dynamic_features import _sliding_window_wcc_cumsum
+from syncpipe.feature_definitions import FDR_FEATURES, REFERENCE_FEATURE
+from syncpipe.realtest.lerique_2024 import load_lerique_dataset
+from syncpipe.realtest.gordon_2025 import load_gordon_dataset
 
 OSF = Path("E:/OSF")
 OUT = ROOT / "artifacts" / "realdata_full"

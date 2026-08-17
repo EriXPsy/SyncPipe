@@ -32,7 +32,7 @@ SyncPipe now uses two explicit SSoT layers.
 File:
 
 ```text
-multisync/feature_definitions.py
+syncpipe/feature_definitions.py
 ```
 
 Purpose:
@@ -49,7 +49,7 @@ This layer may retain internal mathematical invariance labels where useful for i
 File:
 
 ```text
-multisync/feature_status.py
+syncpipe/feature_status.py
 ```
 
 Purpose:
@@ -493,7 +493,7 @@ A full read-only audit was run before the v1.0 release cleanup.
 Resolved this round:
 
 - **Version SSoT.** Package version is `1.0.0` in `__about__.py`, `pyproject.toml`,
-  and `__init__.py`. Added `multisync --version` (reads `__about__.__version__`).
+  and `__init__.py`. Added `syncpipe --version` (reads `__about__.__version__`).
   `core.py`'s `schema_version` (read from `__about__.ANALYSIS_SCHEMA_VERSION`,
   `"0.3.0"` at the time of writing) is annotated as the JSON *output-structure*
   version, deliberately independent of the package version — it is expected to

@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from multisync.validation.pgt1_intensity import (
+from syncpipe.validation.pgt1_intensity import (
     Level3Config,
     run_level3_grid,
     apply_bh_fdr_within_noise,
@@ -132,7 +132,7 @@ def _diagnose_rank_stability(df: pd.DataFrame, sweep_label: str) -> None:
     """
     # Feature rate columns derived from FDR_FEATURES (Axis C).
     # This list must match what summarise_level3 outputs.
-    from multisync.feature_definitions import FDR_FEATURES
+    from syncpipe.feature_definitions import FDR_FEATURES
     feature_rate_cols = [f"reject_{f}_rate" for f in FDR_FEATURES]
     feature_short = [f.replace("_", " ")[:12] for f in FDR_FEATURES]
     print(f"\n[diagnostic:{sweep_label}] Rank-order stability check")

@@ -16,8 +16,8 @@ sys.path.insert(0, r'<REPO>')
 
 import numpy as np
 import pandas as pd
-from multisync.dynamic_features import sliding_window_wcc, extract_dynamic_features
-from multisync.feature_definitions import CONFIRMATORY_FEATURES
+from syncpipe.dynamic_features import sliding_window_wcc, extract_dynamic_features
+from syncpipe.feature_definitions import CONFIRMATORY_FEATURES
 
 HZ = 1.0
 DURATION = 300

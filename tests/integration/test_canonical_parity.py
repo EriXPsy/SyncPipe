@@ -4,7 +4,7 @@ from __future__ import annotations
 must yield a byte-identical report bundle.
 
 The v1 canonical runner is the single code path for paper-level analysis;
-``multisync analyze`` (CLI) and ``multisync.canonical_runner.run_canonical``
+``syncpipe analyze`` (CLI) and ``syncpipe.canonical_runner.run_canonical``
 (Python API) both call it, so their outputs must match file-for-file.
 """
 import subprocess
@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from multisync.canonical_runner import run_canonical
+from syncpipe.canonical_runner import run_canonical
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]  # syncpipe/
 
@@ -92,7 +92,7 @@ def test_cli_api_byte_parity(tmp_path):
 
     # CLI entry (same manifest + config)
     proc = subprocess.run(
-        [sys.executable, "-m", "multisync", "analyze",
+        [sys.executable, "-m", "syncpipe", "analyze",
          "-m", str(man), "-c", str(cfg), "-o", str(cli_out)],
         capture_output=True, text=True, cwd=str(_REPO_ROOT),
     )

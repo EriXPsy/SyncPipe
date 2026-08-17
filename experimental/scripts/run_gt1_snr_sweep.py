@@ -52,12 +52,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from multisync.feature_definitions import (
+from syncpipe.feature_definitions import (
     CONFIRMATORY_FEATURES,
     DIAGNOSTIC_FEATURES,
     FEATURE_FAMILY,
 )
-from multisync.validation.pgt1_intensity import (
+from syncpipe.validation.pgt1_intensity import (
     Level3Config,
     run_level3_grid,
     apply_bh_fdr_within_noise,

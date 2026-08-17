@@ -33,7 +33,7 @@ def _make_simple_dyad():
     t = np.arange(n, dtype=float)
     df_a = pd.DataFrame({"time": t, "value": np.sin(2 * np.pi * t / 50) + np.random.randn(n) * 0.2})
     df_b = pd.DataFrame({"time": t, "value": np.cos(2 * np.pi * t / 50) + np.random.randn(n) * 0.2})
-    from multisync.dataset import SynchronyDataset
+    from syncpipe.dataset import SynchronyDataset
     return SynchronyDataset(dyad_id="test", modalities={"a": df_a, "b": df_b})
 
 
@@ -57,7 +57,7 @@ class TestSynchronyDataset:
         assert set(ds.modality_names) == {"a", "b"}
 
     def test_missing_time_column_raises(self):
-        from multisync.dataset import SynchronyDataset
+        from syncpipe.dataset import SynchronyDataset
         with pytest.raises(ValueError, match="time"):
             SynchronyDataset(
                 dyad_id="bad",
@@ -71,7 +71,7 @@ class TestSynchronyDataset:
         assert len(ds.modalities["a"]) == len(ds.modalities["b"])
 
     def test_align_different_hz(self):
-        from multisync.dataset import SynchronyDataset
+        from syncpipe.dataset import SynchronyDataset
         np.random.seed(42)
         t_slow = np.arange(0, 100, dtype=float)
         t_fast = np.arange(0, 100, 0.1)
@@ -213,7 +213,7 @@ class TestSynchronyDataset:
 class TestDynamicFeatures:
 
     def test_wcc_identical_signals(self):
-        from multisync.dynamic_features import sliding_window_wcc
+        from syncpipe.dynamic_features import sliding_window_wcc
         np.random.seed(42)
         n = 100
         x = np.sin(2 * np.pi * np.arange(n) / 20)
@@ -221,7 +221,7 @@ class TestDynamicFeatures:
         assert wcc.max() > 0.95  # identical → near-perfect correlation
 
     def test_wcc_uncorrelated_signals(self):
-        from multisync.dynamic_features import sliding_window_wcc
+        from syncpipe.dynamic_features import sliding_window_wcc
         np.random.seed(42)
         x = np.random.randn(100)
         y = np.random.randn(100)
@@ -230,7 +230,7 @@ class TestDynamicFeatures:
         assert abs(np.nanmean(wcc)) < 0.3
 
     def test_wcc_with_lag(self):
-        from multisync.dynamic_features import sliding_window_wcc
+        from syncpipe.dynamic_features import sliding_window_wcc
         np.random.seed(42)
         n = 500
         # Create a structured signal with clear temporal pattern
@@ -249,7 +249,7 @@ class TestDynamicFeatures:
         assert np.nanmax(np.abs(wcc_comp)) > 0.5
 
     def test_extract_features(self):
-        from multisync.dynamic_features import extract_dynamic_features
+        from syncpipe.dynamic_features import extract_dynamic_features
         # Use a Gaussian-like peak signal that find_peaks can actually detect
         n = 100
         t = np.arange(n, dtype=float)
@@ -268,7 +268,7 @@ class TestDynamicFeatures:
         assert isinstance(feat.recovery_time, float)
 
     def test_extract_features_all_pairs(self):
-        from multisync.dynamic_features import extract_features_all_pairs
+        from syncpipe.dynamic_features import extract_features_all_pairs
         ds = _make_aligned_dyad()
         feats, _ = extract_features_all_pairs(
             ds, window_size=10, hz=1.0, use_surrogate_threshold=False
@@ -278,173 +278,6 @@ class TestDynamicFeatures:
             assert isinstance(feat.to_dict(), dict)
 
 
-# ===========================================================================
-# 4. Prediction tests (with leakage audit)
-# ===========================================================================
-
-class TestPrediction:
-
-    def test_rolling_origin_cv_basic(self):
-        from multisync.prediction import rolling_origin_cv
-        np.random.seed(42)
-        # Sine wave: every window has dynamics, labels are naturally balanced
-        t = np.arange(800, dtype=float)
-        series = np.sin(2 * np.pi * t / 80.0)  # period=80 samples
-        pred = rolling_origin_cv(
-            series, window_size=60, hz=1.0, n_splits=2, gap=2, threshold=0.0
-        )
-        assert len(pred.folds) > 0
-        assert 0 <= pred.mean_dynamic_auc <= 1
-        assert pred.mode == "intra"
-        assert pred.n_features_used >= 0
-
-    def test_dynamic_feature_matrix_not_autoregressive(self):
-        """
-        Verify that the prediction module now uses dynamic features,
-        not raw WCC values. Feature importance keys should be dynamic
-        feature names, not lag_1, lag_2, etc.
-        """
-        from multisync.prediction import rolling_origin_cv
-        np.random.seed(42)
-        series = np.concatenate([
-            np.full(60, -1.0),
-            np.full(60, 1.0),
-            np.full(60, -1.0),
-            np.full(60, 1.0),
-            np.full(60, -1.0),
-            np.full(60, 1.0),
-            np.full(60, -1.0),
-            np.full(60, 1.0),
-        ])
-        pred = rolling_origin_cv(
-            series, window_size=60, hz=1.0, n_splits=3, gap=5
-        )
-        # Feature importance keys should be dynamic feature names
-        if pred.feature_importance:
-            for key in pred.feature_importance:
-                assert not key.startswith("lag_"), (
-                    f"Feature key '{key}' looks like raw WCC lag, "
-                    f"not a dynamic feature name"
-                )
-
-    def test_leakage_audit_autocorrelated(self):
-        """
-        Leakage audit: feed a pure sine wave (perfectly autocorrelated).
-        The delta-AUC should be high, and the warning flag must be raised.
-
-        Use long enough series and small enough window/gap so that
-        rolling_origin_cv actually runs (not 'data_too_short_for_cv').
-        """
-        from multisync.prediction import rolling_origin_cv
-        np.random.seed(42)
-        # Longer series + small window/gap → enough folds
-        t = np.arange(800, dtype=float)
-        sine_wave = np.sin(2 * np.pi * t / 80)
-
-        pred = rolling_origin_cv(
-            sine_wave,
-            window_size=10,
-            hz=1.0,
-            n_splits=3,
-            gap=2,
-        )
-        # Should NOT be 'data_too_short_for_cv'
-        assert pred.warning != "data_too_short_for_cv", (
-            f"CV could not run: {pred.diagnostics}"
-        )
-        # Sine wave is trivially predictable → delta-AUC must clear the
-        # SSoT leakage threshold (DECISION-10, recalibrated 2026-07-18:
-        # sine median ≈ 0.29 with the NEW 6-feature joint set + AR
-        # baseline, threshold now 0.14; noise median ≈ -0.10).
-        from multisync.feature_definitions import LEAKAGE_DELTA_AUC_THRESHOLD
-        assert pred.mean_delta_auc > LEAKAGE_DELTA_AUC_THRESHOLD, (
-            f"Sine wave should produce delta_AUC > "
-            f"{LEAKAGE_DELTA_AUC_THRESHOLD}, got {pred.mean_delta_auc:.3f}"
-        )
-        # The warning flag must be raised
-        assert pred.warning == "leakage_suspected", (
-            f"Expected 'leakage_suspected', got '{pred.warning}'"
-        )
-
-    def test_leakage_audit_no_leakage(self):
-        """
-        Random noise has no autocorrelation → delta-AUC should be low,
-        and NO leakage warning should be raised.
-
-        Note: with SSoT onset_threshold=0.5 (DECISION-01), noise WCC
-        rarely exceeds the threshold, so onset-related features are
-        mostly NaN.  This makes delta-AUC noisier on short series.
-        We use 2000 points (matching test_leakage_audit_random_noise)
-        for stable estimation.
-        """
-        from multisync.prediction import rolling_origin_cv
-        np.random.seed(42)
-        noise = np.random.randn(2000)
-        pred = rolling_origin_cv(
-            noise, window_size=60, hz=1.0, n_splits=5, gap=5
-        )
-        # Random noise → delta-AUC must be below the SSoT leakage
-        # threshold (DECISION-10 B).
-        from multisync.feature_definitions import LEAKAGE_DELTA_AUC_THRESHOLD
-        assert pred.mean_delta_auc <= LEAKAGE_DELTA_AUC_THRESHOLD, (
-            f"Random noise produced suspicious delta_AUC "
-            f"{pred.mean_delta_auc:.3f} (threshold "
-            f"{LEAKAGE_DELTA_AUC_THRESHOLD})"
-        )
-        # Warning should NOT be raised
-        assert pred.warning != "leakage_suspected", (
-            "Random noise should NOT trigger leakage warning"
-        )
-
-    def test_leakage_audit_random_noise(self):
-        """Random noise should give AUC near 0.5 (no leakage possible)."""
-        from multisync.prediction import rolling_origin_cv
-        np.random.seed(42)
-        # Use MUCH longer series to ensure stable AUC estimation
-        noise = np.random.randn(2000)
-        pred = rolling_origin_cv(
-            noise, window_size=60, hz=1.0, n_splits=3, gap=2, threshold=0.0
-        )
-        # Random noise → AUC should be near 0.5
-        # With 6 features and NaN imputation on noise data, tolerance is wider
-        assert len(pred.folds) > 0, "Should have at least one valid fold"
-        assert abs(pred.mean_dynamic_auc - 0.5) < 0.25, (
-            f"Random noise AUC should be near 0.5, got {pred.mean_dynamic_auc:.3f}. "
-            f"This indicates leakage or overfitting."
-        )
-
-    def test_cross_modal_prediction_basic(self):
-        """Cross-modal prediction: source and target are independent signals."""
-        from multisync.prediction import cross_modal_prediction
-        np.random.seed(42)
-        # Source: has structure (sine wave)
-        t = np.arange(300, dtype=float)
-        source = np.sin(2 * np.pi * t / 50) + np.random.randn(300) * 0.3
-        # Target: different structure (square wave)
-        target = np.sign(np.sin(2 * np.pi * t / 30)) + np.random.randn(300) * 0.3
-
-        pred = cross_modal_prediction(
-            source, target,
-            window_size=30, hz=1.0,
-            source_name="behavioral__neural",
-            target_name="neural__bio",
-        )
-        assert pred.mode == "cross_modal"
-        assert pred.source_pair == "behavioral__neural"
-        assert pred.target_pair == "neural__bio"
-
-    def test_lodo_basic(self):
-        from multisync.prediction import lodo_cv
-        dyad_results = [
-            {"mean_delta_auc": 0.1},
-            {"mean_delta_auc": 0.2},
-            {"mean_delta_auc": 0.15},
-            {"mean_delta_auc": 0.25},
-            {"mean_delta_auc": 0.18},
-        ]
-        result = lodo_cv(dyad_results)
-        assert "mae" in result
-        assert result["mae"] < 0.2  # predictions should be close
 
 
 # ===========================================================================
@@ -455,8 +288,8 @@ class TestHighLevelAPI:
 
     def test_four_line_workflow(self):
         """Verify the 4-line API from the README works."""
-        import multisync as ms
-        from multisync.synthetic import generate_ground_truth_dyad
+        import syncpipe as ms
+        from syncpipe.synthetic import generate_ground_truth_dyad
 
         # 1. Load and align
         ds = generate_ground_truth_dyad(
@@ -491,7 +324,7 @@ class TestHighLevelAPI:
 
     def test_dyad_convenience_class(self):
         """Test the Dyad convenience wrapper."""
-        import multisync as ms
+        import syncpipe as ms
         np.random.seed(42)
         n = 100
         t = np.arange(n, dtype=float)
@@ -503,8 +336,8 @@ class TestHighLevelAPI:
 
     def test_analysis_results_schema(self):
         """Verify the viewer JSON has all required fields."""
-        import multisync as ms
-        from multisync.synthetic import generate_ground_truth_dyad
+        import syncpipe as ms
+        from syncpipe.synthetic import generate_ground_truth_dyad
         ds = generate_ground_truth_dyad(duration_sec=200, noise_ratio=0.2)
         ds.align(target_hz=1.0)
         ds.zscore()
@@ -516,7 +349,6 @@ class TestHighLevelAPI:
         assert "dyad_id" in d
         assert "dynamic_features" in d
         assert "dynamic_features_segmented" in d
-        assert "prediction" in d
         assert "parameters" in d
 
         # JSON schema_version present (updated to 0.3.0 after cross-modal removal)
@@ -526,7 +358,7 @@ class TestHighLevelAPI:
     def test_context_segmented_features(self):
         """When contexts are defined, dynamic features should be computed
         per-context, not just globally."""
-        import multisync as ms
+        import syncpipe as ms
         np.random.seed(42)
         n = 300
         t = np.arange(n, dtype=float)
@@ -557,91 +389,6 @@ class TestHighLevelAPI:
         assert len(seg["Phase1"]) > 0
         assert len(seg["Phase2"]) > 0
 
-    def test_prediction_uses_dynamic_features_not_raw_wcc(self):
-        """High-level test: verify that prediction results now report
-        dynamic feature importance (not raw WCC lag coefficients)."""
-        import multisync as ms
-        from multisync.synthetic import generate_ground_truth_dyad
-        ds = generate_ground_truth_dyad(
-            duration_sec=300, noise_ratio=0.2,
-        )
-        ds.align(target_hz=1.0)
-        ds.zscore()
-        analyzer = ms.DynamicAnalyzer(surrogate_n=10, window_size=10)
-        results = analyzer.fit_transform(ds)
-
-        for key, pred in results.prediction.items():
-            # Feature importance should use dynamic feature names
-            if pred.get("feature_importance"):
-                for feat_name in pred["feature_importance"]:
-                    assert not feat_name.startswith("lag_"), (
-                        f"Prediction {key} still uses raw WCC features: {feat_name}"
-                    )
-
-
-    def test_prediction_default_off(self):
-        """A1 regression: DynamicAnalyzer() must NOT run prediction by
-        default. Prediction is a confirmatory-adjacent step and must be
-        explicitly opted in (enable_prediction=True / --prediction).
-        """
-        import multisync as ms
-        from multisync.synthetic import generate_ground_truth_dyad
-        ds = generate_ground_truth_dyad(
-            duration_sec=200, noise_ratio=0.2,
-        )
-        ds.align(target_hz=1.0)
-        ds.zscore()
-        # No enable_prediction arg → must default to False (A1)
-        analyzer = ms.DynamicAnalyzer(surrogate_n=10, window_size=10)
-        results = analyzer.fit_transform(ds)
-        assert results.prediction == {}, (
-            "Prediction must be OFF by default; results.prediction should be "
-            f"empty, got {results.prediction!r}"
-        )
-
-    def test_prediction_window_gap_parameters_report_effective(self):
-        """Finding 16 regression: results.parameters must report the EFFECTIVE
-        prediction window/gap that rolling_origin_cv actually consumes (after
-        the silent min-30 / min-window//4 floors), not the raw requested
-        values — and must keep the requested values too, for transparent
-        reproduction.
-        """
-        import multisync as ms
-        from multisync.synthetic import generate_ground_truth_dyad
-        ds = generate_ground_truth_dyad(duration_sec=200, noise_ratio=0.2)
-        ds.align(target_hz=1.0)
-        ds.zscore()
-
-        # Default config: requested 10/5 -> effective 30 / max(5, 30//4=7)
-        analyzer = ms.DynamicAnalyzer(
-            surrogate_n=10, window_size=10,
-            prediction_window=10, prediction_gap=5,
-        )
-        results = analyzer.fit_transform(ds)
-        assert results.parameters["prediction_window"] == 30, (
-            "expected effective window 30, got "
-            f"{results.parameters['prediction_window']}"
-        )
-        assert results.parameters["prediction_gap"] == 7, (
-            "expected effective gap 7, got "
-            f"{results.parameters['prediction_gap']}"
-        )
-        assert results.parameters["prediction_window_requested"] == 10
-        assert results.parameters["prediction_gap_requested"] == 5
-
-        # Explicit larger values: no floor applies, effective == requested
-        analyzer2 = ms.DynamicAnalyzer(
-            surrogate_n=10, window_size=10,
-            prediction_window=50, prediction_gap=3,
-        )
-        results2 = analyzer2.fit_transform(ds)
-        assert results2.parameters["prediction_window"] == 50
-        assert results2.parameters["prediction_gap"] == max(3, 50 // 4), (
-            "expected effective gap 12, got "
-            f"{results2.parameters['prediction_gap']}"
-        )
-        assert results2.parameters["prediction_window_requested"] == 50
-        assert results2.parameters["prediction_gap_requested"] == 3
 
 # ===========================================================================
 # 7. JSON serialization tests
@@ -651,7 +398,7 @@ class TestJSONSerialization:
 
     def test_nan_becomes_null_in_json(self):
         """NaN values must serialize as JSON null, not the string 'nan'."""
-        import multisync as ms
+        import syncpipe as ms
         np.random.seed(42)
         n = 100
         t = np.arange(n, dtype=float)
@@ -727,7 +474,7 @@ class TestMultimodalSynthetic:
         because five isolated Gaussian bursts always produce a tall spurious
         peak somewhere. Only the peak *location* is diagnostic.
         """
-        from multisync.synthetic import generate_multimodal_dyad
+        from syncpipe.synthetic import generate_multimodal_dyad
 
         # Nominal offsets come from the generator: neural=0, behavior=-5, bio=-3.
         # "unknown_mod" is deliberately absent from that table, so it inherits
@@ -757,7 +504,7 @@ class TestCLI:
 
     def test_demo_command_runs(self):
         """The `demo` CLI command should run without errors."""
-        from multisync.cli import cmd_demo
+        from syncpipe.cli import cmd_demo
         import argparse
 
         args = argparse.Namespace(surrogates=20, output=None)
@@ -765,7 +512,7 @@ class TestCLI:
 
     def test_analyze_command_runs(self, tmp_path):
         """The canonical `analyze` CLI command should run from a manifest + config."""
-        from multisync.cli import cmd_analyze
+        from syncpipe.cli import cmd_analyze
         import argparse
 
         # Build a small synthetic manifest + config
@@ -811,7 +558,7 @@ class TestCLI:
 
     def test_describe_command_runs(self, tmp_path):
         """The `describe` CLI command (design-agnostic descriptor path) still runs."""
-        from multisync.cli import cmd_describe
+        from syncpipe.cli import cmd_describe
         import argparse
 
         rng = np.random.default_rng(0)
@@ -849,7 +596,7 @@ class TestEdgeCases:
 
     def test_single_modality_no_crash(self):
         """Single modality should not crash — no pairs to analyze."""
-        import multisync as ms
+        import syncpipe as ms
         np.random.seed(42)
         n = 100
         t = np.arange(n, dtype=float)
@@ -865,7 +612,7 @@ class TestEdgeCases:
 
     def test_very_short_data_graceful(self):
         """Data shorter than window_size should return empty results, not crash."""
-        from multisync.dynamic_features import sliding_window_wcc
+        from syncpipe.dynamic_features import sliding_window_wcc
         x = np.random.randn(5)
         y = np.random.randn(5)
         result = sliding_window_wcc(x, y, window_size=10, hz=1.0)
@@ -873,7 +620,7 @@ class TestEdgeCases:
 
     def test_mostly_nan_pair_fails_qc_by_default(self):
         """A modality pair with 90%+ NaN should fail the mandatory QC gate."""
-        import multisync as ms
+        import syncpipe as ms
         n = 100
         t = np.arange(n, dtype=float)
         vals_a = np.random.randn(n)
@@ -898,7 +645,7 @@ class TestEdgeCases:
 
 import numpy as np
 import pytest
-from multisync.dynamic_features import sliding_window_wcc
+from syncpipe.dynamic_features import sliding_window_wcc
 
 
 # ============================================================
@@ -936,14 +683,14 @@ def test_wcc_invariant_under_global_mean_shift(offset):
 
 # === source: test_morphology.py ===
 """
-Tests for multisync.morphology core module.
+Tests for syncpipe.morphology core module.
 """
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.morphology import (
+from syncpipe.morphology import (
     scalefree_descriptors,
     trace_shape_cluster,
     extract_episodes,
@@ -1099,7 +846,7 @@ import json
 import numpy as np
 import pytest
 
-from multisync.morphology import MorphologyAnalyzer
+from syncpipe.morphology import MorphologyAnalyzer
 
 
 def _make_trace(shape: str, n: int = 300, seed: int = 0) -> np.ndarray:
@@ -1237,9 +984,9 @@ to the locked 0.5 default.
 
 import numpy as np
 
-from multisync import dynamic_features as df_mod
-from multisync.feature_definitions import DynamicFeatures
-from multisync.morphology import morphology_feature_table, MorphologyAnalyzer
+from syncpipe import dynamic_features as df_mod
+from syncpipe.feature_definitions import DynamicFeatures
+from syncpipe.morphology import morphology_feature_table, MorphologyAnalyzer
 
 
 def _make_wcc(n=200, seed=0, nan_frac=0.0):
@@ -1346,7 +1093,7 @@ _requires_build = pytest.mark.skipif(
     reason="build_feature_table.py not found — run scripts/build_feature_table.py first",
 )
 
-from multisync.feature_definitions import (
+from syncpipe.feature_definitions import (
     FEATURE_TIER,
     FDR_FEATURES,
     MATHEMATICAL_TIER,
@@ -1416,7 +1163,7 @@ def test_bc_removed_from_fdr_but_retains_l0_math_tier():
     and serialized. This test guards that decoupling: math-tier L0 must NOT
     silently re-imply FDR membership.
     """
-    from multisync.feature_definitions import FDR_FAMILIES, FDR_FEATURES
+    from syncpipe.feature_definitions import FDR_FAMILIES, FDR_FEATURES
     bc_fdr_family = next(
         (fam for fam, members in FDR_FAMILIES.items()
          if "bimodality_coefficient" in members), None
@@ -1426,12 +1173,12 @@ def test_bc_removed_from_fdr_but_retains_l0_math_tier():
     assert MATHEMATICAL_TIER["bimodality_coefficient"] == "L0"
 
 # === source: test_feature_vif_test.py ===
-"""Regression tests for multisync.feature_vif_test (collinearity/VIF)."""
+"""Regression tests for syncpipe.feature_vif_test (collinearity/VIF)."""
 import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.feature_vif_test import (
+from syncpipe.feature_vif_test import (
     feature_correlation, feature_vif, collinearity_report as feature_vif_collinearity_report,
     VIF_CONCERN, VIF_SEVERE,
 )
@@ -1488,7 +1235,7 @@ See: dynamic_features.py :: _sliding_window_wcc_cumsum
 import numpy as np
 import pytest
 
-from multisync.dynamic_features import sliding_window_wcc
+from syncpipe.dynamic_features import sliding_window_wcc
 
 
 class TestCumsumWccCorrectness:
@@ -1581,12 +1328,12 @@ class TestCumsumWccCorrectness:
             "WCC outside [-1, 1]"
 
 # === source: test_wcc_export.py ===
-"""Regression test for multisync.wcc_export round-trip."""
+"""Regression test for syncpipe.wcc_export round-trip."""
 import json
 import numpy as np
 import pandas as pd
 
-from multisync.wcc_export import export_wcc_traces, wcc_traces_to_frame
+from syncpipe.wcc_export import export_wcc_traces, wcc_traces_to_frame
 
 
 def test_export_round_trip(tmp_path):
@@ -1630,7 +1377,7 @@ Intent (why this matters):
 import numpy as np
 import pytest
 
-from multisync.dynamic_features import (
+from syncpipe.dynamic_features import (
     sliding_window_wcc,
     _make_window_kernel,
     _sliding_window_wcc_stride,
@@ -1751,7 +1498,7 @@ def test_rect_wcc_keeps_fast_cumsum_path(pair):
 
 # === source: test_rle.py ===
 """
-Regression tests for ``multisync.feature_definitions._find_runs``.
+Regression tests for ``syncpipe.feature_definitions._find_runs``.
 
 ``_find_runs`` is the single shared run-length detector extracted from four
 previously-parallel diff-based implementations (compute_dwell_time in
@@ -1770,7 +1517,7 @@ These tests lock the numerical contract:
 import numpy as np
 import pytest
 
-from multisync.feature_definitions import _find_runs
+from syncpipe.feature_definitions import _find_runs
 
 
 # ---------------------------------------------------------------------------
@@ -1926,15 +1673,15 @@ Tests for WCLR backend and BatchComputationPipeline integration.
 import numpy as np
 import pytest
 
-from multisync.wclr import (
+from syncpipe.wclr import (
     windowed_cross_lagged_regression,
     wclr_coupling_trace,
 )
-from multisync.computation_pipeline import (
+from syncpipe.computation_pipeline import (
     ComputationPipeline,
     BatchComputationPipeline,
 )
-from multisync.synthetic import generate_ground_truth_dyad
+from syncpipe.synthetic import generate_ground_truth_dyad
 
 
 def _make_dyad(coupling=0.6, seed=0, duration_sec=60, hz=1.0):
@@ -2069,9 +1816,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.dynamic_features import sliding_window_wcc
-from multisync.dataset import SynchronyDataset
-from multisync.qc import (
+from syncpipe.dynamic_features import sliding_window_wcc
+from syncpipe.dataset import SynchronyDataset
+from syncpipe.qc import (
     DEFAULT_CONFIG,
     StageVerdict,
     run_quality_check,
@@ -2184,8 +1931,8 @@ construction. `run_quality_check` must surface this as a non-blocking NOTE
 co-start, and must stay silent once the dataset explicitly marks co-start as
 verified.
 """
-from multisync.synthetic import generate_ground_truth_dyad
-from multisync.qc import run_quality_check
+from syncpipe.synthetic import generate_ground_truth_dyad
+from syncpipe.qc import run_quality_check
 
 
 def _clean_dyad():
@@ -2235,12 +1982,12 @@ import logging
 import numpy as np
 import pytest
 
-from multisync.feature_definitions import (
+from syncpipe.feature_definitions import (
     ONSET_THRESHOLD,
     SURROGATE_THRESHOLD_MAX,
     compute_surrogate_threshold,
 )
-from multisync.dynamic_features import compute_surrogate_threshold_from_signals
+from syncpipe.dynamic_features import compute_surrogate_threshold_from_signals
 
 
 def test_degenerate_fallback_is_loud_and_flagged(caplog):
@@ -2315,9 +2062,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync import feature_definitions as fd
-from multisync.dataset import SynchronyDataset
-from multisync.qc import run_quality_check
+from syncpipe import feature_definitions as fd
+from syncpipe.dataset import SynchronyDataset
+from syncpipe.qc import run_quality_check
 
 
 # ---------------------------------------------------------------------------
@@ -2456,11 +2203,11 @@ Tests for session-level pooled surrogate thresholding.
 import numpy as np
 import pytest
 
-from multisync.session_threshold import (
+from syncpipe.session_threshold import (
     compute_session_pooled_threshold,
     compute_condition_pooled_thresholds,
 )
-from multisync.synthetic import generate_ground_truth_dyad
+from syncpipe.synthetic import generate_ground_truth_dyad
 
 
 def _make_dyad_signals(coupling=0.6, seed=0, duration_sec=60, hz=1.0):
@@ -2553,8 +2300,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.dataset import SynchronyDataset
-from multisync.qc import (
+from syncpipe.dataset import SynchronyDataset
+from syncpipe.qc import (
     DEFAULT_CONFIG,
     StageVerdict,
     run_quality_check,
@@ -2641,7 +2388,7 @@ Features tested:
 
 import numpy as np
 import pytest
-from multisync.dynamic_features import extract_dynamic_features, DynamicFeatures
+from syncpipe.dynamic_features import extract_dynamic_features, DynamicFeatures
 
 
 def create_synthetic_wcc(
@@ -3005,10 +2752,9 @@ if __name__ == "__main__":
 """v1.0 hardening regression tests.
 
 Covers the four review-driven hardening items:
-  1. prediction.py  — feature-to-sample ratio (FSR) + overparameterization warning
-  2. importer.py    — merge_person_files offset_b_sec (relative-time correction)
-  3. qc.py          — marker-channel zero-variance exemption + dead-code cleanup
-  4. wclr.py        — opt-in sign_stable flag (no effect on default trace)
+  1. importer.py    — merge_person_files offset_b_sec (relative-time correction)
+  2. qc.py          — marker-channel zero-variance exemption + dead-code cleanup
+  3. wclr.py        — opt-in sign_stable flag (no effect on default trace)
 """
 import csv
 import os
@@ -3018,77 +2764,13 @@ import numpy as np
 import pandas as pd
 from types import SimpleNamespace
 
-from multisync.prediction import (
-    MIN_SAMPLES_PER_FEATURE,
-    PredictionResult,
-    _compose_warning,
-    _fsr,
-    _overparam_warning,
-    rolling_origin_cv,
-)
-from multisync.importer import DataImporter
-from multisync.qc import _check_signal_integrity
-from multisync.wclr import windowed_cross_lagged_regression as wclr
+from syncpipe.importer import DataImporter
+from syncpipe.qc import _check_signal_integrity
+from syncpipe.wclr import windowed_cross_lagged_regression as wclr
 
 
 # ---------------------------------------------------------------------------
-# 1. prediction.py — FSR + overparameterization guard
-# ---------------------------------------------------------------------------
-def test_fsr_helper_basic():
-    assert _fsr(20, 10) == 2.0
-    assert _fsr(0, 10) == 0.0
-    assert _fsr(20, 0) == 0.0
-
-
-def test_overparam_warning_threshold():
-    # 20 samples, 10 features -> 20 < 3*10 -> warn
-    msg = _overparam_warning(20, 10)
-    assert msg is not None
-    assert "overparameterized" in msg
-    # 40 samples, 10 features -> 40 >= 30 -> no warn
-    assert _overparam_warning(40, 10) is None
-    # undefined -> no warn
-    assert _overparam_warning(0, 10) is None
-    assert _overparam_warning(20, 0) is None
-
-
-def test_compose_warning():
-    assert _compose_warning("a", None) == "a"
-    assert _compose_warning(None, "b") == "b"
-    assert _compose_warning("a", "b") == "a; b"
-    assert _compose_warning(None, None) is None
-
-
-def test_prediction_result_fsr_roundtrip():
-    r = PredictionResult(n_samples=25, feature_to_sample_ratio=2.5)
-    d = r.to_dict()
-    assert d["n_samples"] == 25
-    assert d["feature_to_sample_ratio"] == 2.5
-    r2 = PredictionResult.from_dict(d)
-    assert r2.n_samples == 25
-    assert r2.feature_to_sample_ratio == 2.5
-
-
-def test_rolling_origin_cv_reports_fsr_and_overparam():
-    rng = np.random.default_rng(1)
-    wcc = np.concatenate([
-        rng.normal(0, 0.3, 30),
-        rng.normal(0.5, 0.2, 10),
-        rng.normal(0, 0.3, 30),
-    ])
-    res = rolling_origin_cv(
-        wcc[:40], window_size=30, hz=1.0, horizon_windows=1,
-        n_splits=3, gap=0, threshold=0.0, mode="intra",
-    )
-    assert res.n_samples > 0
-    assert res.feature_to_sample_ratio > 0.0
-    assert "overparameterized" in (res.warning or "")
-    # ratio equals n_samples / n_features_used
-    assert abs(res.feature_to_sample_ratio - res.n_samples / res.n_features_used) < 1e-9
-
-
-# ---------------------------------------------------------------------------
-# 2. importer.py — offset_b_sec
+# 1. importer.py — offset_b_sec
 # ---------------------------------------------------------------------------
 def _write_csv(path, vals):
     with open(path, "w", newline="") as f:
@@ -3121,7 +2803,7 @@ def test_merge_person_files_offset_b_sec():
 
 
 # ---------------------------------------------------------------------------
-# 3. qc.py — marker-channel exemption
+# 2. qc.py — marker-channel exemption
 # ---------------------------------------------------------------------------
 def test_marker_channel_exemption():
     rng = np.random.default_rng(2)
@@ -3153,7 +2835,7 @@ def test_marker_channel_exemption():
 
 
 # ---------------------------------------------------------------------------
-# 4. wclr.py — sign_stable invariant
+# 3. wclr.py — sign_stable invariant
 # ---------------------------------------------------------------------------
 def _sign_flips(trace):
     s = np.sign(trace)

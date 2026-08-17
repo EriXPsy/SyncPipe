@@ -48,13 +48,13 @@ from sklearn.pipeline import make_pipeline
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-from multisync.feature_definitions import (
+from syncpipe.feature_definitions import (
     extract_features,
     compute_first_peak_time,
     compute_baseline_fraction,
     compute_inter_peak_cv,
 )
-from multisync.morphology import classify_morphology
+from syncpipe.morphology import classify_morphology
 
 OUT_DIR = PROJECT_ROOT / "artifacts" / "incremental_value"
 OUT_DIR.mkdir(parents=True, exist_ok=True)

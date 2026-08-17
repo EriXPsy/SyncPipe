@@ -31,22 +31,22 @@ warnings.filterwarnings("ignore")
 
 # ── SyncPipe imports ──────────────────────────────────────────────────────
 # Repo root inferred from this file's location (scripts/ is one level down).
-MULTISYNC_CORE = str(Path(__file__).resolve().parents[1])
-if MULTISYNC_CORE not in sys.path:
-    sys.path.insert(0, MULTISYNC_CORE)
+SYNCPIPE_CORE = str(Path(__file__).resolve().parents[1])
+if SYNCPIPE_CORE not in sys.path:
+    sys.path.insert(0, SYNCPIPE_CORE)
 
-from multisync.dynamic_features import sliding_window_wcc, extract_dynamic_features
-from multisync.wcc_export import export_wcc_traces
-from multisync.feature_vif_test import collinearity_report, feature_correlation, feature_vif
+from syncpipe.dynamic_features import sliding_window_wcc, extract_dynamic_features
+from syncpipe.wcc_export import export_wcc_traces
+from syncpipe.feature_vif_test import collinearity_report, feature_correlation, feature_vif
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-7s | %(message)s")
 log = logging.getLogger("wcc_vif_morph")
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 # External raw datasets are NOT shipped with the repo. Point OSF_ROOT at your
-# local copy of the OSF datasets (or set the MULTISYNC_OSF_ROOT env var).
-OSF_ROOT = Path(os.environ.get("MULTISYNC_OSF_ROOT", "data/osf"))
-ARTIFACTS = Path(MULTISYNC_CORE) / "artifacts"
+# local copy of the OSF datasets (or set the SYNCPIPE_OSF_ROOT env var).
+OSF_ROOT = Path(os.environ.get("SYNCPIPE_OSF_ROOT", "data/osf"))
+ARTIFACTS = Path(SYNCPIPE_CORE) / "artifacts"
 WCC_OUT   = ARTIFACTS / "wcc_traces"
 VIF_OUT   = ARTIFACTS / "vif"
 MORPH_OUT = ARTIFACTS / "morphology"
@@ -75,8 +75,8 @@ def _zscore(x: np.ndarray) -> np.ndarray:
 
 def export_lerique_wcc() -> pd.DataFrame:
     """Load Lerique preprocessed data, compute WCC, export traces."""
-    from multisync.realtest.lerique_2024 import (
-        load_lerique_dataset, lerique_record_to_multisync_dyad,
+    from syncpipe.realtest.lerique_2024 import (
+        load_lerique_dataset, lerique_record_to_syncpipe_dyad,
         TARGET_FS_HZ,
     )
 
@@ -298,12 +298,12 @@ def run_vif_diagnostics() -> pd.DataFrame:
                          "switching_rate", "bimodality_coefficient"],
         },
         "gordon": {
-            "csv": OSF_ROOT / "Gordon-349su" / "multisync_results" / "gordon_2025_dyads.csv",
+            "csv": OSF_ROOT / "Gordon-349su" / "syncpipe_results" / "gordon_2025_dyads.csv",
             "features": ["onset_latency", "rise_time", "peak_amplitude",
                          "recovery_time", "mean_synchrony", "synchrony_entropy"],
         },
         "andersen": {
-            "csv": OSF_ROOT / "Andersen-hj4k6" / "multisync_results" / "multisync_andersen_full.csv",
+            "csv": OSF_ROOT / "Andersen-hj4k6" / "syncpipe_results" / "syncpipe_andersen_full.csv",
             "features": ["mean_synchrony", "peak_amplitude", "dwell_time",
                          "switching_rate", "bimodality_coefficient",
                          "onset_latency", "rise_time", "recovery_time",

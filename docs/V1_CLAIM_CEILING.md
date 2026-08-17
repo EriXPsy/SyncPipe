@@ -45,7 +45,7 @@ Concretely, v1 may claim:
 | 1 | "SyncPipe measures the *quality* of synchrony as a psychological construct." | No construct validity demonstrated; v1 is a measurement procedure, not a psychometric instrument. |
 | 2 | "SyncPipe establishes interpersonal *coupling* / *causality*." | Positive WCC can arise from shared stimulus, drift, periodicity, artifact (null scenarios). L2 controls within-dyad confounds but not causality. |
 | 3 | "Cross-modal synchrony is a unified construct." | v1 analyzes modalities as separate families; no unified cross-modal model. |
-| 4 | "`dwell_time` / `switching_rate` are confirmatory endpoints." | Conditional-exploratory only; claimable solely when definedness sufficient & threshold policy explicit. |
+| 4 | "`dwell_time` / `switching_rate` are confirmatory endpoints." | Conditional-secondary only; reported in parallel, gated by the definedness eligibility rule (§4.1). |
 | 5 | "WCC morphology descriptors reveal participant lead-lag." | They describe WCC trace shape, not interpersonal timing direction. |
 | 6 | "All listed real datasets are fully reproducible validations." | Gordon/Andersen loaders incomplete; only `fully rerunnable` datasets earn that label. |
 | 7 | "A significant L2 result generalizes beyond the studied modality/design." | No universal generalizability claim; scope is the locked v1 protocol. |
@@ -56,11 +56,12 @@ Concretely, v1 may claim:
 
 | Tier | Features | May appear in the v1 primary result |
 |---|---|---|
-| **Confirmatory primary** | `peak_amplitude` | Yes — condition contrast |
+| **Confirmatory primary** | `peak_amplitude` | Yes — condition contrast (single pre-registered endpoint, no FDR needed) |
 | **Reference** | `mean_synchrony` | Yes — descriptive comparator |
-| **Conditional exploratory** | `dwell_time`, `switching_rate` | Only with definedness + explicit threshold policy; labeled exploratory |
+| **Conditional secondary** | `dwell_time`, `switching_rate` | Parallel report only, gated by the definedness eligibility rule (§4.1); labeled exploratory |
 | **Morphology exploratory** | `onset_latency`, `rise_time`, `recovery_time` | Descriptive only |
-| **Diagnostic / excluded from FDR** | `bimodality_coefficient`, entropy, etc. | Appendix / audit only |
+| **Timing exploratory** | `first_peak_time`, `inter_peak_cv` | Descriptive only, with definedness rate |
+| **Diagnostic / excluded from FDR** | `bimodality_coefficient`, `synchrony_entropy`, `fraction_above_threshold` | Appendix / audit only |
 
 ---
 
@@ -72,6 +73,26 @@ Concretely, v1 may claim:
   freeze).
 - `claimable=False` results are reported but **excluded** from the confirmatory
   claim set.
+
+### 4.1 Definedness eligibility rule (conditional-secondary features)
+
+`dwell_time` and `switching_rate` are **conditionally** eligible: they enter the
+conditional-secondary report **only when** a pre-registered definedness rule is
+met, and are automatically downgraded to descriptive-only otherwise. The rule
+is fixed *a priori*; only its outcome is data-driven (analogous to a stopping
+rule or an inclusion criterion):
+
+- the feature is **defined** in at least `min_defined_fraction` of dyads in both
+  conditions, **and**
+- definedness does **not** differ across conditions (`p_definedness >= alpha`,
+  i.e. no survivor bias).
+
+When either fails, the L2 layer marks the result
+`definedness_status = "informative_undefinedness"` and sets `claimable=False`
+(under the canonical `undefined_policy="gate"`). This is why short-trace
+datasets (e.g. Gordon, where `dwell_time` is defined in ~24% of dyads) report
+these descriptors descriptively, while longer-trace datasets (Lerique, Bizzego)
+keep them eligible — the rule, not the analyst's post-hoc judgment, decides.
 
 ---
 

@@ -2,15 +2,25 @@
 
 This file records **current v1 decisions and changes**. Older exploratory or superseded decision history should be kept in an archive if needed, but the active decision log should remain short enough for users and reviewers to audit.
 
+> **History note (2026-08-17).** The pre-v1.0 git history was squashed into a
+> single commit, so commit hashes cited in older entries are no longer
+> resolvable. Going forward, decisions are cited by decision-ID / dated entry,
+> not by git hash.
+
 ---
 
 ## Current v1 feature-family stance
 
-**Decision.** SyncPipe v1 uses a narrow, two-tier confirmatory FDR structure
-(SSoT in `multisync/feature_definitions.py`):
+**Decision.** SyncPipe v1 uses a two-tier FDR structure (SSoT in
+`syncpipe/feature_definitions.py`):
 
 - `PRIMARY_FDR_FAMILY` (n = 1, confirmatory primary endpoint): `peak_amplitude`
-- `SECONDARY_FDR_FAMILY` (n = 2, parallel confirmatory): `dwell_time`, `switching_rate`
+- `SECONDARY_FDR_FAMILY` (n = 2, conditional secondary): `dwell_time`, `switching_rate`
+
+Only `peak_amplitude` is a confirmatory endpoint; `dwell_time` / `switching_rate`
+are **conditional secondary** — reported in parallel, gated by the definedness
+eligibility rule (see `V1_CLAIM_CEILING.md` §4.1), and labeled exploratory. The
+existence gate is a **second-order group surrogate test** (see §2026-08-17 below).
 
 The two families use **different null models** (L0 signal-level IAAFT vs
 L1 WCC-level IAAFT) and are BH-corrected **independently** — they never share
@@ -20,7 +30,43 @@ correction set. `mean_synchrony` is a reference comparator. `fraction_above_thre
 
 **Rationale.** The v1 contribution is audited measurement infrastructure, not a claim that every WCC-derived descriptor is a validated psychological construct. A narrow primary family reduces multiplicity and keeps interpretation defensible.
 
-**Source of truth.** `multisync/feature_definitions.py`, `multisync/feature_status.py`, and generated `docs/FEATURE_TABLE.md`.
+**Source of truth.** `syncpipe/feature_definitions.py`, `syncpipe/feature_status.py`, and generated `docs/FEATURE_TABLE.md`.
+
+---
+
+## 2026-08-17 — Ratified: confirmatory-primary / conditional-secondary status + second-order existence gate
+
+**Decision (ratified with maintainer).** Three resolutions close the v1
+internal-consistency gaps:
+
+1. **B3 — feature status unified.** `peak_amplitude` is the single
+   **confirmatory primary** endpoint (no FDR needed for m=1; pre-registration
+   supplies the multiplicity control). `mean_synchrony` is **reference**.
+   `dwell_time` / `switching_rate` are **conditional secondary** (reported in
+   parallel, labeled exploratory, gated by a definedness eligibility rule).
+   All four surfaces (`feature_status.py`, `feature_definitions.py`,
+   `docs/FEATURE_TABLE.md`, `V1_CLAIM_CEILING.md`) now agree;
+   `_check_feature_status_consistency` checks `enters_primary_fdr` against
+   `PRIMARY_FDR_FAMILY`.
+2. **B4 — existence gate rewritten.** The old per-dyad ">50% significant +
+   ECG/EDA OR" gate was statistically indefensible (a p-value is not a
+   per-dyad diagnosis; the OR gate's FWER was undefined). It is now a
+   **second-order group surrogate test** (`_existence_gate_by_modality`): the
+   observed group statistic is the mean over dyads of per-dyad
+   `peak_amplitude`; the null is the draw-wise mean of per-dyad signal-level
+   IAAFT surrogate peaks; per-modality p is two-tailed Phipson-Smyth; primary
+   modalities are BH-corrected (m = #primary). `EXISTENCE_GATE_MIN_PASS_RATE`
+   was replaced by `EXISTENCE_GATE_ALPHA`.
+3. **B5 — eligibility rule made explicit.** The existing L2 definedness gate
+   (`min_defined_fraction` + `undefined_policy="gate"` → `claimable=False`) is
+   now documented as the pre-registered eligibility rule in
+   `V1_CLAIM_CEILING.md` §4.1: a conditional-secondary feature is
+   auto-downgraded to descriptive-only when definedness falls below the
+   pre-registered floor or differs across conditions.
+
+**Source of truth.** `syncpipe/feature_definitions.py`,
+`syncpipe/inference_pipeline.py`, `syncpipe/feature_status.py`,
+`docs/V1_CLAIM_CEILING.md`, `docs/V1_PROTOCOL.md`.
 
 ---
 
@@ -50,7 +96,7 @@ identically in `inference_pipeline._apply_global_modality_fdr` and
 guard / backward-compat logic; `mean_synchrony` stays reference;
 `bimodality_coefficient` / `synchrony_entropy` stay exploratory.
 
-**Source of truth.** `multisync/feature_definitions.py` (`FDR_FAMILIES`,
+**Source of truth.** `syncpipe/feature_definitions.py` (`FDR_FAMILIES`,
 `PRIMARY_FDR_FAMILY`, `SECONDARY_FDR_FAMILY`, `REFERENCE_FEATURE`).
 
 ---
@@ -87,14 +133,14 @@ guard / backward-compat logic; `mean_synchrony` stays reference;
 
 **Reproducibility / limitation.** B4 outputs: `artifacts/bakeoff/fdr_family_bakeoff.csv` (wide VIF + Pearson-ρ matrix, columns = datasets) and `artifacts/bakeoff/fdr_family_loo_stability.csv`, plus `artifacts/bakeoff/REALDATA_BAKEOFF_ANALYSIS.md`. **All three columns are now REAL** (no synthetic smoke): Lerique + Andersen recomputed from in-repo real data; Gordon ingested from frozen real `artifacts/vif/*` (per-dyad source CSV absent, present `gordon_wcc_traces.csv` degenerate). Gordon LOO is N/A (per-dyad source unavailable); Andersen VIF drifts ~12–14 % from the frozen `andersen_vif_series.csv` but SEVERE flags match. Gordon's real feature set lacks `dwell_time`/`switching_rate`, so it bears no evidence for those two primary members.
 
-**Source of truth.** `multisync/feature_definitions.py`, `multisync/feature_status.py`, `scripts/bakeoff_fdr_family.py`, and `artifacts/bakeoff/`.
+**Source of truth.** `syncpipe/feature_definitions.py`, `syncpipe/feature_status.py`, `scripts/bakeoff_fdr_family.py`, and `artifacts/bakeoff/`.
 
 ---
 
 ## 2026-07-22 — A3 FDR-family flag-flip close-out (Option B already live)
 
 **Decision (verified, no code change required).** The primary-FDR family flag
-(`FDR_FEATURES` in `multisync/feature_definitions.py`) already equals **Option B**
+(`FDR_FEATURES` in `syncpipe/feature_definitions.py`) already equals **Option B**
 = `{peak_amplitude, dwell_time, switching_rate}` (m = 3), with `mean_synchrony`
 carried as a *reference* comparator and `bimodality_coefficient` / `synchrony_entropy`
 kept exploratory. A3 therefore required **no code flip** — the flag, the SSoT
@@ -139,7 +185,7 @@ negative-control. No further family-flag change is warranted.
 > `FDR_FEATURES` (m = 3) remains the union, used only for guards / back-compat.
 > See *Current v1 feature-family stance* above.
 
-**Source of truth.** `multisync/feature_definitions.py` (`FDR_FEATURES`,
+**Source of truth.** `syncpipe/feature_definitions.py` (`FDR_FEATURES`,
 `FDR_FAMILIES`); `scripts/fdr_family_impact.py`; the frozen input CSV
 `artifacts/realtest/lerique_2024/group_contrasts_paired.csv`.
 
@@ -182,7 +228,7 @@ saturated episode regime.** Any dataset with a similarly stereotyped/saturated
 WCC will show the same collapse.
 
 **Known gap (must be closed before claiming dataset-conditional behaviour).** The
-VIF diagnostic in `multisync/validation/l2_between_condition.py` is
+VIF diagnostic in `syncpipe/validation/l2_between_condition.py` is
 **flag-only**: it attaches a `vif_gate` warning to the result but does **not**
 demote severe features or shrink `m` (`"Diagnostic only — never let the VIF gate
 break the L2 test"`, lines ~337–372). So today `dwell_time`/`switching_rate`
@@ -208,7 +254,7 @@ mean (the DC component) cannot capture alone.
 
 **Source of truth.** `artifacts/vif/{andersen,lerique,gordon}_vif_report.json`,
 `artifacts/vif/vif_comparison.csv`, `artifacts/bakeoff/REALDATA_BAKEOFF_ANALYSIS.md`,
-`multisync/feature_vif_test.py`, `multisync/validation/l2_between_condition.py`.
+`syncpipe/feature_vif_test.py`, `syncpipe/validation/l2_between_condition.py`.
 
 ### peak_amplitude incremental value — empirical evidence (resolves the "is peak just mean?" worry)
 
@@ -273,7 +319,7 @@ regime-awareness.
 
 ## 2026-07-23 — P1 residual fixes R1–R4 (review of external patch, dialectical)
 
-External review (post-`08b1883`) flagged four P1 residuals and supplied a
+External review flagged four P1 residuals and supplied a
 drop-in patch under `updates/`. Reviewed dialectically — every claim was
 re-derived against `main` before adoption. All four were **real**, the patch
 introduced **no broken symbol references**, and all 56 + 77 regression tests
@@ -290,7 +336,7 @@ pass.
 `artifacts/paper_lerique/MANIFEST.json` sample (it baked in `repo_dirty:true`
 and an old commit). Instead regenerated it via `--fast` at runtime, which
 correctly reports the current hash and `dirty` status. Also noted the
-**already-committed** MANIFEST was itself stale (`9e3de62` + `TODO`s) — now
+**already-committed** MANIFEST was itself stale (a stale commit hash + `TODO`s) — now
 replaced by the live one.
 
 **Why these were missed in earlier reviews (the meta-lesson).** All four are
@@ -316,14 +362,14 @@ change: when I touch one of a pair (observed/null, mask-on/mask-off,
 multimodal/unimodal, segment/merge), grep for the sibling and verify it too;
 and always exercise **both** branches of any conditional I route through.
 
-Commits: `32a1692` (R1–R3 + tests), `65f8b4f` (R4 + manifest). Pushed, ahead=0.
+Fixed R1–R3 (with tests) and R4 (with manifest).
 
 ---
 
 ## 2026-07-21 — B3 eligibility thresholds freeze (evidence-driven)
 
 **Decision (frozen in code).** Two eligibility floors are now hard-coded as
-module-level constants in `multisync/feature_definitions.py` and exported via
+module-level constants in `syncpipe/feature_definitions.py` and exported via
 `__all__`:
 
 - `T_DEF_MIN_WCC_POINTS: int = 3` — minimum finite WCC sampling points per dyad.
@@ -369,9 +415,9 @@ drop absurdly small pilots (and mathematically undefined dyads) and constrain
 **no** real SyncPipe analysis. No other constant in `feature_definitions.py`
 or elsewhere was changed.
 
-**Source of truth.** `multisync/feature_definitions.py`
+**Source of truth.** `syncpipe/feature_definitions.py`
 (`T_DEF_MIN_WCC_POINTS`, `N_MIN_DYADS_FDR`, `check_eligibility`);
-`multisync/qc.py` (`run_quality_check` eligibility NOTE);
+`syncpipe/qc.py` (`run_quality_check` eligibility NOTE);
 `tests/unit/test_features.py` (§ "source: test_eligibility_thresholds.py").
 
 ---
@@ -380,14 +426,14 @@ or elsewhere was changed.
 
 **Decision.** The word "canonical" in SyncPipe now carries an explicit layer qualifier. There are two distinct canonical layers that must never be conflated:
 
-- **Descriptor-layer canonical** = ``DynamicAnalyzer.fit_transform`` — the CLI default feature-extraction route (per-dyad threshold, descriptive). This is what the CLI (`analyze`, `demo`) and ``DynamicAnalyzer(enable_prediction=False)`` reach by default. ``CANONICAL_PATH`` / ``CANONICAL_DESCRIPTOR_PATH`` in ``multisync/core.py`` name this layer.
+- **Descriptor-layer canonical** = ``DynamicAnalyzer.fit_transform`` — the CLI default feature-extraction route (per-dyad threshold, descriptive). This is what the CLI (`analyze`, `demo`) and ``DynamicAnalyzer(enable_prediction=False)`` reach by default. ``CANONICAL_PATH`` / ``CANONICAL_DESCRIPTOR_PATH`` in ``syncpipe/core.py`` name this layer.
 - **Scientific-layer canonical** = ``pipeline_bridge`` + ``InferencePipeline.run_audited_evidence_chain`` — the ONLY path that produces a defensible, manuscript-grade conclusion (per-modality pooled threshold + design controls + group FDR). This is the audited evidence chain referenced by README:449 and used by ``scripts/reproduce_lerique_paper.py`` (``three_pipeline_v1``).
 
 **Rule.** In code and docs, "canonical" MUST be written with its layer qualifier (descriptor-layer vs scientific-layer). Flipping or redefining either canonical definition requires explicit user sign-off PLUS an update to this DECISION_LOG entry. No local / session-level optimum may silently override a canonical definition.
 
 **Why this locks the risk.** Earlier narrative treated ``DynamicAnalyzer`` as the "canonical main analysis path" slated to replace / be replaced by ``InferencePipeline`` (retirement / reversal language). That framing let a session-local optimum undo the canonical definition. This entry retires that reversal narrative: both layers are supported, neither retires the other, and they do not compete. The descriptor layer computes feature vectors; the scientific layer computes conclusions.
 
-**Source of truth.** ``multisync/core.py`` (``CANONICAL_PATH``, ``CANONICAL_DESCRIPTOR_PATH``); ``multisync/pipeline_bridge.py`` + ``InferencePipeline.run_audited_evidence_chain``; README SOP; ``scripts/reproduce_lerique_paper.py``.
+**Source of truth.** ``syncpipe/core.py`` (``CANONICAL_PATH``, ``CANONICAL_DESCRIPTOR_PATH``); ``syncpipe/pipeline_bridge.py`` + ``InferencePipeline.run_audited_evidence_chain``; README SOP; ``scripts/reproduce_lerique_paper.py``.
 
 ---
 
@@ -405,7 +451,7 @@ or elsewhere was changed.
 
 ---
 
-## 2026-07-24 — Per-modality pooled onset threshold as the normative default (5c078a0)
+## 2026-07-24 — Per-modality pooled onset threshold as the normative default
 
 **Decision (frozen in code).** The canonical v1 onset-threshold strategy is now
 **per-modality pooled IAAFT**: `records_to_inference_inputs` and
@@ -439,26 +485,26 @@ work (forwarded unchanged) but are now explicitly sensitivity/fallback usage.
 `docs/USER_MANUAL.md` §8, `docs/SKILL.md`, and `README.md` were updated to
 describe per-modality pooled as the canonical default.
 
-**Source of truth.** `multisync/feature_definitions.py` (`ONSET_THRESHOLD`,
-`SURROGATE_THRESHOLD_MAX`); `multisync/session_threshold.py`
+**Source of truth.** `syncpipe/feature_definitions.py` (`ONSET_THRESHOLD`,
+`SURROGATE_THRESHOLD_MAX`); `syncpipe/session_threshold.py`
 (`compute_session_pooled_thresholds_by_modality`);
-`multisync/pipeline_bridge.py` (`records_to_inference_inputs`,
+`syncpipe/pipeline_bridge.py` (`records_to_inference_inputs`,
 `onset_threshold="session_pooled"` default);
-`multisync/computation_pipeline.py` (`BatchComputationPipeline`).
+`syncpipe/computation_pipeline.py` (`BatchComputationPipeline`).
 
 ---
 
-## 2026-07-24 — sklearn 1.10 / 1.11 deprecation fixes (aa3fefa, 4f85f87)
+## 2026-07-24 — sklearn 1.10 / 1.11 deprecation fixes
 
 **Decision (verified, code change landed).** Two sklearn deprecation breaks
-were cleared in `multisync/prediction.py`:
+were cleared in `syncpipe/prediction.py`:
 
 - **`SVC(probability=True)` → `CalibratedClassifierCV(SVC(...), ensemble=False)`**
-  (commit `4f85f87`). `probability` was deprecated in sklearn 1.9 and removed
+  (this change). `probability` was deprecated in sklearn 1.9 and removed
   in 1.11; the calibrated-wrapped SVC is the supported replacement and yields
   calibrated `predict_proba` for the `svm_rbf` nonlinear baseline.
 - **Remove the `penalty=` keyword from `LogisticRegression`** (commit
-  `aa3fefa`). `penalty` was deprecated in 1.8 and removed in 1.10. The L1
+  this change). `penalty` was deprecated in 1.8 and removed in 1.10. The L1
   regularization is now expressed directly via `l1_ratio=1.0` with
   `solver="saga"` (the elastic-net L1 special case), with no `penalty=`
   argument — matching the prior `penalty='elasticnet'` / `'l1'` behaviour
@@ -474,7 +520,7 @@ or `FutureWarning: The 'probability' parameter was deprecated` from
 `prediction.py`. The linear and nonlinear prediction baselines behave as
 before. No API surface or default changed for callers.
 
-**Source of truth.** `multisync/prediction.py` (`_nonlinear_model_factories`,
+**Source of truth.** `syncpipe/prediction.py` (`_nonlinear_model_factories`,
 `LogisticRegression` sites); guarded by `tests/test_prediction*.py`.
 
 ---
@@ -502,7 +548,7 @@ before. No API surface or default changed for callers.
 7. Threshold mode is made explicit: `DynamicAnalyzer` supports `within_dyad` and `fixed`; session-pooled thresholds are routed to `BatchComputationPipeline`.
 8. Top-level public API was narrowed to the v1 stable surface. Advanced modules remain importable from submodules.
 9. Broken low-level computation paths were repaired (`ComputationPipeline.compute_wcc(method="stride")`, `DataImporter.load_signal`).
-10. `syncpipe` was added as the preferred import/CLI namespace while `multisync` remains a compatibility alias.
+10. The package was renamed to the `syncpipe` namespace (completed 2026-08-17; `syncpipe` is now the sole import/CLI namespace).
 11. Timing fields now use raw undefined semantics (`NaN` when undefined) with explicit `*_imputed` companion fields for ML-only imputation.
 12. CI workflow with pytest and demo smoke test was added.
 13. QC now has a user-facing PASS/WARN/FAIL formatter and CLI `analyze` prints actionable QC messages before WCC computation.
@@ -542,7 +588,7 @@ If missing rates differ across experimental conditions, the old behaviour
 would have created a confound with the condition (dual direction: one inflated,
 one deflated) — exactly the kind of artifact a reviewer would flag.
 
-**Source of truth.** `multisync/feature_definitions.py` (`compute_dwell_time`,
+**Source of truth.** `syncpipe/feature_definitions.py` (`compute_dwell_time`,
 `compute_switching_rate`); guarded by `tests/test_feature_definitions.py`
 (gap-robustness tests).
 
@@ -557,24 +603,20 @@ one deflated) — exactly the kind of artifact a reviewer would flag.
 
 ---
 
-## Dual namespace (`multisync` vs `syncpipe`): intentional, with a sunset plan
+## Namespace: clean-cut rename to `syncpipe` (completed 2026-08-17)
 
-**Decision.** The `syncpipe` namespace is the preferred import/CLI surface
-(`syncpipe` command and `import syncpipe`). The older `multisync` namespace
-remains **only as a compatibility alias** during the transition away from the
-original project name *MultiSync* (renamed to avoid collision with the
-published `multiSyncPy`).
+**Decision (supersedes the earlier sunset plan).** The package was renamed from
+the legacy `multisync` namespace to `syncpipe` in a single clean cut: the
+`multisync` package directory, console script, and `sys.meta_path` alias were
+removed, and `syncpipe` is now the sole import/CLI namespace. There is no
+compatibility alias and no deprecation window (no external users existed at the
+time of the cut). The rename also avoids collision with the published
+`multiSyncPy` and the older *MultiSync* project name.
 
-**Sunset plan (added 2026-07-09).**
-
-- **v1.0 (current):** both namespaces work; new code and docs use `syncpipe`.
-- **v1.1:** importing `multisync` emits a `DeprecationWarning` pointing users
-  to `syncpipe`.
-- **v2.0:** the `multisync` alias is removed; `syncpipe` is the only namespace.
-
-A compatibility alias with no removal date tends to become permanent technical
-debt. Pinning it to a version schedule keeps the migration honest and gives
-downstream users a clear migration window.
+**History (superseded).** An earlier plan staged the rename with a v1.1
+`DeprecationWarning` and a v2.0 removal of the alias. That staging was dropped
+in favour of a one-shot cut, which is simpler and leaves no permanent
+technical debt.
 
 ---
 
@@ -608,10 +650,10 @@ broad metric zoo.
 
 ---
 
-## 2026-07-23 — P2 release-hygiene pack close-out (post-`bbda3fd` re-audit)
+## 2026-07-23 — P2 release-hygiene pack close-out (re-audit)
 
 **Decision.** Adopt the 6-fix "release hygiene" pack from the external
-`updates/` drop (post-tip `bbda3fd`), after dialectical review. Each fix was
+`updates/` drop (post-tip), after dialectical review. Each fix was
 verified against live code (real diff + symbol grep), not trusted on the
 README's "68 passed" claim. Net effect: v1.0 reporting/export honesty closes
 remaining gaps left by P1.
@@ -626,5 +668,5 @@ remaining gaps left by P1.
 
 **Why it matters.** These are not cosmetic: P2-A/P2-JSON mean reviewers/users see empty L2 text and unusable JSON exports today; P2-pred is a methodological-honesty hole (fabricated chance-level AUC) that contradicts v1.0's "audited measurement infrastructure" claim. All 6 are low-risk, behaviour-local, and pass the curated regression set (66 passed, 0 regression; full-suite re-run pending).
 
-**Source of truth.** `multisync/inference_pipeline.py`, `multisync/prediction.py`, `multisync/feature_definitions.py`; guarded by `tests/contracts/test_release_contracts.py` (§ "source: test_p2_release_hygiene.py").
+**Source of truth.** `syncpipe/inference_pipeline.py`, `syncpipe/prediction.py`, `syncpipe/feature_definitions.py`; guarded by `tests/contracts/test_release_contracts.py` (§ "source: test_p2_release_hygiene.py").
 

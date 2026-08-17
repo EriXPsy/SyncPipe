@@ -46,7 +46,7 @@ from typing import List, Optional
 
 import numpy as np
 
-from multisync.prediction import rolling_origin_cv
+from syncpipe.prediction import rolling_origin_cv
 
 # --- Sweep hyperparameters (consistent across sine & noise = a clean pair) ---
 # Calibration surface chosen to be directly comparable to the leakage-audit
@@ -222,7 +222,7 @@ def main() -> dict:
     log_path = "/tmp/syncpipe_decision10.log"
 
     # Disable nonlinear baselines for speed (they do not affect mean_delta_auc).
-    import multisync.prediction as _pred
+    import syncpipe.prediction as _pred
     _pred._nonlinear_model_factories = lambda seed=42: {}  # type: ignore[assignment]
 
     # Logging to file + stdout
@@ -243,7 +243,7 @@ def main() -> dict:
     log(f"DECISION-10 sweep start: n_seeds={n_seeds} "
         f"N={N_SAMPLES} win={WINDOW_SIZE} splits={N_SPLITS} gap={GAP}")
     log(f"FEATURE_NAMES (NEW joint set) used by rolling_origin_cv:")
-    from multisync.prediction import FEATURE_NAMES
+    from syncpipe.prediction import FEATURE_NAMES
     log(f"  {FEATURE_NAMES}")
     log("Nonlinear baselines disabled for sweep speed.")
     t0 = time.time()

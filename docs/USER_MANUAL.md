@@ -32,8 +32,7 @@ Requires Python ≥ 3.10. Check the install:
 ```bash
 syncpipe --version          # -> syncpipe 1.0.0
 ```
-`syncpipe` is the preferred v1 command/import namespace. The older `multisync`
-namespace is retained as a compatibility alias during the transition.
+`syncpipe` is the command/import namespace.
 
 ---
 
@@ -62,7 +61,7 @@ Each CSV holds the two partners' aligned signals for one modality. Provide the
 sampling rate with `--hz` and (optionally) modality names with `-n`.
 
 ### The QC gate (`qc.run_quality_check`)
-Before any analysis, data passes a **4-stage quality gate** (`multisync/qc.py`).
+Before any analysis, data passes a **4-stage quality gate** (`syncpipe/qc.py`).
 Each stage returns PASS / WARN / FAIL; a FAIL raises `DataQualityError`.
 
 | Stage | Checks | Why it matters |
@@ -132,8 +131,8 @@ This is the conceptual core. Do not skip steps or reorder them.
 
 ## 7. The feature / descriptor table
 
-The single source of truth is `multisync/feature_definitions.py` (math) and
-`multisync/feature_status.py` (communication). `scripts/build_feature_table.py`
+The single source of truth is `syncpipe/feature_definitions.py` (math) and
+`syncpipe/feature_status.py` (communication). `scripts/build_feature_table.py`
 emits `docs/FEATURE_TABLE.csv` / `.md`.
 
 Key facts (v1.0):
@@ -178,7 +177,7 @@ distribution (lineage: Lykken & Venables 1971; Ben-Shakhar 1985), at one of
 three granularities.
 
 **Canonical scientific default — per-modality pooled.**
-`compute_session_pooled_thresholds_by_modality` (`multisync/session_threshold.py`)
+`compute_session_pooled_thresholds_by_modality` (`syncpipe/session_threshold.py`)
 derives *one* threshold **per modality** by pooling IAAFT surrogates across all
 dyads of that modality. This is the default used by the audited evidence chain
 (`records_to_inference_inputs(onset_threshold="session_pooled")`,
@@ -248,12 +247,12 @@ confirmatory"; "more synchrony is always better".
 
 | Path | What |
 |---|---|
-| `multisync/feature_definitions.py` | math single source of truth |
-| `multisync/feature_status.py` | communication single source of truth |
-| `multisync/{computation,feature,inference}_pipeline.py` | the three pipelines |
-| `multisync/design_controls.py` | existence + design-control audits |
-| `multisync/qc.py` | 4-stage data quality gate |
-| `multisync/session_threshold.py` | pooled surrogate thresholds |
+| `syncpipe/feature_definitions.py` | math single source of truth |
+| `syncpipe/feature_status.py` | communication single source of truth |
+| `syncpipe/{computation,feature,inference}_pipeline.py` | the three pipelines |
+| `syncpipe/design_controls.py` | existence + design-control audits |
+| `syncpipe/qc.py` | 4-stage data quality gate |
+| `syncpipe/session_threshold.py` | pooled surrogate thresholds |
 | `scripts/` | main-trunk result generators (see `docs/SCRIPT_MAP.md`) |
 | `experimental/` | v2 staging: unintegrated / falsified / one-off code |
 | `docs/METHOD_LOG.md` | dated methodological decisions |

@@ -10,8 +10,8 @@ sys.path.insert(0, r'<REPO>')
 
 import numpy as np
 import pandas as pd
-from multisync.validation.pgt1_intensity import Level3Config, run_level3_grid, bh_fdr
-from multisync.feature_definitions import CONFIRMATORY_FEATURES
+from syncpipe.validation.pgt1_intensity import Level3Config, run_level3_grid, bh_fdr
+from syncpipe.feature_definitions import CONFIRMATORY_FEATURES
 
 FEATS = list(CONFIRMATORY_FEATURES)
 

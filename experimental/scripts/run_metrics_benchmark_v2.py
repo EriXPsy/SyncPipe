@@ -20,9 +20,9 @@ sys.path.insert(0, r'<REPO>')
 
 import numpy as np
 import pandas as pd
-from multisync.metrics import crqa_synchrony, mi_synchrony, plv_synchrony
-from multisync.dynamic_features import extract_dynamic_features, sliding_window_wcc
-from multisync.feature_definitions import CONFIRMATORY_FEATURES
+from syncpipe.metrics import crqa_synchrony, mi_synchrony, plv_synchrony
+from syncpipe.dynamic_features import extract_dynamic_features, sliding_window_wcc
+from syncpipe.feature_definitions import CONFIRMATORY_FEATURES
 
 N_SEEDS = 15
 COUPLINGS = [0.0, 0.3, 0.6]

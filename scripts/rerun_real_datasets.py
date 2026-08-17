@@ -2,7 +2,7 @@
 Rerun Real Dataset Surrogate Tests with Updated SyncPipe Code
 =============================================================
 This script reloads previously-computed features from existing CSV/JSON files
-and reruns the surrogate significance tests using the UPDATED multisync code
+and reruns the surrogate significance tests using the UPDATED syncpipe code
 (L0/L1 tiered null models + per-dyad surrogate threshold).
 
 For each dataset (Gordon, Andersen, Han, Lerique):
@@ -30,20 +30,20 @@ import numpy as np
 import pandas as pd
 
 # ── SyncPipe imports (updated code) ─────────────────────────────────────
-MULTISYNC_CORE = str(Path(__file__).resolve().parents[1])
-if MULTISYNC_CORE not in sys.path:
-    sys.path.insert(0, MULTISYNC_CORE)
+SYNCPIPE_CORE = str(Path(__file__).resolve().parents[1])
+if SYNCPIPE_CORE not in sys.path:
+    sys.path.insert(0, SYNCPIPE_CORE)
 
 # External raw datasets are NOT shipped with the repo. Point OSF_ROOT at your
-# local copy (or set the MULTISYNC_OSF_ROOT env var).
-OSF_ROOT = os.environ.get("MULTISYNC_OSF_ROOT", "data/osf")
+# local copy (or set the SYNCPIPE_OSF_ROOT env var).
+OSF_ROOT = os.environ.get("SYNCPIPE_OSF_ROOT", "data/osf")
 
-from multisync.dynamic_features import (
+from syncpipe.dynamic_features import (
     sliding_window_wcc,
     wcc_surrogate_test,
     extract_dynamic_features,
 )
-from multisync.feature_definitions import extract_features
+from syncpipe.feature_definitions import extract_features
 
 warnings.filterwarnings("ignore")
 
@@ -51,13 +51,13 @@ warnings.filterwarnings("ignore")
 DATASETS = {
     "gordon": {
         "path": os.path.join(OSF_ROOT, "Gordon-349su"),
-        "features_csv": os.path.join(OSF_ROOT, "Gordon-349su", "multisync_results", "gordon_2025_dyads.csv"),
+        "features_csv": os.path.join(OSF_ROOT, "Gordon-349su", "syncpipe_results", "gordon_2025_dyads.csv"),
         "raw_data_dir": os.path.join(OSF_ROOT, "Gordon-349su", "behavioral data"),
         "hz": 2.0,  # behavioral data sampled at 2 Hz
     },
     "andersen": {
         "path": os.path.join(OSF_ROOT, "Andersen-hj4k6"),
-        "features_csv": os.path.join(OSF_ROOT, "Andersen-hj4k6", "multisync_results", "multisync_andersen_dyads.csv"),
+        "features_csv": os.path.join(OSF_ROOT, "Andersen-hj4k6", "syncpipe_results", "syncpipe_andersen_dyads.csv"),
         "raw_data_dir": os.path.join(OSF_ROOT, "Andersen-hj4k6", "Heart_rate_data"),
         "hz": 1.0,  # HR at 1 Hz
     },
@@ -196,7 +196,7 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=str,
-        default=os.path.join(MULTISYNC_CORE, "artifacts", "updated_real_datasets"),
+        default=os.path.join(SYNCPIPE_CORE, "artifacts", "updated_real_datasets"),
         help="Output directory for updated results",
     )
     parser.add_argument(

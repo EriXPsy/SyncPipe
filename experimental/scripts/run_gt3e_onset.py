@@ -50,7 +50,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
-from multisync.dynamic_features import sliding_window_wcc, extract_dynamic_features
+from syncpipe.dynamic_features import sliding_window_wcc, extract_dynamic_features
 
 HZ = 1.0
 DURATION = 180          # seconds

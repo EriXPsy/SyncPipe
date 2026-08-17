@@ -137,9 +137,9 @@ def _analyze_all_records(
     -------
     list of DyadResult, list of failure dicts
     """
-    from multisync.core import DynamicAnalyzer
-    from multisync.batch import DyadResult
-    from multisync.realtest.gordon_2025 import gordon_record_to_multisync_dyad
+    from syncpipe.core import DynamicAnalyzer
+    from syncpipe.batch import DyadResult
+    from syncpipe.realtest.gordon_2025 import gordon_record_to_syncpipe_dyad
 
     # SyncPipe's DynamicAnalyzer takes ``window_size`` in SAMPLES, not
     # seconds.  Convert here so the user can still think in seconds.
@@ -155,7 +155,7 @@ def _analyze_all_records(
 
     for i, rec in enumerate(records, 1):
         try:
-            dyad = gordon_record_to_multisync_dyad(rec)
+            dyad = gordon_record_to_syncpipe_dyad(rec)
             # Align + normalize before fit_transform.  The Gordon record
             # is already on a uniform grid at target_hz, but Dyad.align
             # also runs the timestamp-type sanity check.
@@ -204,7 +204,7 @@ def _run_all_condition_comparisons(buckets: Dict[str, list]) -> pd.DataFrame:
         median_a, median_b, p_raw, p_fdr, effect_size, n_a, n_b,
         significant_fdr.
     """
-    from multisync.batch import group_comparison
+    from syncpipe.batch import group_comparison
 
     rows: List[Dict] = []
     conditions = sorted(buckets.keys())
@@ -258,12 +258,12 @@ def _level3_per_record(
     * ``onset_latency``, ``rise_time``, ``recovery_time`` and
       ``synchrony_entropy`` use a two-sided test (no a priori direction).
     """
-    from multisync.validation.pgt1_intensity import (
+    from syncpipe.validation.pgt1_intensity import (
         prtf_surrogate,
         phipson_smyth_p,
     )
-    from multisync.validation.recovery import _extract_six_features
-    from multisync.dynamic_features import sliding_window_wcc
+    from syncpipe.validation.recovery import _extract_six_features
+    from syncpipe.dynamic_features import sliding_window_wcc
 
     # Tail convention copied from pgt1_intensity.FEATURE_TAILS so the realtest
     # pipeline reports the SAME directional choices as Section 4.4.
@@ -361,7 +361,7 @@ def main() -> int:
     logger.info("Output directory: %s", args.out_dir)
 
     # --- Step 1: load -----------------------------------------------------
-    from multisync.realtest.gordon_2025 import load_gordon_dataset
+    from syncpipe.realtest.gordon_2025 import load_gordon_dataset
 
     logger.info("Loading Gordon dataset from %s ...", args.data_root)
     records = load_gordon_dataset(

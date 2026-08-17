@@ -55,12 +55,12 @@ def features_df_uni(rng):
     """``dyad`` x ``condition`` DataFrame with the real FDR feature columns.
 
     Values are synthetic but the column names track the actual frozen
-    FDR family (``multisync.feature_definitions.FDR_FEATURES``), so the
+    FDR family (``syncpipe.feature_definitions.FDR_FEATURES``), so the
     fixture is drop-in compatible with significance / FDR consumers. Task
     condition is slightly elevated vs rest to give tests a real effect to
     detect.
     """
-    from multisync.feature_definitions import FDR_FEATURES
+    from syncpipe.feature_definitions import FDR_FEATURES
 
     dyads = [f"d{i}" for i in range(6)]
     conditions = ["rest", "task"]

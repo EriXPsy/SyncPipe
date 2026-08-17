@@ -36,8 +36,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
-from multisync.dynamic_features import sliding_window_wcc, extract_dynamic_features
-from multisync.segmentation import hsmm_high_sync_trace
+from syncpipe.dynamic_features import sliding_window_wcc, extract_dynamic_features
+from syncpipe.segmentation import hsmm_high_sync_trace
 from run_gt3b_event import generate_event_gt, ONSET_DELAYS, TAU_RISES, TAU_DECAYS
 
 HZ = 1.0

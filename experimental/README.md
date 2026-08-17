@@ -3,7 +3,7 @@
 These modules and scripts were moved here on 2026-06-13 as part of the v1.0 BRM submission cleanup.
 They are NOT part of the v1.0 SyncPipe public API and are NOT required to reproduce BRM paper results.
 
-## Modules (`experimental/multisync/`)
+## Modules (`experimental/syncpipe/`)
 
 | File | Status | Notes |
 |------|--------|-------|

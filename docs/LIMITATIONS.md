@@ -78,9 +78,9 @@ tested guarantee.
 The code that *produces* the validation numbers historically had weak
 test coverage:
 
-- real-data loaders (`multisync/realtest/lerique_2024.py`,
-  `multisync/realtest/gordon_2025.py`) and the pipeline bridge
-  (`multisync/pipeline_bridge.py`) carried little or no dedicated unit testing.
+- real-data loaders (`syncpipe/realtest/lerique_2024.py`,
+  `syncpipe/realtest/gordon_2025.py`) and the pipeline bridge
+  (`syncpipe/pipeline_bridge.py`) carried little or no dedicated unit testing.
 - simulation ground-truth generators (e.g. the Kuramoto scripts under
   `scripts/`) were, until recently, inline rather than imported modules.
 
@@ -95,7 +95,7 @@ now exercise these paths end-to-end:
   original single-sided mask-drop bug site).
 - `tests/unit/test_significance.py` (§ "source: test_simulation_kuramoto.py") —
   the Kuramoto coupling → synchrony generator pulled into
-  `multisync/simulation/kuramoto.py`.
+  `syncpipe/simulation/kuramoto.py`.
 
 > **Honesty note on loader coverage.** The loader *bodies* are only
 > partially covered. The `preprocess=False` (raw passthrough) and
@@ -128,6 +128,6 @@ SyncPipe was renamed from *MultiSync* to avoid collision with the published
 Methods*). A separate, older library named **SyncPy** (Varni & Avril, 2015)
 also exists in the same domain and is visually/phonetically close; SyncPipe is
 deliberately distinct and is positioned against it in
-`docs/DECISION_LOG.md` ("Related tools"). The legacy `multisync` import/CLI
-namespace remains only as a compatibility alias and has a published removal
-timeline (deprecation warning in v1.1, removal in v2.0).
+`docs/DECISION_LOG.md` ("Related tools"). The package was renamed from the
+legacy `multisync` namespace to `syncpipe`; `syncpipe` is now the sole
+namespace.

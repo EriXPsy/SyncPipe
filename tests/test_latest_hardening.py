@@ -7,15 +7,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.computation_pipeline import ComputationPipeline
-from multisync.core import DynamicAnalyzer
-from multisync.inference_pipeline import InferencePipeline
-from multisync.pipeline_bridge import _as_array, records_to_inference_inputs
-from multisync.validation.l2_between_condition import between_condition_fdr
+from syncpipe.computation_pipeline import ComputationPipeline
+from syncpipe.core import DynamicAnalyzer
+from syncpipe.inference_pipeline import InferencePipeline
+from syncpipe.pipeline_bridge import _as_array, records_to_inference_inputs
+from syncpipe.validation.l2_between_condition import between_condition_fdr
 
 
 def test_nonzero_lag_fails_loud_and_cli_default_is_zero():
-    from multisync.cli import build_parser
+    from syncpipe.cli import build_parser
     args = build_parser().parse_args(["describe", "-i", "a.csv,b.csv"])
     assert args.max_lag == 0.0
     with pytest.raises(ValueError, match="zero-lag WCC only"):
@@ -127,7 +127,7 @@ def test_global_modality_fdr_is_declared():
     # (number of modalities). Only families with a tested member appear, so the
     # expectation is derived from the returned per_feature list rather than
     # assuming the whole SSoT was exercised.
-    from multisync.feature_definitions import FDR_FAMILIES
+    from syncpipe.feature_definitions import FDR_FAMILIES
 
     def _expected_sizes(res, n_modalities):
         payload = next(iter(res.values()))
@@ -158,7 +158,7 @@ def test_global_modality_fdr_is_declared():
 
 def test_pairing_policy_is_explicit_in_manifest():
     import pandas as pd
-    from multisync.core import Dyad
+    from syncpipe.core import Dyad
     ds = Dyad(hz=1.0, eda=pd.DataFrame({"time": np.arange(40.), "person_a": np.sin(np.arange(40.)), "person_b": np.cos(np.arange(40.))}))
     ds.align(target_hz=1.0).zscore()
     result = DynamicAnalyzer(window_size=5, surrogate_n=2, run_qc=False).fit_transform(ds)
@@ -215,26 +215,6 @@ def test_onset_threshold_zero_not_replaced_with_default():
     # would make 0.0 -> 0.5 silently (the original bug).
 
 
-def test_effective_gap_prevents_train_test_overlap():
-    """The gap must account for horizon_windows * window_size raw WCC
-    samples, not just horizon_windows feature rows. Regression test for
-    the time-leakage bug where horizon_gap_rows was undercounted."""
-    from multisync.prediction import _compute_effective_gap
-    for ws in (20, 30, 60):
-        step = max(1, ws // 2)
-        for hw in (1, 2, 3, 4):
-            eff = _compute_effective_gap(0, ws, hw)
-            # Train row i: features from WCC[i*step, i*step+ws-1],
-            # label from WCC[i*step+ws, i*step+ws+hw*ws-1].
-            # Test row j=i+eff: features from WCC[j*step, j*step+ws-1].
-            # No overlap: j*step >= i*step + ws + hw*ws
-            label_end_wcc = ws + hw * ws  # exclusive, in raw WCC samples
-            test_start_wcc = eff * step
-            assert test_start_wcc >= label_end_wcc, (
-                f"ws={ws} hw={hw}: effective_gap={eff} leaves "
-                f"test_start={test_start_wcc} < label_end={label_end_wcc} "
-                f"(overlap={label_end_wcc - test_start_wcc} samples)"
-            )
 
 
 def test_bridge_skips_zero_variance_signal():

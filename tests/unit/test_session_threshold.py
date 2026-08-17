@@ -1,9 +1,9 @@
 """
 Unit tests for per-modality pooled onset thresholds.
 
-Covers :func:`multisync.session_threshold.compute_session_pooled_thresholds_by_modality`
+Covers :func:`syncpipe.session_threshold.compute_session_pooled_thresholds_by_modality`
 and the per-modality wiring of
-:func:`multisync.pipeline_bridge.records_to_inference_inputs`.
+:func:`syncpipe.pipeline_bridge.records_to_inference_inputs`.
 
 The canonical v1 onset threshold is one IAAFT surrogate threshold *per modality*
 (slow/smooth EDA vs fast/spiky ECG get different thresholds). Fixed 0.5 is only
@@ -25,12 +25,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from multisync.session_threshold import (
+from syncpipe.session_threshold import (
     compute_session_pooled_threshold,
     compute_session_pooled_thresholds_by_modality,
 )
-from multisync.feature_definitions import ONSET_THRESHOLD
-from multisync.pipeline_bridge import records_to_inference_inputs
+from syncpipe.feature_definitions import ONSET_THRESHOLD
+from syncpipe.pipeline_bridge import records_to_inference_inputs
 
 
 # ---------------------------------------------------------------------------

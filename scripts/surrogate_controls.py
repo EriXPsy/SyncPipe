@@ -92,7 +92,7 @@ def _build_preprocessed_signals(
     Preprocessed once, reused for real / pseudo-pair / time-shift analyses.
     Returns only dyads with BOTH persons present after preprocessing.
     """
-    from multisync.realtest.lerique_2024 import (
+    from syncpipe.realtest.lerique_2024 import (
         MODALITIES, RAW_FS_HZ, MIN_DURATION_SEC,
         _segments_for_condition_unit,
         _collect_segments_for_person,
@@ -196,8 +196,8 @@ def _extract_features(
     propagates).
     """
     import warnings
-    from multisync.core import DynamicAnalyzer, Dyad
-    from multisync.batch import DyadResult
+    from syncpipe.core import DynamicAnalyzer, Dyad
+    from syncpipe.batch import DyadResult
 
     ch = modality.lower()
     dyad = Dyad(

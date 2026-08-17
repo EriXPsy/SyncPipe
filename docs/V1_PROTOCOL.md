@@ -1,7 +1,7 @@
 # SyncPipe v1.0 — Frozen Scientific Protocol
 
 > **Status:** Frozen Draft v1.0 (for maintainer ratification)  
-> **Baseline:** GitHub HEAD `e89f461` + observation-opportunity audit hardening  
+> **Baseline:** v1.0 frozen state + observation-opportunity audit hardening  
 > **Test baseline:** see `tests/README.md` (enforced by `tests/test_suite_health.py`)  
 > **Companion doc:** `V1_CLAIM_CEILING.md` (what v1 does and does NOT claim)  
 >
@@ -218,32 +218,45 @@ causality. Causal coupling is **out of scope** for every v1 claim.
 | **L1** WCC-level | "Does the WCC trace show structured episodes?" | IAAFT on WCC trace |
 | **L2** between-condition | "Do features differ across conditions?" | dyad-paired permutation + BH-FDR |
 
-### Pre-registered existence gate (locked)
+### Pre-registered existence gate (locked) — second-order group surrogate test
 
-The L0 existence stage is decided by ONE frozen endpoint on a pre-registered
-set of PRIMARY modalities — not by an OR across features or across all
-channels present in the dataset. Deciding "synchrony exists" from whichever
-feature/modality happened to reach p < .05 is an undeclared multiple
-comparison; freezing the endpoint and the modality set removes that freedom.
+The L0 existence stage is decided by ONE frozen endpoint
+(`peak_amplitude`) on a pre-registered set of PRIMARY modalities. It is **not**
+an OR across features, and it is **not** a per-dyad majority rule: a p-value
+describes a population effect, not an individual dyad, so "fraction of dyads
+significant" is not a valid unit-level proposition. Instead the gate runs a
+**second-order group test** per modality (analogous to first-/second-level
+analysis in neuroimaging): dyads are a random effect, and the group-level
+statistic is compared against a null built by aggregating the per-dyad
+signal-level IAAFT surrogate draws.
 
 | Parameter | Code SSoT (`feature_definitions.py`) | v1 value | Rationale |
 |---|---|---|---|
 | Endpoint | `PRIMARY_EXISTENCE_ENDPOINT` | `peak_amplitude` | Same feature as `PRIMARY_FDR_FAMILY` (n=1), so the existence gate and the confirmatory claim cannot diverge |
-| Primary modalities | `PRIMARY_EXISTENCE_MODALITIES` | `("ECG", "EDA")` | Autonomic primary set; ECG and EDA are two readouts of the same autonomic-synchrony construct, so ONE confirming channel suffices (requiring both over-tightens the gate) |
-| Dyad-majority threshold | `EXISTENCE_GATE_MIN_PASS_RATE` | `0.5`, strict `>` | "Synchrony exists in this modality" is indefensible below half the dyads |
+| Primary modalities | `PRIMARY_EXISTENCE_MODALITIES` | `("ECG", "EDA")` | Autonomic primary set; ECG and EDA are two readouts of the same autonomic-synchrony construct, so ONE confirming channel suffices |
+| Significance | `EXISTENCE_GATE_ALPHA` | `0.05` | Per-modality group p (two-tailed Phipson-Smyth), BH-corrected across the primary set |
 
-Gate logic (`_existence_gate_by_modality` in `inference_pipeline.py`): pass rate
-is computed **per modality** as the fraction of that modality's dyads
-significant on the frozen endpoint; the gate is satisfied when **at least one
-primary modality** has pass rate strictly `> 0.5`. Non-primary modalities
-(e.g. RESP, which is largely paced/entrained by task structure) are **reported
-but excluded** from the gate — they are sensitivity/comparator channels.
+Gate logic (`_existence_gate_by_modality` in `inference_pipeline.py`): for each
+modality the observed group statistic is the **mean over dyads** of the per-dyad
+observed `peak_amplitude`; the null is the **draw-wise mean** of the per-dyad
+signal-level IAAFT surrogate peaks (null draw *i* = mean across dyads of each
+dyad's *i*-th surrogate peak, NaN-masked). This preserves each dyad's
+autocorrelation while destroying cross-signal coupling, so between-dyad
+heterogeneity enters the null rather than being averaged away. The per-modality
+p-value is two-tailed Phipson-Smyth; the PRIMARY modalities are BH-corrected
+(*m* = number of primary modalities) so the any-of-k gate controls its
+family-wise error. The gate is satisfied when **at least one primary modality**
+is significant after correction. Non-primary modalities (e.g. RESP, largely
+paced/entrained by task structure) are **reported but excluded** from the gate —
+they are sensitivity/comparator channels. Per-dyad descriptive statistics
+(fraction of dyads whose per-dyad test passed, effect-size spread) are reported
+alongside but do not decide the gate.
 
 `PRIMARY_EXISTENCE_MODALITIES` is **dataset-specific** (the default is the
 Lerique ECG/EDA/RESP composition). Datasets with a different channel
 composition MUST declare their own primary set via
 `SyncPipeConfig.primary_modalities` **before** looking at results; leaving it
-`None` inherits the Lerique default. Both parameters are recorded in the run
+`None` inherits the Lerique default. The parameters are recorded in the run
 config and report, so the declared set is auditable after the fact.
 
 ### FDR and governance parameters (must be explicit in every run)

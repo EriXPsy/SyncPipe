@@ -25,7 +25,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from multisync.feature_definitions import (  # noqa: E402
+from syncpipe.feature_definitions import (  # noqa: E402
     ONSET_THRESHOLD,
     compute_baseline_fraction,
     compute_first_peak_time,
