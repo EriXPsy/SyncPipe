@@ -344,6 +344,9 @@ FEATURE_TIER: Dict[str, str] = {
     # Occupancy descriptor — implemented in SSoT but external status is
     # exploratory-secondary (see feature_status.py); NOT in FDR_FEATURES.
     "fraction_above_threshold": "conditional",
+    # Absolute intensity companion (DECISION-04b): the zero-lag special case
+    # of Bizzego's max-|CC|. Exploratory, NOT in FDR_FEATURES.
+    "peak_abs_amplitude":       "conditional",
     # Morphology-agnostic timing descriptors — implemented in SSoT but
     # external status is exploratory-secondary (see feature_status.py);
     # NOT in FDR_FEATURES.  Definedness is paradigm-dependent (require
@@ -395,6 +398,7 @@ MATHEMATICAL_TIER: Dict[str, str] = {
     "synchrony_entropy":       "L0",
     "bimodality_coefficient":  "L0",
     "fraction_above_threshold": "L0",
+    "peak_abs_amplitude":      "L0",
     # L1 — local temporal structure (WCC-level null)
     "dwell_time":              "L1",
     "switching_rate":          "L1",
@@ -628,10 +632,10 @@ its corrected p is below this alpha."""
 # ---------------------------------------------------------------------------
 # Full feature set for reviewer-proof FDR (critique A, 2026-07-07)
 # ---------------------------------------------------------------------------
-# ALL_FEATURES is the complete set of 12 implemented features (the union of
+# ALL_FEATURES is the complete set of implemented features (the union of
 # every functional tier).  By default the L2 BH-FDR correction uses only the
 # frozen PRIMARY confirmatory family (PRIMARY_FDR_FAMILY, n=1).  Passing
-# ``full_family_fdr=True`` enters ALL 12 features into a SINGLE BH-FDR step.
+# ``full_family_fdr=True`` enters ALL features into a SINGLE BH-FDR step.
 #
 # This is the most CONSERVATIVE multiplicity correction possible (more tests
 # => stricter BH threshold), so it directly answers the "cherry-picking 3/12"
@@ -643,11 +647,12 @@ its corrected p is below this alpha."""
 ALL_FEATURES: Tuple[str, ...] = tuple(FEATURE_TIER.keys())
 """Every implemented feature (Axis A functional tiers union).
 
-12 features: mean_synchrony (reference) + peak_amplitude, dwell_time,
-switching_rate (core) + onset_latency, rise_time, recovery_time,
-synchrony_entropy, bimodality_coefficient, fraction_above_threshold,
-first_peak_time, inter_peak_cv (conditional/exploratory).  Used by the
-``full_family_fdr`` option to enter all features into one BH-FDR step.
+13 features: mean_synchrony (reference) + peak_amplitude, dwell_time,
+switching_rate (core) + peak_abs_amplitude, onset_latency, rise_time,
+recovery_time, synchrony_entropy, bimodality_coefficient,
+fraction_above_threshold, first_peak_time, inter_peak_cv
+(conditional/exploratory).  Used by the ``full_family_fdr`` option to enter
+all features into one BH-FDR step.
 """
 
 
@@ -660,7 +665,7 @@ def get_fdr_features(full_family_fdr: bool = False) -> List[str]:
         False (default) — the frozen PRIMARY confirmatory family
         (``PRIMARY_FDR_FAMILY``, n=1: peak_amplitude). This is the primary
         manuscript endpoint, aligned with ``PRIMARY_EXISTENCE_ENDPOINT``.
-        True — all 12 implemented features (``ALL_FEATURES``) enter a single
+        True — all implemented features (``ALL_FEATURES``) enter a single
         BH-FDR step.  Strictly more conservative; used as a supplementary,
         reviewer-proof check that the frozen core survives even the
         most inclusive multiplicity correction.
@@ -696,6 +701,7 @@ def get_secondary_fdr_features() -> List[str]:
 INTENSITY_FEATURES: Tuple[str, ...] = (
     "mean_synchrony",
     "peak_amplitude",
+    "peak_abs_amplitude",
 )
 """Features reporting the magnitude of moment-to-moment coupling."""
 
@@ -752,6 +758,9 @@ class DynamicFeatures:
     onset_latency: float = float("nan")
     rise_time: float = float("nan")
     peak_amplitude: float = float("nan")
+    # Absolute (sign-agnostic) intensity companion — the zero-lag special case
+    # of Bizzego's max-|CC|. Exploratory, not in FDR.
+    peak_abs_amplitude: float = float("nan")
     recovery_time: float = float("nan")
     dwell_time: float = float("nan")
     switching_rate: float = float("nan")
@@ -819,6 +828,8 @@ class DynamicFeatures:
                 *self.FDR_KEYS,
                 # Reference — always computed, not in the primary FDR family
                 "mean_synchrony",
+                # Absolute intensity companion (exploratory; Bizzego zero-lag)
+                "peak_abs_amplitude",
                 # L2 event-locked (exploratory; not in FDR)
                 "onset_latency",
                 "rise_time",
@@ -1055,11 +1066,43 @@ def compute_peak_amplitude(wcc_smoothed: np.ndarray) -> Tuple[float, Optional[in
     """DECISION-04 · peak_amplitude = max of 3-point smoothed WCC.
 
     Returns ``(peak_value, peak_index)``.  If all NaN, returns ``(NaN, None)``.
+
+    ``peak_amplitude`` is the **signed** global maximum: it reports the
+    strongest *positive* (in-phase) correlation episode and ignores anti-phase
+    (negative) segments. This is a deliberate, segregation-aware reading
+    (negative WCC ≈ segregation, not synchrony; see Gordon's synchrony/
+    segregation axis). The **absolute** companion is
+    :func:`compute_peak_abs_amplitude`, which matches the zero-lag special case
+    of Bizzego et al. (2020)'s max-|cross-correlation| estimator.
     """
     idx = find_dominant_peak(wcc_smoothed)
     if idx is None:
         return float("nan"), None
     return float(wcc_smoothed[idx]), idx
+
+
+def compute_peak_abs_amplitude(wcc_smoothed: np.ndarray) -> float:
+    """DECISION-04b · peak_abs_amplitude = max |3-point smoothed WCC|.
+
+    The **absolute** maximum of the smoothed WCC trace. This is the zero-lag
+    special case of Bizzego et al. (2020, *Behav. Sci.* 10(1):11)'s
+    max-cross-correlation estimator, i.e. anti-phase (negative) correlation
+    contributes to the synchrony *magnitude* rather than being excluded.
+
+    Difference from :func:`compute_peak_amplitude`: where the signed peak
+    reports only the strongest *positive* episode, this reports the strongest
+    episode regardless of sign. On real traces with strong negative segments
+    the two diverge substantially (see
+    ``scripts/verify_bizzego_convergence.py``), so both are reported: the
+    signed descriptor for the segregation-aware reading, the absolute one for
+    Bizzego/SUSY-convergent magnitude.
+
+    Returns NaN if all values are non-finite.
+    """
+    finite = wcc_smoothed[np.isfinite(wcc_smoothed)]
+    if finite.size == 0:
+        return float("nan")
+    return float(np.max(np.abs(finite)))
 
 
 # ---------------------------------------------------------------------------
@@ -1761,6 +1804,7 @@ def extract_features(
     # Smoothed peak first (DECISION-04) -- anchors rise/recovery indexing
     sm = smoothed_wcc(wcc)
     peak_value, peak_idx = compute_peak_amplitude(sm)
+    peak_abs = compute_peak_abs_amplitude(sm)
 
     # Onset is decoupled from peak (DECISION-08)
     onset_lat, onset_def = compute_onset_latency(
@@ -1829,6 +1873,7 @@ def extract_features(
         onset_latency=onset_lat_raw,
         rise_time=rise_t_raw,
         peak_amplitude=peak_value,
+        peak_abs_amplitude=peak_abs,
         recovery_time=rec_t_raw,
         dwell_time=dwell,
         switching_rate=switch,
@@ -1894,6 +1939,7 @@ __all__ = [
     "compute_onset_latency",
     "compute_rise_time",
     "compute_peak_amplitude",
+    "compute_peak_abs_amplitude",
     "compute_recovery_time",
     "compute_dwell_time",
     "compute_switching_rate",

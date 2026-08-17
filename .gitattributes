@@ -1,0 +1,4 @@
+# PDFs are binary artifacts (literature references in the repo root).
+# Force binary so git never applies newline conversion (autocrlf) that
+# would corrupt them, and so diffs are shown as binary rather than text.
+*.pdf binary
