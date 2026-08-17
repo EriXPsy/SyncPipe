@@ -269,7 +269,7 @@ def get_fdr_features(full_family_fdr: bool = False) -> List[str]:
         claim rests on a single pre-registered endpoint so that gating existence
         and claiming group inference cannot smuggle in an OR-across-a-family;
         ``dwell_time`` / ``switching_rate`` are reported in parallel as SECONDARY,
-        BH-corrected within their own family. True returns all 12 implemented
+        BH-corrected within their own family. True returns all implemented
         features for a strictly-more-conservative, reviewer-proof single BH-FDR
         step.
     """

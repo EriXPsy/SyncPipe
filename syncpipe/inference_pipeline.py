@@ -1336,7 +1336,7 @@ def _build_cascade_summary(
             n_l2_total += _tested
             widest_family = max(widest_family, _tested)
     # Family label: the frozen PRIMARY FDR family (single descriptor) is the
-    # primary endpoint; full_family_fdr=True enters all 12 features into one
+    # primary endpoint; full_family_fdr=True enters all features into one
     # BH-FDR step (reviewer-proof against "cherry-picking"). Judge this from the
     # widest single-modality family, not the cross-modality sum, so M modalities
     # x the primary family is not mislabelled "all-features".

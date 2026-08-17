@@ -477,12 +477,12 @@ from syncpipe.feature_definitions import (
 from syncpipe.feature_pipeline import get_fdr_features as fp_get_fdr_features
 from syncpipe.inference_pipeline import UNSPECIFIED_MODALITY, InferencePipeline
 
-N_FEATURES = 12
+N_FEATURES = 13
 PRIMARY_N = len(PRIMARY_FDR_FAMILY)
 
 
 def _full_feature_df(n_dyads: int = 8, seed: int = 0) -> pd.DataFrame:
-    """A DataFrame containing ALL 12 SyncPipe features + dyad/condition cols.
+    """A DataFrame containing ALL SyncPipe features + dyad/condition cols.
 
     Every feature is finite so dyad-paired permutation keeps both conditions
     per dyad (we are testing *feature counts*, not missing-data handling).
@@ -501,7 +501,7 @@ def _full_feature_df(n_dyads: int = 8, seed: int = 0) -> pd.DataFrame:
 
 # --- A1: SSoT API -----------------------------------------------------------
 
-def test_all_features_has_twelve_members():
+def test_all_features_has_expected_member_count():
     assert isinstance(ALL_FEATURES, tuple)
     assert len(ALL_FEATURES) == N_FEATURES
     # FDR features are a strict subset of the full family
@@ -544,7 +544,7 @@ def test_l2_default_tests_only_primary_family():
     assert set(f.feature for f in res["per_feature"]) == set(PRIMARY_FDR_FAMILY)
 
 
-def test_l2_full_family_tests_all_twelve():
+def test_l2_full_family_tests_all_features():
     df = _full_feature_df()
     pipe = InferencePipeline(df, hz=1.0, wcc_window_sec=20.0, surrogate_n=5, seed=1)
     res = pipe.test_l2_condition(

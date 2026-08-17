@@ -1,6 +1,6 @@
 # SyncPipe — Authoritative Feature Table (Single Source of Truth)
 
-> **Auto-generated** by `scripts/build_feature_table.py` directly from `feature_definitions.py`. Do not hand-edit. Total features computed: **12**; FDR families (primary + secondary): **3** (peak_amplitude, dwell_time, switching_rate); Reference (reported, not corrected): **mean_synchrony**.
+> **Auto-generated** by `scripts/build_feature_table.py` directly from `feature_definitions.py`. Do not hand-edit. Total features computed: **13**; FDR families (primary + secondary): **3** (peak_amplitude, dwell_time, switching_rate); Reference (reported, not corrected): **mean_synchrony**.
 
 
 **Four orthogonal axes** govern every feature:
@@ -14,6 +14,7 @@
 |---|---|---|---|---|---|---|---|---|---|
 | `mean_synchrony` | reference | intensity | Reference only (reported, NOT in FDR) | no | — | L0 | Signal-level IAAFT (shuffle raw signals, recompute WCC) | All paradigms; most robust, least specific | Average moment-to-moment coupling magnitude. |
 | `peak_amplitude` | core | intensity | PRIMARY (intensity) | yes | L0 | L0 | Signal-level IAAFT (shuffle raw signals, recompute WCC) | All paradigms; cross-paradigm robust | Strongest sustained coupling reached during interaction. |
+| `peak_abs_amplitude` | conditional | intensity | Exploratory (intensity; absolute; NOT in FDR) | no | — | L0 | Signal-level IAAFT (shuffle raw signals, recompute WCC) | All paradigms; sign-agnostic | Strongest coupling regardless of sign (Bizzego zero-lag max-|CC|). |
 | `fraction_above_threshold` | conditional | structure | Exploratory (occupancy; NOT in FDR) | no | — | L0 | Signal-level IAAFT (shuffle raw signals, recompute WCC) | All paradigms with threshold justification; report threshold metadata | Fraction of finite WCC samples above the synchrony threshold (coverage). |
 | `dwell_time` | core | structure | Conditional secondary (structure; definedness-gated) | yes | L1 | L1 | WCC-level IAAFT (shuffle WCC; preserves L0 moments) | Continuous & event paradigms; needs sufficient trace length | Mean duration of high-synchrony episodes (persistence). |
 | `switching_rate` | core | structure | Conditional secondary (structure; definedness-gated) | yes | L1 | L1 | WCC-level IAAFT (shuffle WCC; preserves L0 moments) | Continuous & event paradigms; sensitive to window size | How often synchrony crosses in/out of high-coupling state. |

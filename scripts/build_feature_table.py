@@ -67,6 +67,11 @@ ANNOTATIONS = {
         paradigm="All paradigms; cross-paradigm robust",
         interpret="Strongest sustained coupling reached during interaction.",
     ),
+    "peak_abs_amplitude": dict(
+        primary="Exploratory (intensity; absolute; NOT in FDR)",
+        paradigm="All paradigms; sign-agnostic",
+        interpret="Strongest coupling regardless of sign (Bizzego zero-lag max-|CC|).",
+    ),
     "fraction_above_threshold": dict(
         primary="Exploratory (occupancy; NOT in FDR)",
         paradigm="All paradigms with threshold justification; report threshold metadata",
