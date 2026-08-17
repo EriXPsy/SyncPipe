@@ -93,7 +93,31 @@ logger = logging.getLogger(__name__)
 #: 60000 / 60 = 1000).
 RAW_FS_HZ: float = 1000.0
 
-#: SyncPipe v3 WCC target rate (DECISION-locked at the project level).
+#: SyncPipe v1 target analysis rate (Hz), the grid every modality envelope is
+#: resampled onto before WCC.  **This is a configurable default, not a hard
+#: constraint** — pass ``target_fs`` to :func:`load_lerique_dataset` to override
+#: it (and the matching ``hz`` to ``records_to_inference_inputs``; the bridge
+#: enforces the two agree).
+#:
+#: Justification (see docs/METHOD_LOG.md §"target analysis rate"):
+#:   * SyncPipe v1 analyses SLOW physiological envelopes — SCL tonic
+#:     (≈0.05 Hz), HRV low-frequency (≈0.04–0.15 Hz), respiration (≈0.1–1 Hz
+#:     after 0.1–1 Hz bandpass).  Their Nyquist rates are far below 0.5 Hz, so
+#:     1 Hz is not under-sampling.
+#:   * The closest methodological neighbour — Bizzego et al. 2020
+#:     (Behav. Sci. 10:11, doi:10.3390/bs10010011) — resamples IBI to **2 Hz**
+#:     and then low-passes at 0.04 Hz (Golland et al. 2015); 2 Hz there is
+#:     itself ≫ the signal bandwidth.  1 Hz vs 2 Hz is a degree-of-conservatism
+#:     choice, not a fidelity gap: both satisfy Nyquist for the analysed
+#:     envelopes.
+#:   * 1 Hz keeps the WCC window size in *seconds* equal to the window in
+#:     *samples* (window_size = 30 → 30 s), which simplifies the
+#:     window-size-in-seconds governance (no hz→seconds unit conversion).
+#:   * If a future dataset's effect lives at higher frequency (e.g. fast
+#:     respiratory phase-locking, or 4–10 Hz IBI dynamics as in some rMEA /
+#:     Reindl pipelines), raise ``target_fs`` rather than re-litigating the
+#:     default — the whole chain (loader → bridge → pipelines) threads ``hz``
+#:     explicitly and fails loud on mismatch.
 TARGET_FS_HZ: float = 1.0
 
 #: Modalities provided by the dataset.

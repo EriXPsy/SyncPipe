@@ -139,7 +139,7 @@ Current stance:
 
 - `peak_amplitude` is the primary workhorse for synchrony-existence detection.
 - `mean_synchrony` remains a reference comparator, not a sufficient construct definition.
-- `dwell_time` and `switching_rate` are exploratory-secondary structure descriptors because thresholding, WCC overlap, and jitter affect their interpretation.
+- `dwell_time` and `switching_rate` are conditional-secondary structure descriptors (reported in parallel, gated by the definedness eligibility rule; see `V1_CLAIM_CEILING.md` §4.1), because thresholding, WCC overlap, and jitter affect their interpretation.
 - `onset_latency`, `rise_time`, and `recovery_time` are event-mode exploratory descriptors, not general synchrony descriptors.
 - `bimodality_coefficient` and `synchrony_entropy` are distribution-shape diagnostics with construct-validity caveats.
 - `fraction_above_threshold` is implemented in the mathematical SSoT as an exploratory-secondary occupancy descriptor, but is not included in the primary FDR family in v1.
@@ -515,6 +515,54 @@ Resolved this round:
   (`analyze_pgt2_fixed.py`, `diagnose_pgt2_drift.py`,
   `diagnose_h2_switching_entropy.py`) and the falsified circular-shift null were
   moved to `experimental/scripts/` (v2 staging).
+
+## 7e. 2026-08-17 update: target analysis rate (TARGET_FS_HZ) — configurable, justified, not hard-coded
+
+**Decision.** The 1 Hz target analysis rate is a **configurable default**, not a
+magic number. It is the single module constant `TARGET_FS_HZ` in
+`syncpipe/realtest/lerique_2024.py`, threaded explicitly through the whole
+chain — `load_lerique_dataset(target_fs=…)` → `records_to_inference_inputs(hz=…)`
+(the bridge enforces the record's `target_hz` equals the bridge `hz`, failing
+loud on mismatch) → `InferencePipeline(hz=…)`. `scripts/export_envelopes.py`
+exposes `--target-fs` so a user can re-derive envelopes at any rate without
+editing code.
+
+**Justification for the 1 Hz default.** SyncPipe v1 analyses **slow**
+low-frequency physiological envelopes:
+
+- SCL tonic (EDA) ≈ 0.05 Hz;
+- HRV low-frequency / IBI ≈ 0.04–0.15 Hz;
+- respiration ≈ 0.1–1 Hz (after the 0.1–1 Hz bandpass).
+
+Each envelope's Nyquist rate is far below 0.5 Hz, so 1 Hz sampling is not
+under-sampling — it is a deliberate, conservative choice.
+
+**Relationship to the field (the two real differences, and why they are fine).**
+
+1. *Analysis rate.* The closest methodological neighbour — Bizzego et al. 2020
+   (*Behav. Sci.* 10(1):11, doi:10.3390/bs10010011) — resamples the IBI series
+   to **2 Hz** and then low-passes at 0.04 Hz (following Golland et al. 2015).
+   2 Hz there is itself ≫ the signal bandwidth; 1 Hz vs 2 Hz is a
+   degree-of-conservatism choice, not a fidelity gap. Other pipelines
+   (rMEA / Reindl et al.) use 4–10 Hz for IBI synchrony; those rates matter
+   only when the *effect of interest* lives at higher frequency. SyncPipe v1's
+   slow-envelope scope makes 1 Hz defensible; a dataset whose effect requires
+   a higher rate should override `target_fs` rather than re-litigate the default.
+
+2. *Lag.* Bizzego et al. compute the **maximal cross-correlation within ±10 s**;
+   SyncPipe v1 computes **zero-lag WCC only**. This is an explicitly declared
+   v1 scope boundary (see README "It does not": no lead-lag estimation), not an
+   oversight — it is a stated limitation to be lifted in v2, not a silent
+   divergence.
+
+**Why this matters.** A reviewer will ask "why 1 Hz and not 2 Hz / 4–10 Hz, and
+why zero-lag and not ±10 s like Bizzego." The answers are now: (a) 1 Hz is
+Nyquist-sufficient for v1's slow-envelope scope and is configurable; (b) the
+±10 s lag scan is an explicit v2 scope item, mirroring the field-standard
+max-CC estimator already used by Bizzego. The parameter is configurable and
+the rationale is documented, so neither is an unexamined hard-code.
+
+---
 
 ## 8. Open methodological limitations
 
