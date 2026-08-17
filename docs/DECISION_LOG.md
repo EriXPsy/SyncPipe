@@ -131,9 +131,13 @@ guard / backward-compat logic; `mean_synchrony` stays reference;
 
 **n_min=10 evidence (feeds B3).** Real Lerique LOO at N=31 is 100% stable; all three real datasets have N > 10. This upgrades `n_min=10` from "default recommendation" toward evidence-driven: it is a safe *exclusion floor* (drops only absurdly small pilots), never the binding constraint on any real analysis. B3 still owns the constant hard-coding.
 
-**Reproducibility / limitation.** B4 outputs: `artifacts/bakeoff/fdr_family_bakeoff.csv` (wide VIF + Pearson-ρ matrix, columns = datasets) and `artifacts/bakeoff/fdr_family_loo_stability.csv`, plus `artifacts/bakeoff/REALDATA_BAKEOFF_ANALYSIS.md`. **All three columns are now REAL** (no synthetic smoke): Lerique + Andersen recomputed from in-repo real data; Gordon ingested from frozen real `artifacts/vif/*` (per-dyad source CSV absent, present `gordon_wcc_traces.csv` degenerate). Gordon LOO is N/A (per-dyad source unavailable); Andersen VIF drifts ~12–14 % from the frozen `andersen_vif_series.csv` but SEVERE flags match. Gordon's real feature set lacks `dwell_time`/`switching_rate`, so it bears no evidence for those two primary members.
+**Reproducibility / limitation.** B4 outputs (generated on demand by
+`scripts/bakeoff_fdr_family.py` under the gitignored `artifacts/bakeoff/`
+directory; not committed): `fdr_family_bakeoff.csv` (wide VIF + Pearson-ρ matrix,
+columns = datasets), `fdr_family_loo_stability.csv`, and
+`REALDATA_BAKEOFF_ANALYSIS.md`. **All three columns are now REAL** (no synthetic smoke): Lerique + Andersen recomputed from in-repo real data; Gordon ingested from frozen real `artifacts/vif/*` (per-dyad source CSV absent, present `gordon_wcc_traces.csv` degenerate). Gordon LOO is N/A (per-dyad source unavailable); Andersen VIF drifts ~12–14 % from the frozen `andersen_vif_series.csv` but SEVERE flags match. Gordon's real feature set lacks `dwell_time`/`switching_rate`, so it bears no evidence for those two primary members.
 
-**Source of truth.** `syncpipe/feature_definitions.py`, `syncpipe/feature_status.py`, `scripts/bakeoff_fdr_family.py`, and `artifacts/bakeoff/`.
+**Source of truth.** `syncpipe/feature_definitions.py`, `syncpipe/feature_status.py`, and `scripts/bakeoff_fdr_family.py` (its `artifacts/bakeoff/` outputs are generated on demand, not committed).
 
 ---
 
@@ -253,8 +257,10 @@ is therefore not "mean + noise"; it is required to describe episode *morphology*
 mean (the DC component) cannot capture alone.
 
 **Source of truth.** `artifacts/vif/{andersen,lerique,gordon}_vif_report.json`,
-`artifacts/vif/vif_comparison.csv`, `artifacts/bakeoff/REALDATA_BAKEOFF_ANALYSIS.md`,
-`syncpipe/feature_vif_test.py`, `syncpipe/validation/l2_between_condition.py`.
+`artifacts/vif/vif_comparison.csv`, `syncpipe/feature_vif_test.py`,
+`syncpipe/validation/l2_between_condition.py`, and
+`scripts/bakeoff_fdr_family.py` (its `REALDATA_BAKEOFF_ANALYSIS.md` is generated
+on demand, not committed).
 
 ### peak_amplitude incremental value — empirical evidence (resolves the "is peak just mean?" worry)
 
@@ -497,7 +503,7 @@ describe per-modality pooled as the canonical default.
 ## 2026-07-24 — sklearn 1.10 / 1.11 deprecation fixes
 
 **Decision (verified, code change landed).** Two sklearn deprecation breaks
-were cleared in `syncpipe/prediction.py`:
+were cleared in `experimental/prediction.py`:
 
 - **`SVC(probability=True)` → `CalibratedClassifierCV(SVC(...), ensemble=False)`**
   (this change). `probability` was deprecated in sklearn 1.9 and removed
@@ -520,7 +526,7 @@ or `FutureWarning: The 'probability' parameter was deprecated` from
 `prediction.py`. The linear and nonlinear prediction baselines behave as
 before. No API surface or default changed for callers.
 
-**Source of truth.** `syncpipe/prediction.py` (`_nonlinear_model_factories`,
+**Source of truth.** `experimental/prediction.py` (`_nonlinear_model_factories`,
 `LogisticRegression` sites); guarded by `tests/test_prediction*.py`.
 
 ---
@@ -668,5 +674,5 @@ remaining gaps left by P1.
 
 **Why it matters.** These are not cosmetic: P2-A/P2-JSON mean reviewers/users see empty L2 text and unusable JSON exports today; P2-pred is a methodological-honesty hole (fabricated chance-level AUC) that contradicts v1.0's "audited measurement infrastructure" claim. All 6 are low-risk, behaviour-local, and pass the curated regression set (66 passed, 0 regression; full-suite re-run pending).
 
-**Source of truth.** `syncpipe/inference_pipeline.py`, `syncpipe/prediction.py`, `syncpipe/feature_definitions.py`; guarded by `tests/contracts/test_release_contracts.py` (§ "source: test_p2_release_hygiene.py").
+**Source of truth.** `syncpipe/inference_pipeline.py`, `experimental/prediction.py`, `syncpipe/feature_definitions.py`; guarded by `tests/contracts/test_release_contracts.py` (§ "source: test_p2_release_hygiene.py").
 

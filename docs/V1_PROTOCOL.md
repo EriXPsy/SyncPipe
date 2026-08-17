@@ -41,10 +41,10 @@
   WCC trace, interpretable descriptors, and the L0 (signal-level existence) and
   L1 (WCC-level structure) audits. These are legitimate first-class results for
   free-play / continuous designs that do not posit a between-condition contrast.
-- **Predictive mode:** `prediction.py` (cross-modal prediction, AR baseline,
-  ΔAUC) supports "does dyadic synchrony predict an outcome?" — a regression
-  family, distinct from the contrast family, and not part of the confirmatory
-  FDR claim.
+- **Predictive mode (removed from v1):** `prediction.py` (cross-modal
+  prediction, AR baseline, ΔAUC) was moved to `experimental/prediction.py` on
+  2026-08-17 and is **out of the v1 package scope**. It is retained only as
+  experimental staging, not as a v1 capability.
 - **Modality family:** EDA / ECG / RESP / motion-energy are analyzed as
   *separate* families. v1 does **not** build a unified cross-modal psychological
   construct.
@@ -139,8 +139,9 @@ modes** and may appear labeled as such:
 - unpaired group comparison — out of scope (exploratory only);
 - mixed-effects models — out of scope (exploratory only);
 - arbitrary covariate formulas — out of scope (exploratory only);
-- **continuous predictors / outcomes** — supported via `prediction.py`
-  (regression family; exploratory, not in the confirmatory FDR set);
+- **continuous predictors / outcomes** — out of the v1 package scope (the
+  `prediction.py` regression family was moved to `experimental/` on
+  2026-08-17);
 - **multi-condition / phased designs** (e.g., early-vs-late, baseline-vs-task) —
   expressible by labeling the phase as a condition and reusing the L2 machinery
   (exploratory-to-contrasting, subject to pre-specification);
@@ -175,11 +176,11 @@ unequal trials is impossible.
 |---|---|---|
 | `peak_amplitude` | **confirmatory primary endpoint** | condition contrast of max co-fluctuation, controlling observation opportunity |
 | `mean_synchrony` | reference comparator | average zero-lag WCC level (descriptive) |
-| `dwell_time` | conditional exploratory structure descriptor | episode duration *when* definedness sufficient & threshold policy explicit |
-| `switching_rate` | conditional exploratory structure descriptor | WCC state-transition frequency *when* definedness sufficient & threshold policy explicit |
+| `dwell_time` | conditional secondary structure descriptor | episode duration *when* definedness passes the eligibility rule & threshold policy explicit |
+| `switching_rate` | conditional secondary structure descriptor | WCC state-transition frequency *when* definedness passes the eligibility rule & threshold policy explicit |
 | `onset_latency` / `rise_time` / `recovery_time` | event/morphology exploratory | WCC trace morphology only; **not** participant lead-lag |
 | `bimodality_coefficient` / entropy | diagnostic explorer | existence audit; **not** in FDR family |
-| prediction (via `prediction.py`) | exploratory regression family | implemented (cross-modal prediction, AR baseline, ΔAUC); **not** in the confirmatory FDR claim |
+| prediction (via `prediction.py`) | removed from v1 (moved to `experimental/`, 2026-08-17) | not in the v1 package scope |
 | morphology clustering | **not in v1** | v2 or appendix only |
 
 > **Core principle:** v1 *computes* structural features, but does **not** wrap

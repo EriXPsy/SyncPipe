@@ -226,9 +226,9 @@ had no `DynamicFeatures` fields, and were absent from `to_dict()` and the
 status/tier tables — i.e. they were isolated (un-wired) code.
 
 Before wiring, an artifact-level redundancy audit was run
-(`scripts/audit_timing_features.py`, output
-`artifacts/timing_feature_audit.csv`) on the existing Andersen, Gordon,
-and Lerique WCC traces. Findings:
+(`scripts/audit_timing_features.py`; its output
+`artifacts/timing_feature_audit.csv` is generated on demand, not committed) on
+the existing Andersen, Gordon, and Lerique WCC traces. Findings:
 
 - Pooled maximum |Pearson r| against mean/peak/fraction-above-threshold:
   - `first_peak_time`: 0.24 (lowest redundancy)
