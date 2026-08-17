@@ -36,7 +36,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 
 # Recorded 2026-08-02. Any consolidation or rename MUST update both this and
 # tests/README.md — changing the baseline is a reviewed act, not a side effect.
-_EXPECTED_COLLECTED = 470
+_EXPECTED_COLLECTED = 475
 # 2026-08-02: 4 tests promoted from the nightly slow layer to the PR gate
 # (whole-cascade summary, L2 kwarg names, L1 denominator, cross-process seed
 # stability), so slow went 59 -> 55 and not-slow 447 -> 451.
@@ -51,9 +51,10 @@ _EXPECTED_COLLECTED = 470
 # experimental/) removed its unit/parity/hardening tests, so collected
 # 505 -> 469 and not-slow 450 -> 414. The existence-gate rewrite to a
 # second-order group surrogate test added one net test (469 -> 470,
-# not-slow 414 -> 415).
+# not-slow 414 -> 415). The autocorrelation-robustness validation added 5 tests
+# (470 -> 475, not-slow 415 -> 420).
 _EXPECTED_SLOW = 55
-_EXPECTED_NOT_SLOW = 415
+_EXPECTED_NOT_SLOW = 420
 
 # Module-level Path constants that are legitimately allowed not to exist
 # (e.g. output paths written during a test run). Keyed by "module:attribute"

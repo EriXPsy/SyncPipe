@@ -70,6 +70,39 @@ internal-consistency gaps:
 
 ---
 
+## 2026-08-17 — Simulation realism + autocorrelation-robustness of the existence null
+
+**Decision (with maintainer).** The ground-truth simulation and the existence
+audit were hardened against the "too-clean white noise" critique:
+
+1. **`generate_signals` gains `noise_model` / `ar_phi`** (backward compatible,
+   default `"white"`). `noise_model="ar1"` replaces the independent and
+   measurement noise terms with stationary AR(1) noise (lag-1 autocorrelation
+   `ar_phi`, default 0.9) so simulated dyads match the persistent structure of
+   real low-frequency physiological envelopes instead of unrealistic white
+   noise.
+2. **New validation module `syncpipe.validation.autocorr_robustness`** measures
+   the false-positive rate (FPR) and power of the signal-level IAAFT existence
+   audit under white vs AR(1) noise. This closes a gap: on white noise IAAFT
+   degenerates toward FT, so the earlier GT validation never exercised the
+   autocorrelation-preservation machinery that real data depends on.
+3. **Result (120 dyads × 199 surrogates per regime).** FPR = 0.033 (white) /
+   0.025 (AR(1)) — at or below the nominal 0.05, i.e. the existence audit does
+   **not** manufacture coupling from self-persistent noise — and power =
+   0.983 / 1.000. The null is well calibrated on realistic data.
+4. **SUSY cross-check scoped honestly** (`docs/SUSY_COMPARISON.md`): SUSY's
+   segment-shuffling null is `block_permutation_surrogate` in SyncPipe terms,
+   but a true head-to-head needs the raw OSF signals + R, so the repo ships a
+   methodology mapping + local-run instructions rather than a vacuous
+   trace-level shuffle (which is permutation-invariant and therefore
+   uninformative).
+
+**Source of truth.** `syncpipe/simulation/shared_signal_model.py`,
+`syncpipe/validation/autocorr_robustness.py`,
+`scripts/run_autocorr_robustness.py`, `docs/SUSY_COMPARISON.md`.
+
+---
+
 ## 2026-08-03 — FDR family split into PRIMARY (n=1) + SECONDARY (n=2) for independent BH
 
 **Decision.** The previously-frozen m = 3 confirmatory union (`peak_amplitude`,
