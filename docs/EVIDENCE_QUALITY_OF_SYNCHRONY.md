@@ -8,7 +8,7 @@
 > Status: v1.0 review follow-up (Blind Spot A).
 > Source simulation: `scripts/run_kuramoto_l23_taxonomy.py`
 > Raw numbers / figures: generated on demand by `scripts/run_kuramoto_l23_taxonomy.py`
-> and `scripts/plot_quality_of_synchrony_evidence.py` under the gitignored
+> and `archive/scripts/plot_quality_of_synchrony_evidence.py` under the gitignored
 > `artifacts/incremental_value/` and `artifacts/figures/` directories (not
 > committed; reproducible from the scripts).
 

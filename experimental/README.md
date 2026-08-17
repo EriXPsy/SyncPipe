@@ -13,8 +13,9 @@ that scope, so it was moved here out of the package.
 ## `scripts/`
 
 One-off diagnostics, superseded validation runners, falsified experiments, and
-dataset-local analyses from the v0.x development history. They may be useful
-for v2 work but are not v1 trunk.
+dataset-local analyses from the v0.x development history. Most were archived to
+`../archive/experimental_scripts/` on 2026-08-17; only the negative-evidence
+scripts below remain here.
 
 ### Negative-evidence scripts — KEPT TEMPORARILY, DEPRECATION WATCH
 
