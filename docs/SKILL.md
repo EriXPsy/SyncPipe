@@ -41,7 +41,7 @@ syncpipe analyze -i a.csv,b.csv -n behavior,neural --hz 4 --window-size 40 \
 
 # Self-contained reproduction smoke check
 python -m pytest
-python -m syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 --no-prediction -o artifacts/demo_v1
+python -m syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifacts/demo_v1
 python scripts/build_feature_table.py
 ```
 
