@@ -225,9 +225,6 @@ def _extract_features(
     analyzer = DynamicAnalyzer(
         window_size=window_size,
         onset_threshold=onset_threshold,
-        enable_prediction=False,  # surrogate test only needs descriptive
-                                  # features; skip rolling-origin CV +
-                                  # LogisticRegression (dominates runtime).
     )
     results = analyzer.fit_transform(dyad)
     dr = DyadResult.from_analysis_results(results)

@@ -41,7 +41,7 @@ syncpipe --version          # -> syncpipe 1.0.0
 From the repository root:
 ```bash
 python -m pytest
-python -m syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 --no-prediction -o artifacts/demo_v1
+python -m syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifacts/demo_v1
 python scripts/build_feature_table.py
 ```
 This runs the test suite, the synthetic demo with the audited evidence chain,

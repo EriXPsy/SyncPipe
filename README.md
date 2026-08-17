@@ -418,7 +418,6 @@ syncpipe demo \
   --surrogates 20 \
   --audit-surrogates 99 \
   --demo-dyads 4 \
-  --no-prediction \
   -o artifacts/demo_v1
 ```
 
@@ -449,7 +448,6 @@ dyad.align(target_hz=1.0).zscore()
 analyzer = sp.DynamicAnalyzer(
     window_size=10,
     surrogate_n=500,
-    enable_prediction=False,
 )
 results = analyzer.fit_transform(dyad)
 results.export_viewer_json("results.json")
