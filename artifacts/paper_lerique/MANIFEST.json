@@ -4,11 +4,11 @@
   "canonical_path": "three_pipeline_v1",
   "mode": "fast",
   "git": {
-    "commit": "5cb3cce5f0c6210c55e4816b05b7a121ef70bdb5",
+    "commit": "b9b871be2df98514a4d99962921e16a1f8f350ea",
     "repo_dirty": true
   },
   "package_version": "1.0.0",
-  "generated_utc": "2026-08-02T11:54:30Z",
+  "generated_utc": "2026-08-17T03:48:53Z",
   "data_source": {
     "osf_project_url": "https://osf.io/47n3p/",
     "osf_project_title": "Perceptual Crossing Dataset Paper",
@@ -23,8 +23,8 @@
     "note": "SyncPipe does not redistribute raw physiological files. See docs/DATA_ACCESS.md."
   },
   "canonical_pipeline": {
-    "bridge": "multisync.pipeline_bridge.records_to_inference_inputs",
-    "inference": "multisync.inference_pipeline.InferencePipeline.run_audited_evidence_chain",
+    "bridge": "syncpipe.pipeline_bridge.records_to_inference_inputs",
+    "inference": "syncpipe.inference_pipeline.InferencePipeline.run_audited_evidence_chain",
     "evidence_chain": [
       "synchrony_existence_signal_level_IAAFT",
       "design_controls_pseudo_pair_time_shift",
