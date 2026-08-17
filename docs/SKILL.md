@@ -35,9 +35,11 @@ multiple modality families**, built on a windowed cross-correlation (WCC) substr
 # Methods demo + all audit reports on a synthetic ground-truth dyad
 syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifacts/demo
 
-# Analyze user data (one CSV per modality, comma-separated)
-syncpipe analyze -i a.csv,b.csv -n behavior,neural --hz 4 --window-size 40 \
-    --surrogates 500 -o results.json
+# Analyze user data (confirmatory path: manifest + config)
+syncpipe analyze -m manifest.csv -c config.toml -o results/
+
+# Exploratory descriptor path on ad-hoc CSVs
+syncpipe describe -i dyad.csv -n eda --hz 1 --window-size 10 --surrogates 500 -o out.json
 
 # Self-contained reproduction smoke check
 python -m pytest

@@ -2,8 +2,7 @@
 
 > Measurement infrastructure for same-modality dyadic synchrony, analyzed across multiple modality families (EDA / ECG / RESP).
 > This manual is for human users. For an agent-oriented capability sheet see
-> [`SKILL.md`](SKILL.md). For the intellectual lineage see
-> `SYNCPIPE_FAMILY_TREE.html` (repo root) and `METHOD_LOG.md`.
+> [`SKILL.md`](SKILL.md). For the methodological lineage see [`METHOD_LOG.md`](METHOD_LOG.md).
 
 ---
 
@@ -36,29 +35,66 @@ syncpipe --version          # -> syncpipe 1.0.0
 
 ---
 
-## 3. Reproduction smoke check
+## 3. Quick start (5 minutes)
 
-From the repository root:
+Three escalating checks, all runnable without any third-party data.
+
+**Step 1 — 30 seconds: is it installed?**
+```bash
+cd SyncPipe
+python -m pip install -e ".[dev]"
+syncpipe --version            # -> syncpipe 1.0.0
+syncpipe demo -o artifacts/demo   # synthetic dyad, full audit report
+```
+
+**Step 2 — 2 minutes: does the scientific (canonical) path run?**
+```bash
+python scripts/reproduce_lerique_paper.py --fast
+```
+`--fast` builds a synthetic toy-dyad proxy and runs the whole audited evidence
+chain (existence → design controls → group inference) with **no OSF download**.
+It is a wiring check, not a scientific result.
+
+**Step 3 — 2 minutes: does it hold on real data?**
+```bash
+python scripts/verify_realdata_consistency.py
+```
+Re-runs the group inference on the committed Lerique 2024 derived feature
+table and checks that (a) the primary endpoint `peak_amplitude` is significant
+in every modality and (b) `dwell_time` is correctly gated by the definedness
+eligibility rule. Prints `PASS` on success.
+
+Then run the full test suite to confirm the install:
 ```bash
 python -m pytest
-python -m syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifacts/demo_v1
-python scripts/build_feature_table.py
+python scripts/build_feature_table.py   # regenerate the authoritative feature table
 ```
-This runs the test suite, the synthetic demo with the audited evidence chain,
-and the authoritative feature table from the single source of truth.
 
-> The full Gordon / Lerique / Andersen real-data pipelines need raw datasets
-> that are not shipped in the repo; `docs/SCRIPT_MAP.md` lists the per-dataset
-> runner scripts and the trunk result each supports.
+> The full Gordon / Lerique / Andersen pipelines from **raw** data need the
+> OSF mirrors (see `docs/DATA_ACCESS.md` for the Lerique/ECSU-PCE download and
+> layout); the derived Lerique tables needed for Step 3 are committed under
+> `artifacts/realtest/lerique_2024/`.
 
 ---
 
 ## 4. Data input & QC gate
 
-### Input format
-The CLI `analyze` command takes comma-separated CSV paths, one per modality.
-Each CSV holds the two partners' aligned signals for one modality. Provide the
-sampling rate with `--hz` and (optionally) modality names with `-n`.
+### Two input paths
+
+SyncPipe has **two** data-entry commands, for two different jobs:
+
+- **`syncpipe analyze`** — the paper-level scientific path. It reads a strict
+  **manifest CSV** (one row per dyad × modality × condition, pointing at two
+  per-person signal files) plus a **TOML config** (with the pre-specified
+  contrast), and runs the full audited evidence chain. This is the
+  confirmatory path.
+- **`syncpipe describe`** — the exploratory descriptor path. It reads plain
+  CSVs (a same-modality dyad as `person_a`/`person_b` columns, or two
+  single-column files) and emits the viewer JSON. No manifest/config required.
+
+Both accept **preprocessed, aligned, low-frequency envelope signals** (e.g.
+ECG→IBI, EDA→SCL, respiration, motion energy). Raw high-frequency data must be
+reduced to a second-level envelope before entering SyncPipe.
 
 ### The QC gate (`qc.run_quality_check`)
 Before any analysis, data passes a **4-stage quality gate** (`syncpipe/qc.py`).
@@ -77,7 +113,7 @@ results".
 
 ---
 
-## 5. The two CLI commands
+## 5. The three CLI commands
 
 ### `syncpipe demo`
 Runs the complete methods demonstration on a synthetic ground-truth dyad and
@@ -88,12 +124,41 @@ syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifact
 Outputs: `viewer_results.json`, `feature_table.csv`, `feature_status_table.csv`,
 `TABLE1_FEATURE_STATUS.tex`, `DEMO_REPORT.md`.
 
-### `syncpipe analyze`
-Runs the pipeline on your own data:
+### `syncpipe analyze` (confirmatory path)
+Runs the audited evidence chain from a manifest + config:
 ```bash
-syncpipe analyze -i behavior.csv,neural.csv -n behavior,neural \
-    --hz 4 --window-size 40 --surrogates 500 -o results.json
+syncpipe analyze -m manifest.csv -c config.toml -o results/
 ```
+- `manifest.csv` columns: `dyad_id,modality,condition,person_a_path,person_b_path,hz[,mask_path]`
+- `config.toml`: `[analysis]` section; `contrast` is required (two
+  pre-specified condition labels).
+
+Minimal `manifest.csv` (two dyads, one modality, two conditions):
+```csv
+dyad_id,modality,condition,person_a_path,person_b_path,hz
+d01,EDA,rest,data/d01_rest_a.csv,data/d01_rest_b.csv,1
+d01,EDA,task,data/d01_task_a.csv,data/d01_task_b.csv,1
+d02,EDA,rest,data/d02_rest_a.csv,data/d02_rest_b.csv,1
+d02,EDA,task,data/d02_task_a.csv,data/d02_task_b.csv,1
+```
+Minimal `config.toml`:
+```toml
+[analysis]
+contrast = ["rest", "task"]
+window_size = 10
+surrogate_n = 1000
+n_permutations = 10000
+```
+Each `person_*_path` file is a CSV with a `time` column plus one signal column,
+and person A/B time axes must be aligned (same grid, same length).
+
+### `syncpipe describe` (exploratory path)
+Runs the descriptor path on ad-hoc CSVs (no manifest/config):
+```bash
+syncpipe describe -i dyad.csv -n eda --hz 1 --window-size 10 --surrogates 500 -o out.json
+```
+`dyad.csv` has `time`, `person_a`, `person_b` columns (one same-modality dyad).
+Alternatively pass two single-column files via `-i a.csv,b.csv -n x,y`.
 
 ---
 
