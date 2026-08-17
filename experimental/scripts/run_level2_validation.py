@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from multisync.validation import (
+from syncpipe.validation import (
     Level2Config,
     run_level2_grid,
     summarise_level2,

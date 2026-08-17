@@ -1,6 +1,6 @@
 """Lerique (Lerique et al., 2024) pilot runner — SyncPipe P2 case study.
 
-Protocol: frozen in multisync/realtest/lerique_2024.py
+Protocol: frozen in syncpipe/realtest/lerique_2024.py
 Decision records: docs/DECISION_LOG.md (Lerique-meta-correction,
                   Lerique-rest1-length-heterogeneity,
                   Lerique-preproc-smoke-pass,
@@ -53,7 +53,7 @@ from typing import Dict, List, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-# Make multisync importable when run from repo root
+# Make syncpipe importable when run from repo root
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -148,10 +148,10 @@ def _analyze_all_records(
     failures : list[dict]
         Records that raised an unexpected exception during analysis.
     """
-    from multisync.core import DynamicAnalyzer
-    from multisync.batch import DyadResult
-    from multisync.realtest.lerique_2024 import lerique_record_to_multisync_dyad
-    from multisync.feature_definitions import (
+    from syncpipe.core import DynamicAnalyzer
+    from syncpipe.batch import DyadResult
+    from syncpipe.realtest.lerique_2024 import lerique_record_to_syncpipe_dyad
+    from syncpipe.feature_definitions import (
         FDR_FEATURES,
         REFERENCE_FEATURE,
     )
@@ -162,8 +162,8 @@ def _analyze_all_records(
         "DynamicAnalyzer (per-dyad surrogate threshold) for per-record "
         "analysis. For confirmatory v1 results, use the canonical "
         "three-pipeline: "
-        "multisync.pipeline_bridge.records_to_inference_inputs -> "
-        "multisync.inference_pipeline.InferencePipeline."
+        "syncpipe.pipeline_bridge.records_to_inference_inputs -> "
+        "syncpipe.inference_pipeline.InferencePipeline."
         "run_audited_evidence_chain (synchrony-existence audit -> design "
         "controls -> group inference), which uses a single fixed/pooled "
         "onset threshold. See scripts/reproduce_lerique_paper.py."
@@ -205,7 +205,7 @@ def _analyze_all_records(
             })
             continue
         try:
-            dyad = lerique_record_to_multisync_dyad(rec)
+            dyad = lerique_record_to_syncpipe_dyad(rec)
             dyad.align(target_hz=target_hz, require_co_start=False)
             dyad.zscore()
             results = analyzer.fit_transform(dyad)
@@ -338,7 +338,7 @@ def _run_paired_contrasts(per_record: pd.DataFrame) -> pd.DataFrame:
     BH-FDR is applied within (modality × confirmatory family of 6) per
     contrast — diagnostic features get raw p-values only.
     """
-    from multisync.feature_definitions import (
+    from syncpipe.feature_definitions import (
         FDR_FEATURES,
         REFERENCE_FEATURE,
     )
@@ -455,7 +455,7 @@ def main() -> int:
                 logger.info("Archived existing %s -> %s", fname, dst.name)
 
     # ---- Step 1: load all records ----
-    from multisync.realtest.lerique_2024 import (
+    from syncpipe.realtest.lerique_2024 import (
         load_lerique_dataset, MIN_DURATION_SEC,
     )
     logger.info("Loading Lerique dataset (preprocess=True, MIN_DURATION_SEC=%.1fs)…",

@@ -14,7 +14,7 @@ behaviorally identical to the prior implementation.
 import numpy as np
 import pandas as pd
 
-from multisync.computation_pipeline import (
+from syncpipe.computation_pipeline import (
     PairResult,
     batch_compute,
     compute_pair_pipeline,
@@ -104,16 +104,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.pipeline_bridge import records_to_inference_inputs
-from multisync.realtest.gordon_2025 import (
+from syncpipe.pipeline_bridge import records_to_inference_inputs
+from syncpipe.realtest.gordon_2025 import (
     GordonDyadCondition,
-    gordon_record_to_multisync_dyad,
+    gordon_record_to_syncpipe_dyad,
     load_gordon_dataset,
 )
-from multisync.realtest.lerique_2024 import (
+from syncpipe.realtest.lerique_2024 import (
     LeriqueDyadCondition,
     _resample_mask_to_target,
-    lerique_record_to_multisync_dyad,
+    lerique_record_to_syncpipe_dyad,
     load_lerique_dataset,
 )
 
@@ -174,7 +174,7 @@ def test_lerique_record_to_dyad_passes_discontinuity_mask():
     mask = np.zeros(N, dtype=bool)
     mask[10:20] = True  # arbitrary internal-segment flag
     rec = _lerique_rec(mask)
-    dyad = lerique_record_to_multisync_dyad(rec)
+    dyad = lerique_record_to_syncpipe_dyad(rec)
     assert dyad.discontinuity_mask is not None
     assert np.array_equal(dyad.discontinuity_mask, mask)
 
@@ -183,7 +183,7 @@ def test_lerique_loader_rejects_incomplete():
     rec = _lerique_rec(np.ones(N, dtype=bool))
     rec = rec.__class__(**{**rec.__dict__, "incomplete": True})
     with pytest.raises(ValueError):
-        lerique_record_to_multisync_dyad(rec)
+        lerique_record_to_syncpipe_dyad(rec)
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +192,7 @@ def test_lerique_loader_rejects_incomplete():
 # test_gordon_loader_returns_records below.)
 # ---------------------------------------------------------------------------
 def test_gordon_record_to_dyad_produces_modalities():
-    dyad = gordon_record_to_multisync_dyad(_gordon_rec())
+    dyad = gordon_record_to_syncpipe_dyad(_gordon_rec())
     assert "motion_intensity_a" in dyad.modalities
     assert "motion_intensity_b" in dyad.modalities
 

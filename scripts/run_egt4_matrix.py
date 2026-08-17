@@ -9,7 +9,7 @@ sys.path.insert(0, ".")
 
 import time
 import pandas as pd
-from multisync.validation.egt4_emergent import EGT4Config, run_egt4_matrix, summarise_egt4, eg4_generalisation_gap
+from syncpipe.validation.egt4_emergent import EGT4Config, run_egt4_matrix, summarise_egt4, eg4_generalisation_gap
 
 print("Starting EGT-4 Emergent Dynamics 2x2 matrix...")
 t0 = time.time()

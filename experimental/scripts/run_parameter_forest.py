@@ -13,10 +13,10 @@ from tqdm import tqdm
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from multisync.simulation.gt5_gordon_conditions import GORDON_CONDITIONS, _generate_behavioral_signals
-from multisync.dynamic_features import sliding_window_wcc
-from multisync.feature_definitions import extract_features
-from multisync.validation.l2_between_condition import between_condition_fdr
+from syncpipe.simulation.gt5_gordon_conditions import GORDON_CONDITIONS, _generate_behavioral_signals
+from syncpipe.dynamic_features import sliding_window_wcc
+from syncpipe.feature_definitions import extract_features
+from syncpipe.validation.l2_between_condition import between_condition_fdr
 
 OUTPUT_DIR = Path("artifacts/parameter_forest_v2")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

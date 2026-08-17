@@ -7,7 +7,7 @@ import pytest
 
 pytestmark = [pytest.mark.slow]
 
-from multisync.validation import (
+from syncpipe.validation import (
     Level1Config,
     run_level1_grid,
     summarise_level1,
@@ -15,7 +15,7 @@ from multisync.validation import (
     split_half_pearson_r,
     split_half_icc,
 )
-from multisync.feature_definitions import (
+from syncpipe.feature_definitions import (
     FDR_FEATURES,
 )
 
@@ -118,7 +118,7 @@ def test_summary_shape(small_grid_df):
     4 couplings x 4 features = 16 rows.
     Schema columns: coupling, feature, family, mean, sd, n_seeds, onset_threshold.
     """
-    from multisync.validation.recovery import FEATURE_COLUMNS
+    from syncpipe.validation.recovery import FEATURE_COLUMNS
     s = summarise_level1(small_grid_df)
     n_features = len(FEATURE_COLUMNS)  # 4 (3 FDR + 1 reference)
     assert len(s) == 4 * n_features

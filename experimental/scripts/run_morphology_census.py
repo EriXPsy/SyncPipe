@@ -13,7 +13,7 @@ assumption actually covers.
 
 It reconstructs WCC traces the same way DynamicAnalyzer does
 (sliding_window_wcc on aligned, z-scored dyad channels) and runs
-multisync.morphology.classify_morphology on each modality-pair trace.
+syncpipe.morphology.classify_morphology on each modality-pair trace.
 
 Output: artifacts/morphology_census_lerique.csv  (one row per trace)
         + console summary of label proportions per condition.
@@ -30,10 +30,10 @@ sys.path.insert(0, REPO)
 import numpy as np
 import pandas as pd
 
-from multisync.dynamic_features import sliding_window_wcc
-from multisync.morphology import classify_morphology
-from multisync.realtest.lerique_2024 import (
-    load_lerique_dataset, lerique_record_to_multisync_dyad,
+from syncpipe.dynamic_features import sliding_window_wcc
+from syncpipe.morphology import classify_morphology
+from syncpipe.realtest.lerique_2024 import (
+    load_lerique_dataset, lerique_record_to_syncpipe_dyad,
 )
 
 TARGET_HZ = 1.0
@@ -56,7 +56,7 @@ def main():
         if rec.incomplete:
             continue
         try:
-            dyad = lerique_record_to_multisync_dyad(rec)
+            dyad = lerique_record_to_syncpipe_dyad(rec)
             dyad.align(target_hz=TARGET_HZ, require_co_start=False)
             dyad.zscore()
             names = dyad.modality_names

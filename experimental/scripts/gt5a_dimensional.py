@@ -22,7 +22,7 @@ df_gt3 = pd.read_csv(ART / "gt3_estimator_resolution.csv")
 print(f"GT-3 data: {len(df_gt3)} rows")
 
 # ── Load real Andersen data to fit deconfounding coefficients ──
-df_and = pd.read_csv("<OSF_ROOT>/Andersen-hj4k6/multisync_results/multisync_andersen_full.csv")
+df_and = pd.read_csv("<OSF_ROOT>/Andersen-hj4k6/syncpipe_results/syncpipe_andersen_full.csv")
 feats = ['peak_amplitude','dwell_time','recovery_time','onset_latency','switching_rate','rise_time','mean_synchrony','synchrony_entropy']
 X_and = df_and[feats].dropna()
 print(f"Andersen reference: n={len(X_and)}")

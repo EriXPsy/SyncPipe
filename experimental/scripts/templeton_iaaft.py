@@ -10,12 +10,12 @@ from scipy import stats
 
 CORE = Path(r"<REPO>")
 sys.path.insert(0, str(CORE))
-from multisync.validation.pgt1_intensity import iaaft_surrogate
-from multisync.dynamic_features import sliding_window_wcc, extract_dynamic_features
+from syncpipe.validation.pgt1_intensity import iaaft_surrogate
+from syncpipe.dynamic_features import sliding_window_wcc, extract_dynamic_features
 
 warnings.filterwarnings("ignore")
 
-OUT = Path("<OSF_ROOT>/Templeton-Twz3s/multisync_results")
+OUT = Path("<OSF_ROOT>/Templeton-Twz3s/syncpipe_results")
 OUT.mkdir(exist_ok=True)
 LOG = OUT / "templeton_iaaft.log"
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s",
@@ -33,7 +33,7 @@ N_SURR, SEED, HZ = 499, 42, 10.0
 W, S = 300, 100  # W=30s, step=10s at 10Hz
 
 # Load all dyads
-df_full = pd.read_csv("<OSF_ROOT>/Templeton-Twz3s/multisync_results/multisync_templeton_full.csv")
+df_full = pd.read_csv("<OSF_ROOT>/Templeton-Twz3s/syncpipe_results/syncpipe_templeton_full.csv")
 dyad_ids = df_full["dyad_id"].unique()
 log.info(f"Dyads: {len(dyad_ids)}")
 
@@ -105,7 +105,7 @@ df_s = pd.DataFrame(summary_rows)
 confirm_mask = df_s["feature"].isin(CONFIRMATORY)
 p_confirm = df_s.loc[confirm_mask, "p_raw"].values
 if len(p_confirm) > 0:
-    from multisync.validation.pgt1_intensity import bh_fdr as _bh
+    from syncpipe.validation.pgt1_intensity import bh_fdr as _bh
     reject = _bh(p_confirm, q=0.05)
     df_s.loc[confirm_mask, "p_fdr"] = p_confirm * len(p_confirm) / np.arange(1, len(p_confirm)+1)  # simple BH
     # Actually use proper BH

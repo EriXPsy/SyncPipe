@@ -42,7 +42,7 @@ collection baseline and asserts that every module-level path in every test modul
 resolves, because three `parents[1]` bugs had previously turned guard tests into
 permanent skips that still reported success.
 
-Rationale (Blind Spot B): `multisync/realtest/*` and `pipeline_bridge` had
+Rationale (Blind Spot B): `syncpipe/realtest/*` and `pipeline_bridge` had
 **zero** dedicated tests at v1.0, despite being exactly where the
 `discontinuity_mask` single-sided-drop bug had lived. A future refactor of
 WCC defaults would corrupt the paper's numbers with no test catching it.
@@ -70,10 +70,10 @@ Items to verify (or already fixed) when touching the relevant code:
 
 | Area | Risk | Status |
 |------|------|--------|
-| `importer.merge_person_files` | `force_zero_start=True` silently eats `offset_b_sec` | Fixed in `92da615` (offset applied after re-anchor) |
+| `importer.merge_person_files` | `force_zero_start=True` silently eats `offset_b_sec` | Fixed (offset applied after re-anchor) |
 | `realtest/lerique_2024` default branch | kept only one person's `discontinuity_mask` | Fixed (AND-combined + carried into Dyad) |
 | `validation/recovery.split_half_icc` | docstring claimed ICC(2,1), computed Pearson | Deprecated + labeled (pre-v1.0) |
-| `feature_definitions._binarize_with_hysteresis` | NaN bridged across seams (docstring said False) | Fixed in `4efc72c` (NaN → hard False) |
+| `feature_definitions._binarize_with_hysteresis` | NaN bridged across seams (docstring said False) | Fixed (NaN → hard False) |
 
 New code should not add to this list. When reviewing a diff, ask: *"if this
 breaks, will anyone hear it?"*

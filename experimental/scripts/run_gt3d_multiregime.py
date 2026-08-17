@@ -44,8 +44,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
-from multisync.dynamic_features import sliding_window_wcc, extract_dynamic_features
-from multisync.segmentation import hsmm_high_sync_trace
+from syncpipe.dynamic_features import sliding_window_wcc, extract_dynamic_features
+from syncpipe.segmentation import hsmm_high_sync_trace
 
 HZ = 1.0
 DURATION = 600          # longer: continuous paradigm needs more regime visits

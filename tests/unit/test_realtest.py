@@ -1,4 +1,4 @@
-"""Unit tests for the ``multisync.realtest`` loaders (no real data required).
+"""Unit tests for the ``syncpipe.realtest`` loaders (no real data required).
 
 These tests pin the honest-propagation contracts introduced when the loaders
 were hardened against fabricated signals:
@@ -10,7 +10,7 @@ were hardened against fabricated signals:
 3. ``_preprocess_ecg`` returns an all-``False`` mask (not a real mask) when
    R-peak detection fails, so the placeholder trace is gated out downstream
    rather than correlated as a genuine signal.
-4. Gordon ``gordon_record_to_multisync_dyad`` builds a discontinuity mask
+4. Gordon ``gordon_record_to_syncpipe_dyad`` builds a discontinuity mask
    that is False wherever either person's channel is non-finite.
 
 The data-dependent loaders (``load_*_dataset``) are exercised separately in
@@ -22,8 +22,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.realtest import lerique_2024 as L
-from multisync.realtest import gordon_2025 as G
+from syncpipe.realtest import lerique_2024 as L
+from syncpipe.realtest import gordon_2025 as G
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +132,7 @@ def test_gordon_mask_false_where_either_person_nan():
     a = [1.0, np.nan, 3.0, 4.0]
     b = [1.0, 2.0, np.nan, 4.0]
     rec = _gordon_record(a, b)
-    dyad = G.gordon_record_to_multisync_dyad(rec)
+    dyad = G.gordon_record_to_syncpipe_dyad(rec)
     mask = np.asarray(dyad.discontinuity_mask)
     # index 1 (a NaN), index 2 (b NaN) gated; 0 and 3 usable.
     assert mask.tolist() == [True, False, False, True]
@@ -140,5 +140,5 @@ def test_gordon_mask_false_where_either_person_nan():
 
 def test_gordon_mask_all_true_when_clean():
     rec = _gordon_record([1.0, 2.0, 3.0], [4.0, 5.0, 6.0])
-    dyad = G.gordon_record_to_multisync_dyad(rec)
+    dyad = G.gordon_record_to_syncpipe_dyad(rec)
     assert np.asarray(dyad.discontinuity_mask).all()

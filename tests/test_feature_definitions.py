@@ -5,7 +5,7 @@ tests/test_feature_definitions.py
 Tests for the v0.x.0 Methodology Lock-In Single Source of Truth.
 
 These tests are intentionally **independent** of any other test in the
-project: they import only from ``multisync.feature_definitions`` and
+project: they import only from ``syncpipe.feature_definitions`` and
 ``numpy``, so they can be run in isolation::
 
     pytest tests/test_feature_definitions.py -v
@@ -21,7 +21,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from multisync.feature_definitions import (
+from syncpipe.feature_definitions import (
     DynamicFeatures,
     ONSET_THRESHOLD,
     PEAK_SMOOTHING_WINDOW,

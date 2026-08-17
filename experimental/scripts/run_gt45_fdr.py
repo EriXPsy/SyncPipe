@@ -54,7 +54,7 @@ import pandas as pd
 def _find_feature_definitions_path(start: Path) -> Path:
     current = start.resolve()
     for _ in range(10):
-        candidate = current / "multisync" / "feature_definitions.py"
+        candidate = current / "syncpipe" / "feature_definitions.py"
         if candidate.exists():
             return candidate
         candidate2 = current / "feature_definitions.py"
@@ -83,7 +83,7 @@ def _setup_imports(project_root: Optional[Path] = None):
         script_dir = Path(__file__).resolve().parent
         fd_path = _find_feature_definitions_path(script_dir)
     else:
-        fd_path = project_root / "multisync" / "feature_definitions.py"
+        fd_path = project_root / "syncpipe" / "feature_definitions.py"
         if not fd_path.exists():
             fd_path = project_root / "feature_definitions.py"
         if not fd_path.exists():

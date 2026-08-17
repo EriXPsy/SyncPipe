@@ -26,36 +26,11 @@ def test_syncpipe_version_available():
     assert isinstance(sp.__version__, str)
 
 
-def test_legacy_multisync_namespace_still_available():
-    import multisync as ms
+def test_syncpipe_submodules_import_natively():
+    """Real package: `syncpipe.<submodule>` imports without any alias shim."""
+    import importlib
 
-    assert hasattr(ms, "Dyad")
-    assert hasattr(ms, "DynamicAnalyzer")
-
-
-def test_top_level_namespaces_expose_identical_api():
-    """Neither namespace may drift ahead of the other.
-
-    `from multisync import *` honours only `multisync.__all__`, so a name added
-    to multisync without being exported would silently be reachable through one
-    spelling and not the other. Compare the whole surface, and require the same
-    objects rather than merely the same names.
-    """
-    import multisync as ms
-    import syncpipe as sp
-
-    assert set(sp.__all__) == set(ms.__all__)
-    unresolvable = [n for n in ms.__all__ if not hasattr(ms, n)]
-    assert not unresolvable, f"multisync.__all__ lists unresolvable names: {unresolvable}"
-    diverged = [
-        n for n in ms.__all__ if getattr(sp, n, None) is not getattr(ms, n)
-    ]
-    assert not diverged, f"same name resolves to different objects: {diverged}"
-
-
-@pytest.mark.parametrize(
-    "submodule",
-    [
+    for submodule in (
         "feature_definitions",
         "feature_pipeline",
         "inference_pipeline",
@@ -64,35 +39,8 @@ def test_top_level_namespaces_expose_identical_api():
         "canonical_runner",
         "validation.l2_between_condition",
         "realtest.lerique_2024",
-    ],
-)
-def test_syncpipe_submodules_alias_to_multisync(submodule):
-    """`syncpipe.X` must import and be the *same module object* as `multisync.X`.
-
-    Without the alias finder, only top-level names crossed over: every
-    `import syncpipe.feature_definitions` raised ModuleNotFoundError, which forced
-    the docs to switch namespaces mid-example. Identity (not just importability)
-    is asserted so module-level state cannot diverge between the two spellings.
-    """
-    import importlib
-
-    via_syncpipe = importlib.import_module(f"syncpipe.{submodule}")
-    via_multisync = importlib.import_module(f"multisync.{submodule}")
-    assert via_syncpipe is via_multisync
-
-
-def test_syncpipe_cli_is_not_shadowed_by_the_alias():
-    """The alias finder must not hide real modules of the syncpipe package.
-
-    It is appended to sys.meta_path so normal machinery wins first. `syncpipe.cli`
-    is a genuine local shim, so it must stay itself while still exposing the same
-    `main` callable as the implementation it re-exports.
-    """
-    import multisync.cli as mcli
-    import syncpipe.cli as scli
-
-    assert scli is not mcli
-    assert scli.main is mcli.main
+    ):
+        assert importlib.import_module(f"syncpipe.{submodule}") is not None
 
 
 def test_absent_submodule_still_raises_module_not_found():
@@ -105,7 +53,7 @@ def test_absent_submodule_still_raises_module_not_found():
 
 def test_cli_prog_name_uses_canonical_brand():
     """`--help` must say `syncpipe`, matching the distribution and the docs."""
-    from multisync.cli import build_parser
+    from syncpipe.cli import build_parser
 
     assert build_parser().prog == "syncpipe"
 
@@ -183,10 +131,10 @@ import warnings
 import numpy as np
 import pytest
 
-from multisync.batch import _bh_fdr_correction
-from multisync.core import AnalysisResults
-from multisync.feature_pipeline import list_features, recommend_features
-from multisync.report import ReportGenerator
+from syncpipe.batch import _bh_fdr_correction
+from syncpipe.core import AnalysisResults
+from syncpipe.feature_pipeline import list_features, recommend_features
+from syncpipe.report import ReportGenerator
 
 
 # ---------------------------------------------------------------------------

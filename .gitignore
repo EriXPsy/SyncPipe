@@ -45,7 +45,7 @@ artifacts/reviewer_audit/run_log.txt
 # --- Phase-0 cleanup: generated repo/run artifacts (not version controlled) ---
 # Graphify tool outputs (repo root + package dir)
 graphify-out/
-multisync/graphify-out/
+syncpipe/graphify-out/
 # Pytest text capture at repo root (note: *_output.txt / *_summary.txt already
 # covered above; pytest_out.txt ends in _out.txt so needs its own entry)
 pytest_out.txt

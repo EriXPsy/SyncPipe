@@ -36,7 +36,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 
 # Recorded 2026-08-02. Any consolidation or rename MUST update both this and
 # tests/README.md — changing the baseline is a reviewed act, not a side effect.
-_EXPECTED_COLLECTED = 515
+_EXPECTED_COLLECTED = 470
 # 2026-08-02: 4 tests promoted from the nightly slow layer to the PR gate
 # (whole-cascade summary, L2 kwarg names, L1 denominator, cross-process seed
 # stability), so slow went 59 -> 55 and not-slow 447 -> 451.
@@ -45,8 +45,15 @@ _EXPECTED_COLLECTED = 515
 # preservation, determinism, RNG draw count; three in test_inference: n_workers
 # bit-exact parity, pair-count integrity, invalid-value guard), so collected
 # 506 -> 515 and not-slow 451 -> 460.
+# 2026-08-17: the multisync -> syncpipe clean-cut rename removed the dual-
+# namespace/alias tests (a `sys.meta_path` shim no longer exists), so collected
+# 515 -> 505 and not-slow 460 -> 450. The prediction.py move-out (to
+# experimental/) removed its unit/parity/hardening tests, so collected
+# 505 -> 469 and not-slow 450 -> 414. The existence-gate rewrite to a
+# second-order group surrogate test added one net test (469 -> 470,
+# not-slow 414 -> 415).
 _EXPECTED_SLOW = 55
-_EXPECTED_NOT_SLOW = 460
+_EXPECTED_NOT_SLOW = 415
 
 # Module-level Path constants that are legitimately allowed not to exist
 # (e.g. output paths written during a test run). Keyed by "module:attribute"
@@ -75,7 +82,7 @@ def test_repo_root_constant_is_correct():
     missing. Anchor on files that exist solely at the root.
     """
     assert (REPO / "pyproject.toml").is_file(), f"{REPO} is not the repo root"
-    assert (REPO / "multisync").is_dir()
+    assert (REPO / "syncpipe").is_dir()
     assert (REPO / "scripts").is_dir()
 
 

@@ -35,7 +35,7 @@ if str(REPO_ROOT) not in sys.path:
 OUT_DIR = REPO_ROOT / "artifacts" / "incremental_value"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-from multisync.feature_definitions import extract_features
+from syncpipe.feature_definitions import extract_features
 
 # =====================================================================
 # SHARED PARAMS
@@ -51,9 +51,9 @@ SEED = 42
 CALIPER = 0.005                 # max mean_sync difference for a match
 
 # =====================================================================
-# Kuramoto solver — single source of truth in multisync.simulation.kuramoto
+# Kuramoto solver — single source of truth in syncpipe.simulation.kuramoto
 # (which now carries a unit test guarding coupling -> synchrony monotonicity).
-from multisync.simulation.kuramoto import solve_phase_difference
+from syncpipe.simulation.kuramoto import solve_phase_difference
 
 
 def sample_to_n(r_fine, n=300):

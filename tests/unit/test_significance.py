@@ -17,11 +17,11 @@ about most.  Covers:
 import numpy as np
 import pytest
 
-from multisync.dynamic_features import (
+from syncpipe.dynamic_features import (
     _wcc_level_surrogate_test,
     _signal_level_surrogate_test,
 )
-from multisync.validation.pgt1_intensity import phipson_smyth_p
+from syncpipe.validation.pgt1_intensity import phipson_smyth_p
 
 
 # ---------------------------------------------------------------------------
@@ -156,7 +156,7 @@ is actually computed (a single-tailed implementation would not match).
 
 import numpy as np
 
-from multisync.dynamic_features import (
+from syncpipe.dynamic_features import (
     _signal_level_surrogate_test,
     _wcc_level_surrogate_test,
     sliding_window_wcc,
@@ -246,7 +246,7 @@ preserve the DC phase, so the surrogate mean equals the original mean.
 """
 import numpy as np
 
-from multisync.surrogate import ft_surrogate
+from syncpipe.surrogate import ft_surrogate
 
 
 def test_ft_surrogate_preserves_negative_mean_sign():
@@ -295,9 +295,9 @@ def test_ft_surrogate_even_length_nyquist_preserved():
 + thin wrappers) BH-FDR routines.
 
 Claude's review found 3 independent BH-FDR implementations:
-  - multisync.batch._bh_fdr_correction  (canonical; returns (adjusted, rejected))
-  - multisync.validation.l2_between_condition._bh_fdr  (now delegates to batch)
-  - multisync.validation.pgt1_intensity.bh_fdr  (returns boolean rejected array)
+  - syncpipe.batch._bh_fdr_correction  (canonical; returns (adjusted, rejected))
+  - syncpipe.validation.l2_between_condition._bh_fdr  (now delegates to batch)
+  - syncpipe.validation.pgt1_intensity.bh_fdr  (returns boolean rejected array)
 
 All three must agree on (a) adjusted p-values and (b) rejected flags.  This
 test guards against any future drift between the copies.
@@ -305,9 +305,9 @@ test guards against any future drift between the copies.
 
 import numpy as np
 
-from multisync.batch import _bh_fdr_correction
-from multisync.validation.l2_between_condition import _bh_fdr
-from multisync.validation.pgt1_intensity import bh_fdr
+from syncpipe.batch import _bh_fdr_correction
+from syncpipe.validation.l2_between_condition import _bh_fdr
+from syncpipe.validation.pgt1_intensity import bh_fdr
 
 
 def test_bh_fdr_implementations_agree():
@@ -357,9 +357,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.batch import _bh_fdr_correction, apply_fdr, dedupe_fdr_input
-from multisync.validation.l2_between_condition import between_condition_fdr
-from multisync.validation.pgt1_intensity import apply_bh_fdr_within_noise
+from syncpipe.batch import _bh_fdr_correction, apply_fdr, dedupe_fdr_input
+from syncpipe.validation.l2_between_condition import between_condition_fdr
+from syncpipe.validation.pgt1_intensity import apply_bh_fdr_within_noise
 
 
 def test_dedupe_preserves_unique():
@@ -465,7 +465,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.feature_definitions import (
+from syncpipe.feature_definitions import (
     ALL_FEATURES,
     FDR_FEATURES,
     PRIMARY_FDR_FAMILY,
@@ -474,8 +474,8 @@ from multisync.feature_definitions import (
     get_primary_fdr_features,
     get_secondary_fdr_features,
 )
-from multisync.feature_pipeline import get_fdr_features as fp_get_fdr_features
-from multisync.inference_pipeline import UNSPECIFIED_MODALITY, InferencePipeline
+from syncpipe.feature_pipeline import get_fdr_features as fp_get_fdr_features
+from syncpipe.inference_pipeline import UNSPECIFIED_MODALITY, InferencePipeline
 
 N_FEATURES = 12
 PRIMARY_N = len(PRIMARY_FDR_FAMILY)
@@ -627,10 +627,10 @@ two-tailed p, no silent surrogate cap, BC moved to L0 family.
 import numpy as np
 import pytest
 
-from multisync.dynamic_features import (
+from syncpipe.dynamic_features import (
     wcc_surrogate_test, _wcc_level_surrogate_test, sliding_window_wcc,
 )
-from multisync.feature_definitions import FDR_FAMILIES, MATHEMATICAL_TIER, FDR_FEATURES
+from syncpipe.feature_definitions import FDR_FAMILIES, MATHEMATICAL_TIER, FDR_FEATURES
 
 
 def _structured_wcc(seed=0):
@@ -771,8 +771,8 @@ synchrony must increase with coupling strength.
 
 import numpy as np
 
-from multisync.simulation import constant_coupling, generate_signals
-from multisync.simulation.kuramoto import mean_sync_from_K, solve_phase_difference
+from syncpipe.simulation import constant_coupling, generate_signals
+from syncpipe.simulation.kuramoto import mean_sync_from_K, solve_phase_difference
 
 
 def test_solve_phase_difference_in_unit_range():
@@ -816,7 +816,7 @@ dict was keyed by integers (e.g. [1, 11, 18]) instead of feature names.
 
 import numpy as np
 
-from multisync.validation.across_stim_shuffle import across_stim_shuffle_test
+from syncpipe.validation.across_stim_shuffle import across_stim_shuffle_test
 
 
 def _fake_wcc(p1, p2):
@@ -880,10 +880,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.core import Dyad, DynamicAnalyzer
-from multisync.dataset import SynchronyDataset
-from multisync.feature_definitions import extract_features, DynamicFeatures
-from multisync.surrogate import iaaft_surrogate
+from syncpipe.core import Dyad, DynamicAnalyzer
+from syncpipe.dataset import SynchronyDataset
+from syncpipe.feature_definitions import extract_features, DynamicFeatures
+from syncpipe.surrogate import iaaft_surrogate
 
 
 def test_iaaft_preserves_empirical_amplitude_distribution():
@@ -958,7 +958,7 @@ def test_dynamic_analyzer_passes_surrogate_n_into_threshold_meta():
     dyad = Dyad(a=df_a, b=df_b, hz=1.0)
     dyad.align(target_hz=1.0)
     dyad.zscore()
-    analyzer = DynamicAnalyzer(window_size=10, surrogate_n=7, enable_prediction=False)
+    analyzer = DynamicAnalyzer(window_size=10, surrogate_n=7)
     result = analyzer.fit_transform(dyad)
     assert result.threshold_meta
     assert all(meta.get("surrogate_n") == 7 for meta in result.threshold_meta.values())
@@ -966,16 +966,12 @@ def test_dynamic_analyzer_passes_surrogate_n_into_threshold_meta():
 
 
 # ---------------------------------------------------------------------------
-# S1: per-modality primary-modality existence gate
+# S1: second-order group existence gate
 # ---------------------------------------------------------------------------
-from multisync.inference_pipeline import (
+from syncpipe.inference_pipeline import (
     _existence_gate_by_modality,
     _modality_from_label,
 )
-
-
-def _sig(flag: bool) -> dict:
-    return {"per_feature_significant": {"peak_amplitude": flag}}
 
 
 @pytest.mark.parametrize(
@@ -991,55 +987,88 @@ def test_modality_from_label(label, expected):
     assert _modality_from_label(label) == expected
 
 
-def test_gate_primary_modality_majority_supports():
-    res = {
-        "d1__ECG__Rest": _sig(True),
-        "d2__ECG__Rest": _sig(True),
-        "d3__ECG__Rest": _sig(False),
-        "d1__EDA__Rest": _sig(False),
-        "d2__EDA__Rest": _sig(False),
-        # RESP passes 3/3 but is NOT a primary modality -> cannot support.
-        "d1__RESP__Rest": _sig(True),
-        "d2__RESP__Rest": _sig(True),
-        "d3__RESP__Rest": _sig(True),
+def _existence_res(peak: float, null: np.ndarray) -> dict:
+    """One dyad's existence-audit result for the group gate.
+
+    ``null`` is the per-dyad signal-level IAAFT surrogate peak distribution;
+    ``peak`` is that dyad's observed peak_amplitude.
+    """
+    null = np.asarray(null, dtype=float)
+    return {
+        "observed": {"peak_amplitude": float(peak)},
+        "obs_peak_amplitude": float(peak),
+        "null_peak_amplitude": null,
+        "per_feature_significant": {
+            "peak_amplitude": bool(float(peak) > float(np.nanmax(null)))
+        },
     }
-    g = _existence_gate_by_modality(res, ["ECG", "EDA"], 0.5)
-    # ECG passes 2/3 (>0.5) -> gate satisfied by at least one primary modality.
-    assert g["primary_pass"] is True
-    assert g["per_modality"]["ECG"]["pass_rate"] == pytest.approx(2 / 3)
+
+
+def test_group_gate_detects_effect_in_primary():
+    null = np.full(100, 0.1)
+    res = {f"d{i}__ECG__Rest": _existence_res(0.8, null) for i in range(3)}
+    # EDA sits at the null mean -> no group effect.
+    res.update({f"d{i}__EDA__Rest": _existence_res(0.1, null) for i in range(3)})
+    g = _existence_gate_by_modality(res, ["ECG", "EDA"])
+    assert g["test"] == "second_order_group_surrogate"
+    assert g["per_modality"]["ECG"]["p_group"] < 0.05
     assert g["per_modality"]["ECG"]["supports"] is True
     assert g["per_modality"]["EDA"]["supports"] is False
-    assert g["per_modality"]["RESP"]["is_primary"] is False
-    assert g["per_modality"]["RESP"]["supports"] is False
+    assert g["primary_pass"] is True
     assert g["endpoint"] == "peak_amplitude"
 
 
-def test_gate_all_primary_fail_blocks():
-    res = {f"d{i}__ECG": _sig(False) for i in range(4)}
-    res.update({f"d{i}__EDA": _sig(False) for i in range(4)})
-    g = _existence_gate_by_modality(res, ["ECG", "EDA"], 0.5)
+def test_group_gate_no_effect_blocks():
+    null = np.full(100, 0.1)
+    res = {f"d{i}__ECG__Rest": _existence_res(0.1, null) for i in range(4)}
+    res.update({f"d{i}__EDA__Rest": _existence_res(0.1, null) for i in range(4)})
+    g = _existence_gate_by_modality(res, ["ECG", "EDA"])
+    assert g["primary_pass"] is False
+    assert g["per_modality"]["ECG"]["p_group"] == pytest.approx(1.0)
+
+
+def test_group_gate_sensitivity_only_cannot_open():
+    # Only the sensitivity modality shows an effect; primary modalities do not.
+    null = np.full(100, 0.1)
+    res = {f"d{i}__RESP__Rest": _existence_res(0.8, null) for i in range(5)}
+    res.update({f"d{i}__ECG__Rest": _existence_res(0.1, null) for i in range(5)})
+    g = _existence_gate_by_modality(res, ["ECG", "EDA"])
+    assert g["per_modality"]["RESP"]["is_primary"] is False
     assert g["primary_pass"] is False
 
 
-def test_gate_exactly_half_is_not_majority():
-    res = {"d1__ECG": _sig(True), "d2__ECG": _sig(False)}
-    g = _existence_gate_by_modality(res, ["ECG"], 0.5)
-    # pass_rate == 0.5 is NOT strictly greater than 0.5 -> not a majority.
-    assert g["per_modality"]["ECG"]["supports"] is False
-    assert g["primary_pass"] is False
+def test_group_gate_bh_across_two_primary():
+    # Two primary modalities: one clearly above null, one at the null mean.
+    # BH over m=2 keeps the strong modality significant -> gate passes.
+    null = np.full(100, 0.1)
+    res = {f"d{i}__ECG__Rest": _existence_res(0.9, null) for i in range(4)}
+    res.update({f"d{i}__EDA__Rest": _existence_res(0.1, null) for i in range(4)})
+    g = _existence_gate_by_modality(res, ["ECG", "EDA"])
+    assert g["per_modality"]["ECG"]["p_fdr"] < 0.05
+    assert g["per_modality"]["ECG"]["supports"] is True
+    assert g["primary_pass"] is True
 
 
-def test_gate_sensitivity_only_cannot_open():
-    # Only the sensitivity modality passes; primary modalities absent/fail.
-    res = {f"d{i}__RESP": _sig(True) for i in range(5)}
-    g = _existence_gate_by_modality(res, ["ECG", "EDA"], 0.5)
-    assert g["primary_pass"] is False
+def test_group_gate_aggregates_drawwise_across_dyads():
+    # Two dyads whose nulls differ: the group null must be the draw-wise mean,
+    # so an observed group mean above both nulls is significant.
+    null_a = np.full(100, 0.1)
+    null_b = np.full(100, 0.3)
+    res = {
+        "d1__ECG__Rest": _existence_res(0.8, null_a),
+        "d2__ECG__Rest": _existence_res(0.8, null_b),
+    }
+    g = _existence_gate_by_modality(res, ["ECG"])
+    assert g["per_modality"]["ECG"]["group_observed_mean"] == pytest.approx(0.8)
+    assert g["per_modality"]["ECG"]["p_group"] < 0.05
+    assert g["per_modality"]["ECG"]["supports"] is True
+    assert g["primary_pass"] is True
 
 
 # ---------------------------------------------------------------------------
 # S5: timestamp-type detection must fail loud on the ambiguous 1e6..1e9 zone
 # ---------------------------------------------------------------------------
-from multisync.dataset import _detect_time_type
+from syncpipe.dataset import _detect_time_type
 
 
 @pytest.mark.parametrize(
@@ -1072,7 +1101,7 @@ def test_millisecond_relative_from_zero_is_relative():
 # ---------------------------------------------------------------------------
 # 5a: pseudo-pair cross-dyad alignment (mask + length) & length reporting
 # ---------------------------------------------------------------------------
-from multisync.design_controls import design_control_audit
+from syncpipe.design_controls import design_control_audit
 
 
 def _coupled(n: int, seed: int) -> np.ndarray:
@@ -1136,7 +1165,7 @@ instead of the textbook
     adjusted = x_sorted[np.argsort(np.argsort(x))]   # two argsorts
 
 The two are algebraically identical for ANY tie ordering argsort picks (see the
-derivation in `multisync/surrogate.py`), and the substitution was made because
+derivation in `syncpipe/surrogate.py`), and the substitution was made because
 argsort dominates IAAFT's cost. These tests pin BOTH halves of that claim:
 
   1. the rank-ordering primitive itself is bit-identical, including under heavy
@@ -1151,7 +1180,7 @@ then be testing a different null than the one documented.
 """
 import numpy as np
 
-from multisync.surrogate import iaaft_surrogate as _iaaft_for_rank_tests
+from syncpipe.surrogate import iaaft_surrogate as _iaaft_for_rank_tests
 
 
 def _rank_order_double_argsort(x, x_sorted):

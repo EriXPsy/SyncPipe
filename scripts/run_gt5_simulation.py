@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from multisync.simulation.gt5_gordon_conditions import run_gt5
+from syncpipe.simulation.gt5_gordon_conditions import run_gt5
 
 OUTPUT_DIR = Path("artifacts")
 OUTPUT_DIR.mkdir(exist_ok=True)

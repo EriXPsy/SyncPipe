@@ -13,7 +13,7 @@ import pytest
 
 pytestmark = [pytest.mark.slow]
 
-from multisync.validation.pgt1_intensity import (
+from syncpipe.validation.pgt1_intensity import (
     Level3Config,
     ft_surrogate,
     prtf_surrogate,

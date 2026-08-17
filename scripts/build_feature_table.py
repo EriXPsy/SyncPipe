@@ -2,7 +2,7 @@
 """
 build_feature_table.py — Single Source of Truth → authoritative feature table.
 
-Reads the canonical metadata dicts from ``multisync.feature_definitions``
+Reads the canonical metadata dicts from ``syncpipe.feature_definitions``
 (FEATURE_TIER, MATHEMATICAL_TIER, FDR_FAMILIES, REFERENCE_FEATURE,
 INTENSITY/STRUCTURE/TEMPORAL_FEATURES) and a single curated annotation block
 below, then emits:
@@ -29,7 +29,7 @@ from pathlib import Path
 # repo root without requiring editable installation first.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from multisync.feature_definitions import (
+from syncpipe.feature_definitions import (
     FEATURE_TIER,
     MATHEMATICAL_TIER,
     FDR_FAMILIES,
@@ -68,17 +68,17 @@ ANNOTATIONS = {
         interpret="Strongest sustained coupling reached during interaction.",
     ),
     "fraction_above_threshold": dict(
-        primary="Exploratory-secondary (occupancy; NOT in FDR)",
+        primary="Exploratory (occupancy; NOT in FDR)",
         paradigm="All paradigms with threshold justification; report threshold metadata",
         interpret="Fraction of finite WCC samples above the synchrony threshold (coverage).",
     ),
     "dwell_time": dict(
-        primary="PRIMARY (structure)",
+        primary="Conditional secondary (structure; definedness-gated)",
         paradigm="Continuous & event paradigms; needs sufficient trace length",
         interpret="Mean duration of high-synchrony episodes (persistence).",
     ),
     "switching_rate": dict(
-        primary="PRIMARY (structure)",
+        primary="Conditional secondary (structure; definedness-gated)",
         paradigm="Continuous & event paradigms; sensitive to window size",
         interpret="How often synchrony crosses in/out of high-coupling state.",
     ),
@@ -93,12 +93,12 @@ ANNOTATIONS = {
         interpret="Dispersion/unpredictability of the synchrony distribution.",
     ),
     "inter_peak_cv": dict(
-        primary="Exploratory-secondary (temporal regularity; NOT in FDR)",
+        primary="Exploratory timing (temporal regularity; NOT in FDR)",
         paradigm="Long, oscillatory traces with >= 3 prominent peaks; report definedness rate",
         interpret="CV of inter-peak intervals (regular vs irregular synchrony events).",
     ),
     "first_peak_time": dict(
-        primary="Exploratory-secondary (event timing; NOT in FDR)",
+        primary="Exploratory timing (event timing; NOT in FDR)",
         paradigm="Any morphology with >= 1 prominent peak; report definedness rate",
         interpret="Time of the first prominent above-threshold synchrony peak.",
     ),
@@ -205,7 +205,7 @@ def write_md(rows, path: Path):
     lines.append(
         "> **Auto-generated** by `scripts/build_feature_table.py` directly from "
         "`feature_definitions.py`. Do not hand-edit. "
-        f"Total features computed: **{n_total}**; FDR-family (confirmatory multiplicity set): "
+        f"Total features computed: **{n_total}**; FDR families (primary + secondary): "
         f"**{n_fdr}** ({', '.join(FDR_FEATURES)}); Reference (reported, not corrected): "
         f"**{', '.join(REFERENCE_FEATURE)}**.\n"
     )
@@ -213,7 +213,7 @@ def write_md(rows, path: Path):
         "\n**Four orthogonal axes** govern every feature:\n"
         "- **Functional tier (Axis A)** — extraction robustness label: `reference` / `core` / `conditional`.\n"
         "- **Informational class** — Results organisation: `intensity` / `structure` / `temporal`.\n"
-        "- **FDR family (Axis C)** — whether the feature is in the confirmatory multiplicity-corrected set.\n"
+        "- **FDR family (Axis C)** — primary (single confirmatory endpoint) vs secondary (conditional) membership.\n"
         "- **Mathematical tier (Axis D)** — *sole* determinant of the null model: `L0` / `L1` / `L2`.\n"
     )
     # Compact table

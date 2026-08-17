@@ -120,7 +120,7 @@ A deliberately minimal set — extend only when a real duplication appears:
 - `rng` — function-scoped `np.random.default_rng(seed=0)`.
 - `toy_signals` — `(sig_a, sig_b, hz)`: a pair of *moderately coupled* 1-D signals.
 - `features_df_uni` — `dyad × condition(rest/task)` DataFrame over the real
-  FDR feature family (`multisync.feature_definitions.FDR_FEATURES`).
+  FDR feature family (`syncpipe.feature_definitions.FDR_FEATURES`).
 - `features_df_multi` — `features_df_uni` augmented with a `modality` column
   (`EDA` / `ECG`).
 
@@ -145,11 +145,11 @@ intentionally add or remove tests, update both places in the same commit.
 
 | Metric                              | Value |
 |------------------------------------|-------|
-| Collected tests (`--collect-only`) | **515** |
+| Collected tests (`--collect-only`) | **470** |
 | `slow` subset (`-m slow`)          | 55    |
-| `not slow` subset (`-m "not slow"`)| 460   |
+| `not slow` subset (`-m "not slow"`)| 415   |
 
-> Recorded 2026-08-03. Collected total **515** = 460 fast (`not slow`) + 55
+> Recorded 2026-08-17. Collected total **470** = 415 fast (`not slow`) + 55
 > `slow`. Enforced automatically by `tests/test_suite_health.py`; changing these
 > numbers is a reviewed act, not a side effect.
 >
@@ -159,6 +159,11 @@ intentionally add or remove tests, update both places in the same commit.
 > On 2026-08-03 nine tests were added to pin the IAAFT `argsort`+scatter
 > rewrite and the `n_workers` parallel-existence-audit parity: six in
 > test_significance and three in test_inference (506 → 515, 451 → 460).
+> On 2026-08-17 the `multisync` → `syncpipe` clean-cut rename removed the
+> dual-namespace/`sys.meta_path` alias tests in `test_api_core.py` (515 → 505,
+> 460 → 450), and the `prediction.py` move-out removed its unit/parity/hardening
+> tests (505 → 469, 450 → 414). The existence-gate rewrite to a second-order
+> group surrogate test added one net test (469 → 470, 414 → 415).
 
 ## Suite self-health guard (`test_suite_health.py`)
 

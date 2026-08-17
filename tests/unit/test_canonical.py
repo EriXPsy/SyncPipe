@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 from pathlib import Path
 
-from multisync.canonical_runner import (
+from syncpipe.canonical_runner import (
     parse_config,
     parse_manifest,
     run_canonical,

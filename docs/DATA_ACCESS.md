@@ -17,7 +17,7 @@ time series.
   - DOI: https://doi.org/10.31219/osf.io/6hjfy
 - **Modalities used by SyncPipe loaders:** peripheral physiology under the
   project tree (ECG / EDA / RESP layout expected by
-  `multisync.realtest.lerique_2024`). EEG hyperscanning components linked from
+  `syncpipe.realtest.lerique_2024`). EEG hyperscanning components linked from
   the preprint are **out of scope** for SyncPipe v1 continuous-envelope path.
 - **Access:** **Public download** on OSF (no account wall observed at last
   check). Always re-verify before submission.
@@ -68,7 +68,7 @@ $LERIQUE_ROOT/
     pce.../
 ```
 
-Exact folder names must match `multisync.realtest.lerique_2024` expectations
+Exact folder names must match `syncpipe.realtest.lerique_2024` expectations
 (see that module’s docstring).
 
 ## 4. Reproduction commands
@@ -98,8 +98,8 @@ artifacts/paper_lerique/
 
 ```text
 records
-  -> multisync.pipeline_bridge.records_to_inference_inputs
-  -> multisync.inference_pipeline.InferencePipeline.run_audited_evidence_chain
+  -> syncpipe.pipeline_bridge.records_to_inference_inputs
+  -> syncpipe.inference_pipeline.InferencePipeline.run_audited_evidence_chain
        (synchrony-existence
         -> design controls
         -> group inference / BH-FDR; multimodal auto per-modality)

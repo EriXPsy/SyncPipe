@@ -138,7 +138,7 @@ def shape_descriptors(wcc, hz=1.0, threshold=0.5):
 
 def ms_features(wcc, hz=1.0, wcc_window_sec=None):
     """Extract the 9 SyncPipe features via the package."""
-    from multisync.dynamic_features import extract_dynamic_features
+    from syncpipe.dynamic_features import extract_dynamic_features
     f = extract_dynamic_features(np.asarray(wcc, float), hz=hz,
                                  wcc_window_sec=wcc_window_sec or (len(wcc) / hz))
     return {k: float(getattr(f, k, np.nan)) for k in MS_FEATURES}

@@ -48,7 +48,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import StandardScaler
 
-ANDERSEN = r'<OSF_ROOT>\Andersen-hj4k6\multisync_results\multisync_andersen_full.csv'
+ANDERSEN = r'<OSF_ROOT>\Andersen-hj4k6\syncpipe_results\syncpipe_andersen_full.csv'
 LERIQUE = (r'<REPO>'
            r'\artifacts\realtest\lerique_2024\per_record_features.csv')
 

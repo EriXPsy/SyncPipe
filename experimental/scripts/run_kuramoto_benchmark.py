@@ -56,9 +56,9 @@ from scipy.integrate import solve_ivp
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-from multisync.metrics import crqa_synchrony, mi_synchrony, plv_synchrony
-from multisync.dynamic_features import extract_dynamic_features, sliding_window_wcc
-from multisync.feature_definitions import CONFIRMATORY_FEATURES
+from syncpipe.metrics import crqa_synchrony, mi_synchrony, plv_synchrony
+from syncpipe.dynamic_features import extract_dynamic_features, sliding_window_wcc
+from syncpipe.feature_definitions import CONFIRMATORY_FEATURES
 
 OUT_DIR = PROJECT_ROOT / "artifacts"
 OUT_DIR.mkdir(parents=True, exist_ok=True)

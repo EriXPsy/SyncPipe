@@ -61,7 +61,7 @@ def _build_single_rest_records(
     Uses lower-level loader helpers directly, bypassing
     load_lerique_dataset's CONDITION_UNITS registry.
     """
-    from multisync.realtest.lerique_2024 import (
+    from syncpipe.realtest.lerique_2024 import (
         MODALITIES, RAW_FS_HZ, MIN_DURATION_SEC,
         LeriqueDyadCondition,
         _collect_segments_for_person,
@@ -159,10 +159,10 @@ def _build_single_rest_records(
 
 def _analyze_records(records, *, target_hz, wcc_window_sec, onset_threshold):
     """Reuse the same DynamicAnalyzer pipeline as run_lerique_pilot.py."""
-    from multisync.core import DynamicAnalyzer
-    from multisync.batch import DyadResult
-    from multisync.realtest.lerique_2024 import lerique_record_to_multisync_dyad
-    from multisync.feature_definitions import (
+    from syncpipe.core import DynamicAnalyzer
+    from syncpipe.batch import DyadResult
+    from syncpipe.realtest.lerique_2024 import lerique_record_to_syncpipe_dyad
+    from syncpipe.feature_definitions import (
         CONFIRMATORY_FEATURES, DIAGNOSTIC_FEATURES,
     )
 
@@ -188,7 +188,7 @@ def _analyze_records(records, *, target_hz, wcc_window_sec, onset_threshold):
     rows = []
     for i, rec in enumerate(records, 1):
         try:
-            dyad = lerique_record_to_multisync_dyad(rec)
+            dyad = lerique_record_to_syncpipe_dyad(rec)
             dyad.align(target_hz=target_hz, require_co_start=False)
             dyad.zscore()
             res = analyzer.fit_transform(dyad)
@@ -214,7 +214,7 @@ def _analyze_records(records, *, target_hz, wcc_window_sec, onset_threshold):
 def _per_dyad_slope_and_pairwise(df: pd.DataFrame) -> pd.DataFrame:
     """Per (modality, feature): per-dyad slope + pairwise Wilcoxon."""
     from scipy.stats import wilcoxon
-    from multisync.feature_definitions import CONFIRMATORY_FEATURES
+    from syncpipe.feature_definitions import CONFIRMATORY_FEATURES
 
     rows = []
     for modality, mod_df in df.groupby("modality"):

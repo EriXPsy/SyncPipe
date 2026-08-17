@@ -69,12 +69,12 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from multisync.feature_vif_test import (  # noqa: E402
+from syncpipe.feature_vif_test import (  # noqa: E402
     feature_vif,
     VIF_CONCERN,
     VIF_SEVERE,
 )
-from multisync.dynamic_features import extract_dynamic_features  # noqa: E402
+from syncpipe.dynamic_features import extract_dynamic_features  # noqa: E402
 
 # ── constants ─────────────────────────────────────────────────────────────────
 # Canonical candidate feature set for the FDR-family bake-off.

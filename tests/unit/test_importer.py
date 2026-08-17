@@ -1,5 +1,5 @@
 """
-Unit tests for multisync.importer — coverage for architecture-review fixes.
+Unit tests for syncpipe.importer — coverage for architecture-review fixes.
 
 Fix 1 (finding 20): ``merge_asof`` tolerance must use the *real* sampling rate,
     not the ``default_hz`` fallback. ``_infer_hz`` must therefore recover the true
@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from multisync.importer import DataImporter, _infer_hz
+from syncpipe.importer import DataImporter, _infer_hz
 
 
 # ---------------------------------------------------------------------------

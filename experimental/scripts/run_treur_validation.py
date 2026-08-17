@@ -20,9 +20,9 @@ from pathlib import Path
 
 import numpy as np
 
-# Ensure multisync is importable
+# Ensure syncpipe is importable
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from multisync.simulation.treur_dyad import (
+from syncpipe.simulation.treur_dyad import (
     TreurDyadSimulator,
     scenario_constant_high_sync,
     scenario_frequent_switching,
@@ -30,10 +30,10 @@ from multisync.simulation.treur_dyad import (
     scenario_gradual_emergence,
     scenario_isc_confound,
 )
-from multisync.epoch_detection import dual_stream_epoch_analysis
-from multisync.adaptive_threshold import calibrate_threshold_from_null
-from multisync.multiscale_epochs import multiscale_epoch_analysis
-from multisync.feature_definitions import ONSET_THRESHOLD
+from syncpipe.epoch_detection import dual_stream_epoch_analysis
+from syncpipe.adaptive_threshold import calibrate_threshold_from_null
+from syncpipe.multiscale_epochs import multiscale_epoch_analysis
+from syncpipe.feature_definitions import ONSET_THRESHOLD
 
 
 # ── Config ─────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ for name, cfg in SCENARIOS.items():
     )
 
     # ── 2. Adaptive threshold ─────────────────────────────────
-    from multisync.dynamic_features import sliding_window_wcc
+    from syncpipe.dynamic_features import sliding_window_wcc
     wcc_test = sliding_window_wcc(a, b, window_size=int(30*HZ), hz=HZ, step_samples=int(5*HZ))
     wcc_clean = wcc_test[~np.isnan(wcc_test)]
     theta_d = calibrate_threshold_from_null(wcc_clean, n_surrogates=100, seed=SEED)

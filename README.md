@@ -4,7 +4,7 @@
 > **Measurement infrastructure for dyadic, continuous low-frequency same-modality synchrony, analyzed consistently across multiple modality families (e.g. EDA / ECG / RESP).** 
 > SyncPipe is not intended to be merely a feature-profile generator. Its v1 goal is to provide a standardized, auditable measurement procedure for dyadic synchrony: from aligned signals, to WCC traces, to interpretable descriptors, to null-model audits, to design-specific confound checks, to group-level inference.
 
-SyncPipe is an open-source Python package for analyzing **dyadic peripheral physiological and behavioral synchrony**. It is built for psychology, social neuroscience, psychophysiology, developmental science, psychotherapy, teamwork, and related fields where researchers need more than a single mean-correlation score but also need stronger statistical guardrails than one-off scripts usually provide. The preferred v1 command/import namespace is `syncpipe`; the older `multisync` namespace remains as a compatibility alias during transition.
+SyncPipe is an open-source Python package for analyzing **dyadic peripheral physiological and behavioral synchrony**. It is built for psychology, social neuroscience, psychophysiology, developmental science, psychotherapy, teamwork, and related fields where researchers need more than a single mean-correlation score but also need stronger statistical guardrails than one-off scripts usually provide. The command/import namespace is `syncpipe`.
 
 The central claim is deliberately narrow:
 
@@ -92,8 +92,6 @@ See `docs/LIMITATIONS.md` for the full scope statement and `docs/DECISION_LOG.md
 for positioning relative to related tools (SyncPy, multiSyncPy, SUSY, rMEA).
 
 ---
-<img width="1376" height="768" alt="image" src="https://github.com/user-attachments/assets/17d3eaa0-215b-418d-88aa-5e87b8373c14" />
-<img width="1376" height="768" alt="image" src="https://github.com/user-attachments/assets/6feccbfe-c42c-4807-8155-f969d4c05fe4" />
 
 ## Conceptual architecture
 
@@ -475,8 +473,8 @@ group = pipe.run_group_condition_inference(condition_col="condition", dyad_col="
 
 SyncPipe uses two governance layers:
 
-1. **Mathematical SSoT:** `multisync/feature_definitions.py` contains the implementation-level definitions of WCC-derived features. Other modules should import feature math from here rather than reimplementing it.
-2. **Communication SSoT:** `multisync/feature_status.py` contains the external-facing v1 feature status table used for README, demo exports, and manuscript Table 1 drafts.
+1. **Mathematical SSoT:** `syncpipe/feature_definitions.py` contains the implementation-level definitions of WCC-derived features. Other modules should import feature math from here rather than reimplementing it.
+2. **Communication SSoT:** `syncpipe/feature_status.py` contains the external-facing v1 feature status table used for README, demo exports, and manuscript Table 1 drafts.
 
 This separation is intentional. Internal mathematical invariance labels are useful for implementation and null-model selection; external readers need a simpler measurement table: source level, incremental information, applicable paradigm, recommended use, risk, and evidence status.
 
