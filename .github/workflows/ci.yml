@@ -63,6 +63,6 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -e ".[dev]"
-      - run: python -m syncpipe demo --surrogates 20 --audit-surrogates 99 --demo-dyads 4 --no-prediction -o artifacts/ci_demo
+      - run: python -m syncpipe demo --surrogates 20 --audit-surrogates 99 --demo-dyads 4 -o artifacts/ci_demo
       - run: test -f artifacts/ci_demo/viewer_results.json
       - run: test -f artifacts/ci_demo/DEMO_REPORT.md
