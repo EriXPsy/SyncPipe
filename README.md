@@ -488,6 +488,8 @@ Negative results, abandoned feature promotions, and null-model limitations shoul
 
 ## Current validation stance
 
+The target construct and the evidence required to distinguish interaction-contingent interpersonal coordination from independent dynamics, shared input, partner mismatch, drift, and co-presence are specified in [`docs/CONSTRUCT_VALIDITY.md`](docs/CONSTRUCT_VALIDITY.md). In particular, software cannot infer interaction contingency from a single uncontrolled recording; live-versus-replay, yoked, non-interactive co-presence, or equivalent design controls are required for that claim.
+
 SyncPipe's strongest current claim is not that all dynamic descriptors are independently validated psychological constructs. The strongest claim is methodological:
 
 > A synchrony result should be treated as an audited evidence chain, not as a single significant feature.

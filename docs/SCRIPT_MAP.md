@@ -24,6 +24,8 @@
 | `run_pgt3_grid.py` | [GT] | **K** | PGT-3 时间恢复网格（810 cells）。主干 GT。 |
 | `run_egt4_matrix.py` | [GT] | **K** | EGT-4 emergent dynamics 2×2 验证矩阵。主干 GT。 |
 | `run_gt5_simulation.py` | [GT][REAL] | **K** | GT-5 Gordon-conditions 模拟（46 dyads×5 cond）。主干。 |
+| `run_peak_duration_validation.py` | [GT][AUDIT] | **K** | `peak_amplitude` 极值时长偏差、连续区块 dependability 与重采样稳定性。仅验证现有描述符。 |
+| `run_discriminant_validity.py` | [GT][AUDIT] | **K** | 独立动态、共同刺激、共同漂移、共同情境、共同伪迹及互惠 VAR 的对抗性区分效度审计。 |
 | `run_kuramoto_l23_taxonomy.py` | [GT][AUC] | **K** | Kuramoto L2+L3 taxonomy（EGT 生成器源，被 validate_timing 复用）。主干。 |
 | `run_gordon_case_study.py` | [REAL] | **K** | Gordon (2025) 案例研究 runner（BRM §6.x）。主干真实数据。 |
 | `run_lerique_pilot.py` | [REAL] | **K** | Lerique (2024) pilot runner（有预注册+DECISION_LOG）。主干真实数据。 |
@@ -41,7 +43,7 @@
 
 ## 汇总
 
-- **K（保留主干）**：16 个 —— 这些是你"所有代码依附在清晰研究主干上"的主干结果生成器，将在 User Manual 里按 [PIPE]/[GT]/[REAL]/[AUC]/[AUDIT] 分类登记。
+- **K（保留主干）**：18 个 —— 这些是你"所有代码依附在清晰研究主干上"的主干结果生成器，将在 User Manual 里按 [PIPE]/[GT]/[REAL]/[AUC]/[AUDIT] 分类登记。
 - **E（已剥离）**：4 个一次性诊断/fixed/FALSIFIED 脚本 → `experimental/scripts/`。
 - **?（需你拍板）**：2 个 —— `lerique_feature_analysis`、`surrogate_controls`（我倾向保留，是严谨性背书）。`analyze_all_gt` 已归档。
 - **Morphology**：3 个形态分析脚本 → `scripts/morphology/`，主干形态学分析。
