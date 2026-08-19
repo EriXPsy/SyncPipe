@@ -713,6 +713,11 @@ class InferencePipeline:
         return {
             "evidence_chain_version": "v1",
             "evidence_graph": graph.to_dict(),
+            "legacy_fields": {
+                "deprecated": True,
+                "fields": ["stage_status", "claim_ceiling"],
+                "remove_in": "3.0.0",
+            },
             "synchrony_existence": existence,
             "existence_gate": gate,
             "design_controls": design,

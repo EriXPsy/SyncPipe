@@ -16,6 +16,7 @@ def test_syncpipe_namespace_exposes_v1_public_api():
         "PreparedCohort",
         "EvidenceChain",
         "EvidenceStageResult",
+        "EvidenceProfile",
         "ClaimDecision",
         "migrate_v1_project",
         "create_external_validation_kit",

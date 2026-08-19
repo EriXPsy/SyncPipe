@@ -108,7 +108,7 @@ def test_evidence_claim_propagation_stops_at_first_unsupported_stage():
         alpha=0.05,
     )
     assert graph.decision.highest_supported_stage == "E0"
-    assert graph.decision.blocked_by == ("E2",)
+    assert graph.decision.blocked_by == ("E2", "E4", "E5")
     assert graph.stage("E3").status.value == "supported"
     # E3 cannot be promoted past unsupported E2.
     assert "alignment-specific" not in graph.decision.permitted_claim
@@ -131,6 +131,28 @@ def test_evidence_claim_propagation_reaches_e4_but_never_infers_e5():
     assert graph.decision.highest_supported_stage == "E4"
     assert graph.decision.blocked_by == ("E5",)
     assert graph.stage("E5").status.value == "inconclusive"
+    assert graph.profile.supported == ("E0", "E2", "E3", "E4")
+    assert graph.decision.claimable_condition_difference is False
+
+
+def test_evidence_design_control_is_inconclusive_when_resolution_is_insufficient():
+    from syncpipe.evidence import build_evidence_chain
+
+    graph = build_evidence_chain(
+        endpoint="peak_amplitude",
+        existence_gate={"primary_pass": True},
+        design={"feature_summary": {"peak_amplitude": {
+            "p_real_gt_pseudo": 0.01,
+            "p_real_gt_time_shift": 0.01,
+            "n_real": 4,
+        }}},
+        across_stimulus=None,
+        group=None,
+        alpha=0.05,
+    )
+    assert graph.stage("E2").status.value == "inconclusive"
+    assert graph.stage("E3").status.value == "inconclusive"
+    assert graph.stage("E2").statistics["min_attainable_p"] == pytest.approx(1 / 16)
 
 
 def test_evidence_claim_propagation_blocks_all_claims_when_e0_fails():
@@ -145,7 +167,7 @@ def test_evidence_claim_propagation_blocks_all_claims_when_e0_fails():
         alpha=0.05,
     )
     assert graph.decision.highest_supported_stage == "none"
-    assert graph.decision.blocked_by == ("E0",)
+    assert graph.decision.blocked_by == ("E0", "E2", "E3", "E4", "E5")
     assert graph.decision.permitted_claim == "descriptive co-fluctuation only"
 
 

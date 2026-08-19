@@ -280,10 +280,14 @@ have a validated signal-level existence null.
 - `n_min_dyads`: minimum dyads for a claimable inference (default 10).
 - `threshold` / `discontinuity_masks`: per-pair / per-modality mapping must be recorded.
 
-### Claim ceiling (stage_status)
+### Claim ceiling (typed evidence graph)
 
-Every L2 result carries `definedness_status`, `claimable`, `eligibility_status`,
-and `stage_status`. A result is confirmatory **only if** all gates pass.
+Every L2 result carries `definedness_status`, `claimable`, and
+`eligibility_status`; construct-level E0–E5 statuses live in the typed evidence
+profile. A result is confirmatory **only if** its L2 gates pass, while its
+construct interpretation remains bounded by the independent evidence profile.
+Legacy `stage_status`/`claim_ceiling` fields are deprecated compatibility views
+scheduled for removal in software 3.0.
 
 ---
 

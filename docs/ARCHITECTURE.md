@@ -44,13 +44,14 @@ v1 canonical path.
 
 ## Milestone C — typed evidence graph (implemented with compatibility layer)
 
-`EvidenceStageResult`, `EvidenceStatus`, `EvidenceChain`, and `ClaimDecision`
-now represent E0–E5 plus L2. Claim propagation is cumulative and stops at the
-first unsupported/inconclusive lower stage: E3 cannot justify an
-alignment-specific headline when E2 partner specificity failed, and E5 remains
+`EvidenceStageResult`, `EvidenceStatus`, `EvidenceProfile`, `EvidenceChain`, and
+`ClaimDecision` represent E0–E5 plus L2. The profile preserves evidence as a
+vector; conservative claim propagation separately stops at the first
+unsupported/inconclusive requirement. E2/E3 generic controls use Holm adjustment,
+insufficient p-value resolution produces `inconclusive`, and E5 remains
 inconclusive without a reciprocity-breaking design. Canonical output includes
-`evidence_graph.json`; legacy `stage_status` and `claim_ceiling` keys are derived
-from the graph during migration rather than authored independently.
+`evidence_graph.json`; legacy `stage_status` and `claim_ceiling` are derived from
+the graph, explicitly deprecated, and scheduled for removal in 3.0.
 
 ## Milestone D — orchestration/export split (implemented)
 

@@ -41,9 +41,31 @@ class EvidenceStageResult:
 
 
 @dataclass(frozen=True)
+class EvidenceProfile:
+    """Non-hierarchical status vector; stages are evidence dimensions."""
+
+    supported: Tuple[str, ...]
+    not_supported: Tuple[str, ...]
+    inconclusive: Tuple[str, ...]
+    not_applicable: Tuple[str, ...]
+    invalid: Tuple[str, ...]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "supported": list(self.supported),
+            "not_supported": list(self.not_supported),
+            "inconclusive": list(self.inconclusive),
+            "not_applicable": list(self.not_applicable),
+            "invalid": list(self.invalid),
+        }
+
+
+@dataclass(frozen=True)
 class ClaimDecision:
     highest_supported_stage: str
     permitted_claim: str
+    condition_claim: str
+    claimable_condition_difference: bool
     blocked_by: Tuple[str, ...]
     unresolved_rivals: Tuple[str, ...]
     forbidden_claims: Tuple[str, ...]
@@ -52,6 +74,8 @@ class ClaimDecision:
         return {
             "highest_supported_stage": self.highest_supported_stage,
             "permitted_claim": self.permitted_claim,
+            "condition_claim": self.condition_claim,
+            "claimable_condition_difference": self.claimable_condition_difference,
             "blocked_by": list(self.blocked_by),
             "unresolved_rivals": list(self.unresolved_rivals),
             "forbidden_claims": list(self.forbidden_claims),
@@ -63,6 +87,7 @@ class EvidenceChain:
     version: str
     endpoint: str
     stages: Tuple[EvidenceStageResult, ...]
+    profile: EvidenceProfile
     decision: ClaimDecision
 
     def stage(self, stage_id: str) -> EvidenceStageResult:
@@ -76,10 +101,12 @@ class EvidenceChain:
             "version": self.version,
             "endpoint": self.endpoint,
             "stages": [item.to_dict() for item in self.stages],
+            "profile": self.profile.to_dict(),
             "decision": self.decision.to_dict(),
         }
 
 
 __all__ = [
-    "EvidenceStatus", "EvidenceStageResult", "ClaimDecision", "EvidenceChain",
+    "EvidenceStatus", "EvidenceStageResult", "EvidenceProfile",
+    "ClaimDecision", "EvidenceChain",
 ]

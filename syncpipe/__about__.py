@@ -10,4 +10,4 @@ ANALYSIS_SCHEMA_VERSION = "0.3.0"       # viewer WCC/feature JSON structure
 CONFIG_SCHEMA_VERSION = "2.0.0"         # AnalysisSpec/TOML contract
 MANIFEST_SCHEMA_VERSION = "2.0.0"       # canonical manifest columns
 PREPROCESSING_SCHEMA_VERSION = "1.0.0"  # preprocessing provenance document
-EVIDENCE_SCHEMA_VERSION = "1.0.0"       # typed E0-E5 evidence graph
+EVIDENCE_SCHEMA_VERSION = "1.1.0"       # evidence profile + claim ceiling

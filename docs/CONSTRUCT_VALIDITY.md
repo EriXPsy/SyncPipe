@@ -48,9 +48,13 @@ breaks reciprocity while preserving relevant sensory input.
 
 `condition` labels are not evidence by themselves. Reports must describe what
 was held constant and what rival explanation the contrast changes. SyncPipe
-serializes this hierarchy in `evidence_graph.json`; the final `ClaimDecision`
-stops at the first unsupported lower evidence level and always lists unresolved
-rivals and forbidden claims.
+serializes a non-hierarchical evidence profile in `evidence_graph.json`; E2–E4
+remain visible as separate dimensions. A separate conservative `ClaimDecision`
+stops claim escalation at the first unsupported lower requirement and always
+lists all unresolved rivals and forbidden claims. Generic pseudo-pair and
+time-shift controls are Holm-adjusted as one two-hypothesis family, and tests
+whose attainable p-value cannot reach alpha are marked inconclusive rather than
+negative.
 
 ## 3. Reliability is feature- and timescale-specific
 
