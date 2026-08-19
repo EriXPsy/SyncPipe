@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional, Sequence, Tuple
 
 import numpy as np
 
+from ..__about__ import EVIDENCE_SCHEMA_VERSION
 from .models import ClaimDecision, EvidenceChain, EvidenceStageResult, EvidenceStatus
 
 
@@ -186,7 +187,12 @@ def build_evidence_chain(
         unresolved_rivals=tuple(dict.fromkeys(unresolved)),
         forbidden_claims=forbidden,
     )
-    return EvidenceChain(version="1.0", endpoint=endpoint, stages=stages, decision=decision)
+    return EvidenceChain(
+        version=EVIDENCE_SCHEMA_VERSION,
+        endpoint=endpoint,
+        stages=stages,
+        decision=decision,
+    )
 
 
 __all__ = ["build_evidence_chain"]

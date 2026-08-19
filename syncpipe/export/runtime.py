@@ -11,7 +11,11 @@ from typing import Any, Dict, Optional
 import numpy as np
 import pandas as pd
 
-from ..__about__ import __version__, CONFIG_SCHEMA_VERSION, ANALYSIS_SCHEMA_VERSION
+from ..__about__ import (
+    __version__, ANALYSIS_SCHEMA_VERSION, CONFIG_SCHEMA_VERSION,
+    EVIDENCE_SCHEMA_VERSION, MANIFEST_SCHEMA_VERSION,
+    PREPROCESSING_SCHEMA_VERSION,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -95,6 +99,9 @@ def _environment(seed: int) -> Dict[str, Any]:
         "syncpipe_version": __version__,
         "config_schema_version": CONFIG_SCHEMA_VERSION,
         "analysis_schema_version": ANALYSIS_SCHEMA_VERSION,
+        "manifest_schema_version": MANIFEST_SCHEMA_VERSION,
+        "preprocessing_schema_version": PREPROCESSING_SCHEMA_VERSION,
+        "evidence_schema_version": EVIDENCE_SCHEMA_VERSION,
         "numpy_version": np.__version__,
         "dependency_versions": dependency_versions,
         "platform": platform.platform(),

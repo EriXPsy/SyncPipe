@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from ..__about__ import CONFIG_SCHEMA_VERSION
+from ..__about__ import PREPROCESSING_SCHEMA_VERSION
 
 MANIFEST_COLUMNS = [
     "dyad_id", "modality", "condition",
@@ -163,9 +163,9 @@ def load_preprocessing_provenance(
     missing = [name for name in required if name not in payload]
     if missing:
         raise ValueError(f"preprocessing provenance missing required fields: {missing}")
-    if payload["schema_version"] != CONFIG_SCHEMA_VERSION:
+    if payload["schema_version"] != PREPROCESSING_SCHEMA_VERSION:
         raise ValueError(
-            f"preprocessing schema_version must be {CONFIG_SCHEMA_VERSION!r}"
+            f"preprocessing schema_version must be {PREPROCESSING_SCHEMA_VERSION!r}"
         )
     if str(payload["signal_type"]).strip() != expected_signal_type:
         raise ValueError(

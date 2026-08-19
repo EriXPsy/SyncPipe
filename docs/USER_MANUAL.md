@@ -1,4 +1,4 @@
-# SyncPipe v1.0 — User Manual
+# SyncPipe 2.0 — User Manual
 
 > Measurement infrastructure for same-modality dyadic synchrony, analyzed across multiple modality families (EDA / ECG / RESP).
 > This manual is for human users. For an agent-oriented capability sheet see
@@ -29,7 +29,7 @@ python -m pip install -e ".[dev]"   # + test tools
 ```
 Requires Python ≥ 3.10. Check the install:
 ```bash
-syncpipe --version          # -> syncpipe 1.0.0
+syncpipe --version          # -> syncpipe 2.0.0
 ```
 `syncpipe` is the command/import namespace.
 
@@ -43,7 +43,7 @@ Three escalating checks, all runnable without any third-party data.
 ```bash
 cd SyncPipe
 python -m pip install -e ".[dev]"
-syncpipe --version            # -> syncpipe 1.0.0
+syncpipe --version            # -> syncpipe 2.0.0
 syncpipe demo -o artifacts/demo   # synthetic dyad, full audit report
 ```
 
@@ -123,6 +123,24 @@ syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifact
 ```
 Outputs: `viewer_results.json`, `feature_table.csv`, `feature_status_table.csv`,
 `TABLE1_FEATURE_STATUS.tex`, `DEMO_REPORT.md`.
+
+### Migrating legacy v1 canonical inputs
+
+Version 2 uses a breaking canonical contract. Migration never guesses scientific
+metadata; supply it explicitly:
+
+```bash
+syncpipe migrate \
+  -m manifest.v1.csv -c config.v1.toml -o migrated/ \
+  --signal-type EDA_envelope --unit z_score \
+  --preprocessing-path preprocessing/eda.json \
+  --primary-modalities EDA
+```
+
+Outputs are `manifest.v2.csv`, `config.v2.toml`, and
+`MIGRATION_REPORT.json` with source/target hashes and user-supplied assumptions.
+Migration does not certify that historical and v2 analyses are scientifically
+comparable; rerun and report differences.
 
 ### `syncpipe analyze` (confirmatory path)
 Runs the audited evidence chain from a manifest + config:

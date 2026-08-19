@@ -143,6 +143,26 @@ def cmd_describe(args: argparse.Namespace) -> None:
     print(f"  Results exported to: {output_path}")
 
 
+def cmd_migrate(args: argparse.Namespace) -> None:
+    """Migrate legacy v1 canonical manifest/config inputs to v2 contracts."""
+    from .migration import migrate_v1_project
+
+    report = migrate_v1_project(
+        manifest=args.manifest,
+        config=args.config,
+        output_dir=args.output,
+        signal_type=args.signal_type,
+        unit=args.unit,
+        preprocessing_path=args.preprocessing_path,
+        primary_modalities=args.primary_modalities,
+        primary_endpoint=args.primary_endpoint,
+    )
+    print(f"Migrated manifest: {report['manifest']['destination']}")
+    print(f"Migrated config: {report['config']['destination']}")
+    print(f"Migration report: {report['report_path']}")
+    print("Review all user-supplied scientific assumptions before analysis.")
+
+
 def cmd_analyze(args: argparse.Namespace) -> None:
     """Run the v1 audited evidence chain from a manifest + config (canonical).
 
@@ -486,16 +506,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    # analyze — canonical v1 audited evidence chain (manifest + config -> bundle)
+    # migrate — explicit v1 canonical input migration
+    p_migrate = sub.add_parser(
+        "migrate",
+        help="Migrate legacy v1 manifest/config inputs to v2 contracts.",
+    )
+    p_migrate.add_argument("-m", "--manifest", required=True)
+    p_migrate.add_argument("-c", "--config", required=True)
+    p_migrate.add_argument("-o", "--output", required=True)
+    p_migrate.add_argument("--signal-type", required=True)
+    p_migrate.add_argument("--unit", required=True)
+    p_migrate.add_argument("--preprocessing-path", required=True)
+    p_migrate.add_argument("--primary-modalities", nargs="+", required=True)
+    p_migrate.add_argument("--primary-endpoint", default="peak_amplitude")
+    p_migrate.set_defaults(func=cmd_migrate)
+
+    # analyze — canonical locked-protocol evidence chain
     p_analyze = sub.add_parser(
         "analyze",
-        help="Run the v1 audited evidence chain from a manifest + config "
-             "(canonical scientific path).",
+        help="Run the canonical locked-protocol evidence chain from a v2 "
+             "manifest + config.",
     )
     p_analyze.add_argument(
         "-m", "--manifest", required=True,
-        help="Strict manifest CSV: dyad_id,modality,condition,person_a_path,"
-             "person_b_path,hz[,mask_path].",
+        help="Strict v2 manifest CSV including signal_type, unit and "
+             "preprocessing_path.",
     )
     p_analyze.add_argument(
         "-c", "--config", required=True,

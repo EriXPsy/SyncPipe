@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/EriXPsy/SyncPipe/schemas/manifest-record.schema.json",
-  "title": "SyncPipe canonical manifest record",
+  "$id": "https://github.com/EriXPsy/SyncPipe/schemas/v2/manifest-record.schema.json",
+  "title": "SyncPipe v2 canonical manifest record",
   "type": "object",
   "required": [
     "dyad_id", "modality", "condition", "person_a_path", "person_b_path",

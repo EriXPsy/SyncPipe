@@ -524,6 +524,14 @@ The goal is to make synchrony measurement easier to inspect, criticize, reproduc
 
 ---
 
+## Versioning and migration
+
+Package 2.0.0 introduces a breaking typed canonical contract while continuing
+to implement the locked v1 scientific protocol. Legacy canonical inputs must be
+migrated explicitly with `syncpipe migrate`; see `docs/USER_MANUAL.md` and
+`CHANGELOG.md`. Viewer, config/manifest, preprocessing, and evidence schemas are
+versioned independently.
+
 ## License
 
 MIT

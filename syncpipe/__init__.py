@@ -12,6 +12,9 @@ from .__about__ import (
     PACKAGE_VERSION,
     ANALYSIS_SCHEMA_VERSION,
     CONFIG_SCHEMA_VERSION,
+    EVIDENCE_SCHEMA_VERSION,
+    MANIFEST_SCHEMA_VERSION,
+    PREPROCESSING_SCHEMA_VERSION,
 )
 
 # Core user objects
@@ -64,6 +67,13 @@ from .design_controls import (
     extract_pair_features,
     synchrony_existence_audit,
 )
+from .migration import (
+    detect_config_contract,
+    detect_manifest_contract,
+    migrate_config_v1_to_v2,
+    migrate_manifest_v1_to_v2,
+    migrate_v1_project,
+)
 from .session_threshold import (
     compute_condition_pooled_thresholds,
     compute_session_pooled_threshold,
@@ -75,6 +85,9 @@ __all__ = [
     "PACKAGE_VERSION",
     "ANALYSIS_SCHEMA_VERSION",
     "CONFIG_SCHEMA_VERSION",
+    "MANIFEST_SCHEMA_VERSION",
+    "PREPROCESSING_SCHEMA_VERSION",
+    "EVIDENCE_SCHEMA_VERSION",
     # Core user objects
     "Dyad",
     "DynamicAnalyzer",
@@ -131,6 +144,11 @@ __all__ = [
     "design_control_audit",
     "extract_pair_features",
     "synchrony_existence_audit",
+    "detect_manifest_contract",
+    "detect_config_contract",
+    "migrate_manifest_v1_to_v2",
+    "migrate_config_v1_to_v2",
+    "migrate_v1_project",
     "compute_session_pooled_threshold",
     "compute_session_pooled_thresholds_by_modality",
     "compute_condition_pooled_thresholds",

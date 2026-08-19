@@ -62,11 +62,15 @@ lives in `syncpipe.preparation.loading`; claimability derivation lives in
 rendering, and bundle writing live in `syncpipe.export`. Compatibility re-exports
 preserve the existing public API and CLI/API byte parity.
 
-## Milestone E — versioning and migration
+## Milestone E — versioning and migration (implemented)
 
-Bump schema/package versions intentionally, provide migration from legacy
-manifests/configs, and prevent scientific contract changes under an unchanged
-release identifier.
+The breaking canonical contract is released as package/config/manifest v2.0.0;
+viewer analysis JSON remains independently versioned at 0.3.0, preprocessing
+provenance at 1.0.0, and typed evidence at 1.0.0. `syncpipe migrate` and the
+programmatic migration API convert legacy manifest/config inputs only when the
+user explicitly supplies signal identity, unit, preprocessing provenance,
+endpoint, and primary modality assumptions. Every migration writes source and
+target hashes plus warnings in `MIGRATION_REPORT.json`.
 
 ## Milestone F — external validation
 
