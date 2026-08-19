@@ -117,6 +117,17 @@ def _apply_global_modality_fdr(results: Dict[str, Any], alpha: float) -> Dict[st
                     "p_raw": r.p_raw, "p_fdr": r.p_fdr,
                     "significant_05": r.significant_05,
                     "perm_effect_size": r.perm_effect_size,
+                    "difference_q25": r.difference_q25,
+                    "difference_q75": r.difference_q75,
+                    "median_ci_low": r.median_ci_low,
+                    "median_ci_high": r.median_ci_high,
+                    "median_ci_confidence": r.median_ci_confidence,
+                    "median_ci_bounded": r.median_ci_bounded,
+                    "median_ci_method": r.median_ci_method,
+                    "permutation_method": r.permutation_method,
+                    "n_null_draws": r.n_null_draws,
+                    "min_attainable_p": r.min_attainable_p,
+                    "approx_monte_carlo_se": r.approx_monte_carlo_se,
                     "n_dyads": r.n_dyads, "defined_a": r.defined_a,
                     "defined_b": r.defined_b, "p_definedness": r.p_definedness,
                     "definedness_status": r.definedness_status,
@@ -1156,9 +1167,18 @@ class InferencePipeline:
         for feat in l2.get("per_feature", []) or []:
             if getattr(feat, "significant_05", False):
                 any_sig = True
+                if getattr(feat, "median_ci_bounded", False):
+                    ci_text = (
+                        f"95% exact median CI=[{feat.median_ci_low:.3g}, "
+                        f"{feat.median_ci_high:.3g}]"
+                    )
+                else:
+                    ci_text = "95% exact median CI=unbounded at this n"
                 lines.append(
-                    f"    {feat.feature}: p_raw={feat.p_raw:.4f}, "
-                    f"p_fdr={feat.p_fdr:.4f}, d(perm)={feat.perm_effect_size:.2f}"
+                    f"    {feat.feature}: median Δ={feat.observed_diff:.3g}, "
+                    f"{ci_text}, p_raw={feat.p_raw:.4f}, "
+                    f"p_fdr={feat.p_fdr:.4f}, method={feat.permutation_method}, "
+                    f"MCSE={feat.approx_monte_carlo_se:.3g}"
                 )
             p_def = getattr(feat, "p_definedness", 1.0)
             if p_def is not None and float(p_def) < 0.05:

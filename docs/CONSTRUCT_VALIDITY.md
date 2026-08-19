@@ -234,6 +234,15 @@ A descriptor may be promoted only after all of the following are recorded:
 8. preregistered replication on data not used to design or select the feature;
 9. independent review or reproduction by someone outside the development loop.
 
+For two-condition L2 inference, SyncPipe reports the paired median difference
+in the descriptor's original units, its dyad-difference interquartile range,
+and a distribution-free 95% sign-test interval for the population median. If
+the cohort is too small to support a finite exact interval, the bounds are
+reported as unbounded rather than replaced by a misleading bootstrap range.
+Permutation output states whether enumeration was exact or Monte Carlo and
+reports the null-draw count, minimum attainable p, and approximate Monte Carlo
+standard error.
+
 Until then, passing tests means the implementation is reproducible—not that the
 psychological construct has been validated.
 

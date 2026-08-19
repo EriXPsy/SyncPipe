@@ -555,6 +555,18 @@ def _derive_claimability(chain: Dict[str, Any]) -> Dict[str, Any]:
                 "definedness_status": getattr(r, "definedness_status", None),
                 "eligibility_status": (elig.get(feat) if isinstance(elig, dict) else elig),
                 "n_dyads": _safe_float(getattr(r, "n_dyads", None)),
+                "observed_diff": _safe_float(getattr(r, "observed_diff", None)),
+                "difference_q25": _safe_float(getattr(r, "difference_q25", None)),
+                "difference_q75": _safe_float(getattr(r, "difference_q75", None)),
+                "median_ci_low": _safe_float(getattr(r, "median_ci_low", None)),
+                "median_ci_high": _safe_float(getattr(r, "median_ci_high", None)),
+                "median_ci_bounded": bool(getattr(r, "median_ci_bounded", False)),
+                "permutation_method": getattr(r, "permutation_method", None),
+                "n_null_draws": int(getattr(r, "n_null_draws", 0)),
+                "min_attainable_p": _safe_float(getattr(r, "min_attainable_p", None)),
+                "approx_monte_carlo_se": _safe_float(
+                    getattr(r, "approx_monte_carlo_se", None)
+                ),
             })
 
     for mod in sorted(group.keys(), key=str):

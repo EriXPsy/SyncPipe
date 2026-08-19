@@ -425,6 +425,9 @@ def test_perm_effect_size_field_and_summary_column():
     assert isinstance(r.perm_effect_size, float)
     # summary_df column renamed (no longer "cohens_d").
     assert "perm_effect_size" in res["summary_df"].columns
+    assert "median_ci_low" in res["summary_df"].columns
+    assert "permutation_method" in res["summary_df"].columns
+    assert "approx_monte_carlo_se" in res["summary_df"].columns
     assert "cohens_d" not in res["summary_df"].columns
 
 
@@ -446,10 +449,16 @@ def test_small_n_exact_discrete_p_resolution():
     res = between_condition_fdr(
         df, feature_cols=["peak_amplitude"], n_permutations=10000, seed=2
     )
-    p_raw = res["per_feature"][0].p_raw
+    item = res["per_feature"][0]
+    p_raw = item.p_raw
     scaled = p_raw * 16.0
     assert abs(scaled - round(scaled)) < 1e-9, f"p_raw={p_raw} not on 1/16 grid"
     assert 0.0 <= p_raw <= 1.0
+    assert item.permutation_method == "exact_sign_flip"
+    assert item.n_null_draws == 16
+    assert item.min_attainable_p == pytest.approx(2 / 16)
+    assert item.approx_monte_carlo_se == 0.0
+    assert item.median_ci_bounded is False
 
 
 def test_large_n_still_runs():
@@ -459,7 +468,14 @@ def test_large_n_still_runs():
         df, feature_cols=["peak_amplitude"], n_permutations=2000, seed=3
     )
     assert res["n_dyads"] == 20
-    assert np.isfinite(res["per_feature"][0].p_raw)
+    item = res["per_feature"][0]
+    assert np.isfinite(item.p_raw)
+    assert item.permutation_method == "monte_carlo_sign_flip"
+    assert item.n_null_draws == 2000
+    assert item.min_attainable_p == pytest.approx(1 / 2001)
+    assert item.approx_monte_carlo_se >= 0.0
+    assert item.median_ci_bounded is True
+    assert item.median_ci_low <= item.observed_diff <= item.median_ci_high
 
 # === source: test_l2_modality_seed_determinism.py ===
 """Regression tests for Finding 9: per-modality RNG seed in

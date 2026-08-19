@@ -156,7 +156,10 @@ This layer is where SyncPipe tries to be most useful to the field: not by preten
 
 **Question:** Do audited synchrony descriptors differ across experimental conditions or groups?
 
-**Default test:** dyad-paired permutation test with BH-FDR correction.
+**Default test:** dyad-paired permutation test with BH-FDR correction. Reports
+include the paired median difference in original units, dyad-difference IQR, an
+exact distribution-free median interval when sample size permits, and explicit
+exact/Monte-Carlo p-value precision metadata.
 
 Python API:
 
