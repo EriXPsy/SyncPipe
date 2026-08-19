@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SyncPipe — 人际同步性的可验证测量层</title>
+<style>
+  :root{
+    --bg:#07090f; --bg2:#0b0f18; --panel:#101724; --panel2:#141d2e; --line:rgba(255,255,255,.07);
+    --ink:#e8edf7; --mid:#8d9ab5; --dim:#5a6884;
+    --pri:#2dd4bf; --sec:#818cf8; --warn:#f59e0b; --neg:#f43f5e;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--ink);line-height:1.65;overflow-x:hidden;
+       font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .nav{position:fixed;inset:0 0 auto 0;z-index:60;display:flex;align-items:center;
+       justify-content:space-between;padding:13px 26px;background:rgba(7,9,15,.72);
+       backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .nav .brand{font-weight:800;letter-spacing:2.5px;font-size:15px}
+  .nav .brand span{color:var(--pri)}
+  .nav .links{display:flex;gap:16px;font-size:12.5px;color:var(--mid);flex-wrap:wrap}
+  .nav .links a{color:inherit;text-decoration:none}
+  .nav .links a:hover{color:var(--ink)}
+  @media(max-width:980px){.nav .links{display:none}}
+
+  section{padding:106px 7vw 92px;position:relative;border-top:1px solid var(--line)}
+  section:first-of-type{border-top:0}
+  .kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:2.5px;text-transform:uppercase;
+          color:var(--pri);font-weight:700;margin-bottom:16px}
+  .kicker .line{color:var(--sec)}
+  h1{font-size:clamp(32px,5.4vw,60px);line-height:1.08;font-weight:800;letter-spacing:-1.2px}
+  h2{font-size:clamp(25px,3.6vw,40px);line-height:1.18;font-weight:780;letter-spacing:-.6px}
+  h3{font-size:17.5px;font-weight:700;letter-spacing:-.2px}
+  .lead{font-size:clamp(16px,1.75vw,19px);color:var(--mid);max-width:820px;margin-top:20px}
+  .sub{font-size:14.5px;color:var(--mid);max-width:800px;margin-top:14px}
+  .fine{font-family:var(--mono);font-size:11.5px;color:var(--dim);line-height:1.75;margin-top:20px}
+  .accent{color:var(--pri)}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .rv{opacity:0;transform:translateY(22px);transition:.75s cubic-bezier(.2,.7,.2,1)}
+  .rv.in{opacity:1;transform:none}
+
+  /* hero */
+  #hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding-top:120px}
+  #hero canvas{position:absolute;inset:0;width:100%;height:100%;opacity:.4;z-index:0}
+  #hero>div{position:relative;z-index:1;max-width:980px}
+  .heroline{display:flex;gap:10px;flex-wrap:wrap;margin-top:36px}
+  .chip{font-family:var(--mono);font-size:11.5px;color:var(--mid);padding:6px 12px;
+        border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.02)}
+  .ask-q{font-size:clamp(20px,2.6vw,30px);font-weight:800;letter-spacing:-.5px;margin-top:14px}
+  .ask-q .w{color:var(--pri)}
+
+  /* console */
+  .console{margin-top:34px;border:1px solid var(--line);border-radius:16px;background:var(--panel);
+           overflow:hidden;box-shadow:0 40px 80px -40px #000}
+  .console .bar{display:flex;align-items:center;gap:10px;padding:11px 16px;
+                background:var(--panel2);border-bottom:1px solid var(--line);
+                font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+  .console .bar .d{width:9px;height:9px;border-radius:50%;background:var(--dim)}
+  .console .body{padding:22px}
+  .ctrl{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  .ctrl label{font-family:var(--mono);font-size:11.5px;color:var(--dim);letter-spacing:1px}
+  .ctrl input[type=range]{flex:1;min-width:240px;accent-color:var(--pri)}
+  .ctrl .state{font-family:var(--mono);font-size:12.5px;font-weight:700;padding:6px 14px;
+               border-radius:8px;background:var(--panel2);border:1px solid var(--line);min-width:150px;text-align:center}
+  canvas.tr{width:100%;height:118px;display:block;background:var(--bg2);border-radius:10px;margin-top:9px}
+  canvas.tr.big{height:184px}
+  .trlab{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:1.2px;margin-top:14px}
+  .legend{display:flex;gap:18px;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:10px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+  /* two-verdict split */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:22px;
+         border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  @media(max-width:780px){.split{grid-template-columns:1fr}}
+  .vpane{padding:22px}
+  .vpane:first-child{border-right:1px solid var(--line);background:rgba(244,63,94,.045)}
+  @media(max-width:780px){.vpane:first-child{border-right:0;border-bottom:1px solid var(--line)}}
+  .vpane:last-child{background:rgba(45,212,191,.045)}
+  .vpane .who{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700}
+  .vpane:first-child .who{color:var(--neg)}
+  .vpane:last-child .who{color:var(--pri)}
+  .vpane .call{font-size:26px;font-weight:800;margin:10px 0 8px;letter-spacing:-.5px}
+  .vpane .why{font-size:13.5px;color:var(--mid);min-height:62px}
+  .vpane .stat{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-top:10px;
+                padding-top:10px;border-top:1px solid var(--line)}
+
+  /* two-track */
+  .tracks{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:30px}
+  @media(max-width:820px){.tracks{grid-template-columns:1fr}}
+  .track{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px}
+  .track .tag{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:800}
+  .track.r .tag{color:var(--pri)} .track.m .tag{color:var(--sec)}
+  .track h3{margin:11px 0 9px}
+  .track p{font-size:13.5px;color:var(--mid)}
+  .track .ex{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-top:13px;
+             padding-top:13px;border-top:1px solid var(--line);line-height:1.7}
+  .converge{margin-top:24px;padding:24px 26px;border-radius:15px;
+            background:linear-gradient(135deg,rgba(129,140,248,.1),rgba(45,212,191,.05));
+            border:1px solid rgba(129,140,248,.3);max-width:920px}
+  .converge .big{font-size:clamp(18px,2.3vw,24px);font-weight:800;letter-spacing:-.4px;line-height:1.4}
+
+  /* architecture */
+  .arch{margin-top:34px;display:flex;flex-direction:column;gap:2px}
+  .layer{display:grid;grid-template-columns:132px 1fr 210px;gap:18px;align-items:start;
+         padding:22px;background:var(--panel);border:1px solid var(--line)}
+  .layer:first-child{border-radius:14px 14px 0 0}
+  .layer:last-child{border-radius:0 0 14px 14px}
+  @media(max-width:860px){.layer{grid-template-columns:1fr;gap:8px}}
+  .layer .tag{font-family:var(--mono);font-size:12px;font-weight:800;letter-spacing:1px}
+  .layer .tag em{display:block;font-style:normal;font-size:10.5px;color:var(--dim);
+                 letter-spacing:1.5px;margin-top:3px;font-weight:600}
+  .layer .q{font-size:14.5px;color:var(--ink);font-weight:600}
+  .layer .q em{display:block;font-style:normal;font-size:13.5px;color:var(--mid);
+               font-weight:400;margin-top:6px}
+  /* scenario tabs (rigor console) */
+  .tabs{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 20px}
+  .tab{cursor:pointer;border:1px solid var(--line);background:var(--panel2);
+       border-radius:13px;padding:11px 15px;transition:.18s;text-align:left;
+       display:flex;flex-direction:column;gap:6px;min-width:128px}
+  .tab:hover{border-color:rgba(45,212,191,.45);transform:translateY(-1px)}
+  .tab.on{border-color:var(--pri);background:rgba(45,212,191,.12);box-shadow:0 0 0 1px rgba(45,212,191,.3)}
+  .tab .tt{font-weight:700;font-size:13.5px;color:var(--ink);letter-spacing:.2px}
+  .tab .tg{font-family:var(--mono);font-size:10.5px;letter-spacing:.4px;padding:3px 9px;
+       border-radius:20px;align-self:flex-start}
+  .tab .tg.yes{background:rgba(45,212,191,.16);color:#5eead4}
+  .tab .tg.no{background:rgba(120,134,168,.18);color:#aab8d6}
+  /* episode schematic */
+  .schema{display:flex;flex-direction:column;gap:14px;margin:6px 0 26px}
+  .srow{display:flex;align-items:center;gap:18px}
+  .slabel{width:128px;flex:none;font-size:13.5px;font-weight:700;color:var(--ink)}
+  .slabel span{display:block;font-size:11px;font-weight:500;color:var(--mid);margin-top:3px;line-height:1.4}
+  .schema svg{flex:1;height:62px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+  .schema .ln{fill:none;stroke:var(--pri);stroke-width:2.3;stroke-linejoin:round;stroke-linecap:round}
+  .schema .base{stroke:var(--dim);stroke-width:1;stroke-dasharray:3 4}
+  .layer .null b{color:var(--mid);font-weight:600}
+  .pipes{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:30px}
+  .pipe{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
+  .pipe .h{font-family:var(--mono);font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:var(--pri);font-weight:700}
+  .pipe h3{margin:9px 0 8px}
+  .pipe p{font-size:13.5px;color:var(--mid)}
+
+  /* evidence bars */
+  .bars{margin-top:32px;display:flex;flex-direction:column;gap:20px;max-width:880px}
+  .row{display:grid;grid-template-columns:158px 1fr 66px;align-items:center;gap:16px}
+  @media(max-width:680px){.row{grid-template-columns:104px 1fr 52px;font-size:13px}}
+  .row .nm{font-size:14px;font-weight:600}
+  .row .nm em{display:block;font-style:normal;font-family:var(--mono);font-size:10px;
+              letter-spacing:1.2px;margin-top:3px}
+  .row .nm em.p{color:var(--pri)} .row .nm em.c{color:var(--warn)}
+  .row .track{height:30px;background:var(--panel2);border-radius:7px;overflow:hidden;position:relative}
+  .row .fill{height:100%;width:0;transition:width 1.5s cubic-bezier(.2,.8,.2,1)}
+  .row .fill.p{background:linear-gradient(90deg,#2dd4bf,#5eead4)}
+  .row .fill.c{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+  .row .gate{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.35)}
+  .row .gate::after{content:"及格线 50%";position:absolute;top:-19px;left:-30px;font-family:var(--mono);
+                    font-size:9.5px;color:var(--dim);white-space:nowrap}
+  .row .pc{font-family:var(--mono);font-weight:800;text-align:right;font-size:15px}
+  .row .meta{grid-column:2/4;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:-8px}
+  @media(max-width:680px){.row .meta{grid-column:1/4}}
+
+  /* incremental AUC demo */
+  .iauc{margin-top:30px;display:flex;flex-direction:column;gap:16px;max-width:900px}
+  .imod{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:20px 22px}
+  .imod .mt{font-family:var(--mono);font-size:12px;font-weight:800;letter-spacing:1px;margin-bottom:14px}
+  .ipair{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:center}
+  @media(max-width:620px){.ipair{grid-template-columns:1fr}}
+  .ibar{display:flex;align-items:center;gap:10px}
+  .ibar .lab{font-size:12.5px;color:var(--mid);width:108px;flex:none}
+  .ibar .t{height:26px;background:var(--panel2);border-radius:6px;overflow:hidden;flex:1}
+  .ibar .f{height:100%;width:0;background:linear-gradient(90deg,#475569,#64748b);transition:width 1.4s cubic-bezier(.2,.8,.2,1)}
+  .ibar .f.hi{background:linear-gradient(90deg,#2dd4bf,#5eead4)}
+  .ibar .v{font-family:var(--mono);font-weight:800;font-size:14px;width:52px;text-align:right;flex:none}
+  .imod .delta{font-family:var(--mono);font-size:13px;color:var(--pri);margin-top:14px;
+               padding-top:12px;border-top:1px solid var(--line)}
+  .imod .delta b{font-size:16px}
+
+  /* morphology clusters */
+  .clusters{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:14px;margin-top:30px}
+  .clu{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .clu .ct{font-family:var(--mono);font-size:11px;letter-spacing:1.6px;font-weight:700;color:var(--sec)}
+  .clu h4{font-size:15.5px;margin:9px 0 12px;font-weight:700}
+  .cf{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .cf .fl{font-size:12px;color:var(--mid);width:96px;flex:none}
+  .cf .ct2{height:16px;background:var(--panel2);border-radius:4px;overflow:hidden;flex:1}
+  .cf .cf2{height:100%;width:0;background:linear-gradient(90deg,#818cf8,#a5b4fc);transition:width 1.3s cubic-bezier(.2,.8,.2,1)}
+  .cf .cv{font-family:var(--mono);font-size:11.5px;color:var(--dim);width:50px;text-align:right;flex:none}
+
+  /* generic cards */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(238px,1fr));gap:14px;margin-top:32px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
+  .card .h{font-family:var(--mono);font-size:11px;letter-spacing:1.8px;text-transform:uppercase;
+           color:var(--pri);font-weight:700}
+  .card h3{margin:9px 0 8px}
+  .card p{font-size:13.5px;color:var(--mid)}
+  .card .k{font-family:var(--mono);font-size:26px;font-weight:800;margin:6px 0 2px;letter-spacing:-1px}
+
+  /* table */
+  table{width:100%;border-collapse:collapse;margin-top:30px;font-size:14px;max-width:960px}
+  th,td{text-align:left;padding:14px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;
+     color:var(--dim);font-weight:700}
+  td.mono{font-family:var(--mono);font-size:12.5px;color:var(--mid)}
+  td strong{color:var(--ink)}
+
+  .ask{margin-top:32px;display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:14px}
+  .askcard{border:1px solid var(--line);border-radius:14px;padding:24px;background:var(--panel)}
+  .askcard .h{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--sec);font-weight:700}
+  .askcard h3{margin:10px 0 10px}
+  .askcard ul{list-style:none;display:flex;flex-direction:column;gap:9px;font-size:13.5px;color:var(--mid)}
+  .askcard li{padding-left:15px;position:relative}
+  .askcard li::before{content:"";position:absolute;left:0;top:8px;width:5px;height:5px;
+                      border-radius:50%;background:var(--sec)}
+
+  .story{border-left:3px solid var(--sec);padding:20px 24px;background:var(--panel);
+         border-radius:0 13px 13px 0;margin-top:30px;max-width:880px}
+  .story p{font-size:15.5px;color:var(--ink)}
+  .story p+p{margin-top:13px;color:var(--mid);font-size:14px}
+  .story .qq{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--sec);
+             font-weight:700;margin-bottom:11px}
+
+  .punch{margin-top:30px;padding:24px 26px;border-radius:15px;max-width:880px;
+         background:linear-gradient(135deg,rgba(244,63,94,.1),rgba(244,63,94,.02));
+         border:1px solid rgba(244,63,94,.28)}
+  .punch .big{font-size:clamp(19px,2.5vw,25px);font-weight:800;letter-spacing:-.4px;line-height:1.35}
+  .punch p{font-size:14px;color:var(--mid);margin-top:12px}
+
+  .qa{margin-top:32px;display:flex;flex-direction:column;gap:11px;max-width:920px}
+  .qa .q{padding:18px 22px;border-radius:13px;background:var(--panel);border:1px solid var(--line)}
+  .qa .q .ask{font-size:15.5px;font-weight:700}
+  .qa .q .ans{font-size:13.5px;color:var(--mid);margin-top:8px}
+  .qa .q .ans b{color:var(--ink);font-weight:600}
+
+  .body-map{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:30px}
+  .bm{padding:20px;border-radius:14px;background:var(--panel);border:1px solid var(--line)}
+  .bm .code{font-family:var(--mono);font-size:11px;letter-spacing:1.6px;font-weight:700}
+  .bm.p .code{color:var(--pri)} .bm.c .code{color:var(--warn)}
+  .bm h4{font-size:15.5px;margin:8px 0 7px;font-weight:700}
+  .bm p{font-size:13px;color:var(--mid)}
+  .bm .tagline{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:11px;
+               padding-top:11px;border-top:1px solid var(--line)}
+
+  .road{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:14px;margin-top:34px}
+  .rstep{border:1px solid var(--line);border-radius:14px;padding:24px;background:var(--panel);position:relative}
+  .rstep .ph{font-family:var(--mono);font-size:11px;letter-spacing:2px;font-weight:800;color:var(--pri)}
+  .rstep .ph.done{color:var(--dim)}
+  .rstep h4{font-size:17px;margin:11px 0 9px;font-weight:700}
+  .rstep p{font-size:13.5px;color:var(--mid)}
+  .rstep .tag{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:13px;
+              padding-top:13px;border-top:1px solid var(--line)}
+
+  .badge{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:800;
+         letter-spacing:1.2px;padding:3px 9px;border-radius:5px;margin-left:9px;vertical-align:2px}
+  .badge.ok{background:rgba(45,212,191,.16);color:#5eead4;border:1px solid rgba(45,212,191,.4)}
+  .badge.bad{background:rgba(244,63,94,.16);color:#fda4af;border:1px solid rgba(244,63,94,.4)}
+
+  .score{margin-top:34px;border:1px solid var(--line);border-radius:16px;overflow:hidden;max-width:920px}
+  .score .sh{padding:18px 22px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  .score .sh h3{font-size:16px}
+  .score .sh p{font-size:13px;color:var(--mid);margin-top:6px}
+  .stab{width:100%;border-collapse:collapse;margin:0;font-size:13.5px}
+  .stab th,.stab td{padding:12px 14px;border-bottom:1px solid var(--line);text-align:center}
+  .stab th:first-child,.stab td:first-child{text-align:left}
+  .stab th{font-family:var(--mono);font-size:10px;letter-spacing:1.3px;color:var(--dim);
+           text-transform:uppercase;background:var(--panel)}
+  .stab td{font-family:var(--mono);font-size:12.5px;color:var(--mid)}
+  .stab td.nm{font-family:inherit;font-size:13.5px;color:var(--ink);font-weight:600}
+  .stab .yes{color:#5eead4;font-weight:800} .stab .no{color:#fda4af;font-weight:800}
+  .stab tr.tot td{background:var(--panel2);font-weight:800;color:var(--ink);border-bottom:0}
+  .asym{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:22px;max-width:920px}
+  @media(max-width:780px){.asym{grid-template-columns:1fr}}
+  .asym .a{padding:20px;border-radius:13px;border:1px solid var(--line)}
+  .asym .a.n{background:rgba(244,63,94,.06);border-color:rgba(244,63,94,.25)}
+  .asym .a.s{background:rgba(45,212,191,.06);border-color:rgba(45,212,191,.25)}
+  .asym .a .t{font-family:var(--mono);font-size:10.5px;letter-spacing:1.8px;font-weight:800}
+  .asym .a.n .t{color:var(--neg)} .asym .a.s .t{color:var(--pri)}
+  .asym .a h4{font-size:15.5px;margin:9px 0 8px;font-weight:700}
+  .asym .a p{font-size:13px;color:var(--mid)}
+
+  .foot{padding:34px 7vw;border-top:1px solid var(--line);font-family:var(--mono);
+        font-size:11.5px;color:var(--dim);line-height:1.9}
+</style>
+</head>
+<body>
+<div class="nav">
+  <div class="brand">SYNC<span>PIPE</span></div>
+  <div class="links">
+    <a href="#hero">开场</a><a href="#context">背景</a><a href="#problem">问题</a>
+    <a href="#tech">技术</a><a href="#demo">实证</a><a href="#why">为什么</a>
+    <a href="#roadmap">路线图</a><a href="#why">为什么是现在</a>
+  </div>
+</div>
+
+<!-- HERO: immersive Huawei-watch opener -->
+<section id="hero">
+  <canvas id="heroC"></canvas>
+  <div>
+    <div class="kicker">SYNCPIPE</div>
+    <h1>你的手表，读懂一个人。<br><span class="accent">SyncPipe，读懂两个人之间。</span></h1>
+    <p class="lead">健康、情绪、睡眠——可穿戴把「一个人的身体」测到了极致。
+      却没人测过：当两个人相处，他们的身体是否在悄悄同频。</p>
+    <div class="heroline">
+      <span class="chip">人际同步性的可验证测量层</span>
+      <span class="chip">基于公开真实数据 · 10 分钟</span>
+    </div>
+  </div>
+</section>
+
+<!-- CONTEXT: lay the background, build the connection -->
+<section id="context">
+  <div class="rv">
+    <div class="kicker">01 / 背景 · <span class="line">关系健康</span></div>
+    <h2>身体、情绪、睡眠，<br>已经被测到了<span class="accent">极致</span>。</h2>
+    <p class="lead">过去十年，可穿戴把单人生理数据变成了消费级健康服务——而且越做越深。
+      这不是预言，是已经发生在货架上的事：</p>
+    <div class="cards">
+      <div class="card">
+        <div class="h">Apple Watch</div>
+        <div class="k">ECG · 血氧 · 睡眠分期</div>
+        <p>2018 年，它的 ECG app 与房颤提示走 FDA De Novo 通道获批（Class II，属器械 clearance、非药品 approval）——消费手表第一次把单导联心电装进手腕；睡眠分期、血氧、乃至「正念」情绪记录，也已覆盖数亿人。</p>
+      </div>
+      <div class="card">
+        <div class="h">Oura / Whoop</div>
+        <div class="k">HRV · 恢复 · 压力</div>
+        <p>靠 HRV、静息心率、体温、睡眠，算出每晚的「恢复 / 准备度」分，做成订阅生意——身体量化本身，就成了产品。</p>
+      </div>
+      <div class="card">
+        <div class="h">下一步去哪</div>
+        <div class="k">关系层</div>
+        <p>当单人指标被卷到天花板，关系这一层却还空着——它是最被低估、却反复被证明与寿命和健康强相关的因子之一。</p>
+      </div>
+    </div>
+    <div class="story">
+      <div class="qq">所以，为什么敢说产品必然会采纳同步性研究</div>
+      <p>厂商已经在把<strong>生理与情绪科学</strong>做成生意（HRV、压力、睡眠分期全是证据）。
+        而关系健康，正从一个学术话题变成公共议程——2023 年 5 月，美国外科总长 Vivek Murthy 发布 advisory
+        《Our Epidemic of Loneliness and Isolation》，把社交孤立与孤独定性为公共卫生危机；
+        340 万人元分析：孤独 / 隔离 / 独居分别 +26% / +29% / +32% 早逝风险（Holt-Lunstad 2015）。市场往「关系健康」走，只是时间问题；
+        只是今天所有设备都停在<strong>一个人</strong>里，关系那一层，空白。</p>
+      <p>「两个人之间到底有没有真的连上、连成了什么样」——正是<strong>同步性研究</strong>想回答、却一直没被严谨回答的问题。
+        SyncPipe 想做的，是把这片空白接起来。</p>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM: two lines converge -->
+<section id="problem">
+  <div class="rv">
+    <div class="kicker">02 / 问题 · <span class="line">科研线 × 市场线</span></div>
+    <h2>两条线，<br>指向<span class="accent">同一个缺口</span>。</h2>
+    <p class="sub">科研侧和市场的痛点不同，但结论汇到一处：<strong>没有人把「双人生理互动」可靠地测出来。</strong></p>
+    <div class="tracks">
+      <div class="track r">
+        <div class="tag">科研线 · 方法学危机</div>
+        <h3>同步性「测不准」，证据就不可信</h3>
+        <p>领域里最常用的做法，要么只做朴素互相关（近年多人穿戴研究仍这么干），
+          要么用 SUSY、rMEA 这类带 surrogate 的工具——
+          但它们是<strong>单指标 / 单模态</strong>，没有多级证据链、没有验证性条件对比、没有跨特征 FDR 校正。</p>
+        <div class="ex">后果：混杂控制缺失（分不清真耦合 vs ISC / 共在假象）、
+          无法分离真实耦合。大量「同步性效应」可能只是方法学假象。</div>
+      </div>
+      <div class="track m">
+        <div class="tag">市场线 · 碰不了</div>
+        <h3>穿戴狂卷「个人」，无人碰「双人」</h3>
+        <p>想想真实的使用场景：你在 Apple Health 里看自己的心率，一目了然；
+          想看「你和伴侣相处时，俩人身体的同步」？没有入口。</p>
+        <div class="ex">三道真实的墙：① 双人数据要双方同意、跨账户，比单人隐私难一个量级；
+          ② 关系是最亲密的数据，卖你手表的厂商不适合同时当你们关系的裁判；
+          ③ 测「同频与否」第一步得先证明「信号里真有同步」——这步消费穿戴从没做过，也发不出可信的测量结论。</div>
+      </div>
+    </div>
+    <div class="converge">
+      <div class="big">两个缺口，同一种解法：<br>一套<strong style="color:#5eead4">标准化、可审计、可证伪</strong>的双人同步性测量基础设施。</div>
+      <p class="sub" style="margin-top:14px">这恰好有一个先例可参照——
+        <strong>DPABI</strong> 当年把脑影像分析从「各实验室自写脚本」变成「标准化开源工具」，
+        并据此建起了大数据社区。SyncPipe 想做同步性领域的那把标准尺——
+        先有可信的测量底座，下游的研究、临床、组织应用才有地方落脚。</p>
+    </div>
+    <div class="cards" style="margin-top:30px">
+      <div class="card">
+        <div class="h">朴素互相关</div>
+        <h3>消费穿戴常用</h3>
+        <p>JMIR 2024 一篇夫妻穿戴研究，11 对、用 cross-correlation，作者自己写「需更大样本复制」。
+          撑不起面向消费者的服务。</p>
+      </div>
+      <div class="card">
+        <div class="h">SUSY / rMEA</div>
+        <h3>科研级但有天花板</h3>
+        <p>SUSY（双变量 WCC + surrogate）、rMEA（动作能量 WCC + surrogate）有 null 模型，
+          但单指标单模态、无 L2 验证性、无 FDR 族校正。</p>
+      </div>
+      <div class="card">
+        <div class="h">SyncPipe 的差异</div>
+        <h3>多级链 + 验证 + FDR</h3>
+        <p>多模态、三段证据链（存在→结构→条件）、FDR/BH 族校正、claim-ceiling 纪律、
+          可审计 null 模型。这是一个新品类，不是又一个脚本。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH: three pipelines + L0/L1/L2 metaphor -->
+<section id="tech">
+  <div class="rv">
+    <div class="kicker">03 / 技术路径 · <span class="line">怎么测准</span></div>
+    <h2>三条流水线，<br>把「默契」变成<span class="accent">可验证的结论</span>。</h2>
+    <p class="sub">SyncPipe 不是单个算法，而是三条流水线构成的测量基础设施。第三条（推断）是核心。</p>
+    <div class="pipes">
+      <div class="pipe">
+        <div class="h">Feature Pipeline</div>
+        <h3>从信号到特征</h3>
+        <p>原始多模态生理信号 → 对齐、滤波 → 提取 WCC 轨迹与特征
+          （同步幅度、episode 驻留时长、进出切换率、形态学描述）。</p>
+      </div>
+      <div class="pipe">
+        <div class="h">Computational Pipeline</div>
+        <h3>从轨迹到结构</h3>
+        <p>计算滑动窗交叉相关（WCC）轨迹、检测同步 episode、刻画形态——
+          把「平均相关」升级成「同步长什么样」。</p>
+      </div>
+      <div class="pipe">
+        <div class="h">Inference Pipeline</div>
+        <h3>从结构到结论</h3>
+        <p>三段证据链 L0→L1→L2，每一段都配一个「反方律师」专门负责找出结论可能是假的理由。
+          下面用「身体同频」的比喻讲清它怎么解开科研问题、又怎么解开市场问题。</p>
+      </div>
+    </div>
+
+    <div class="arch rv" style="margin-top:40px">
+      <div class="layer">
+        <div class="tag" style="color:var(--pri)">L0<em>有没有在同步</em></div>
+        <div class="q">两个人的身体信号，真的出现了「同频」吗？
+          <em>反方律师的手法：把两人各自的数据打乱重排——保留每个人自己的节奏，只切断两人之间的对应关系。
+            如果打乱后还能同步到这个程度，那原来的同步就不算证据。这就是存在性 gate，过不了后面免谈。</em></div>
+      </div>
+      <div class="layer">
+        <div class="tag" style="color:var(--sec)">L1<em>同步长什么样</em></div>
+        <div class="q">是真的一段段「连上了」，还是平均下来碰巧偏高？
+          <em>真有互动时，同步应该一段一段成型：连上一会儿、断开、又连上——
+            而不是全程比基线高那么一丁点。这一关专门检验同步有没有「成段」的结构。</em></div>
+      </div>
+      <div class="layer">
+        <div class="tag" style="color:var(--warn)">L2<em>换场合还在不在</em></div>
+        <div class="q">这份同步，会随两人在做什么而变化吗？
+          <em>最关键的一关：把搭档打乱重配（真默契应消失）、把时间轴错开（真互动应消失）。
+            如果两种破坏之后同步还在，那它是环境造成的，不是人际连接。</em></div>
+      </div>
+    </div>
+    <p class="sub">三关的「反方律师」<strong>互不相同</strong>，证据不能混算——这是很多研究出错的地方，
+      SyncPipe 在代码层强制分开。只有全过三关的，才允许叫确认性发现；其余明确标为探索性。</p>
+
+    <div class="story rv" style="margin-top:34px">
+      <div class="qq">同一套机制，解开两条线</div>
+      <p><strong>对科研</strong>：它把「同步性是否真实、是否结构化、是否因条件而异」从一句口号变成可审计的流程——
+        能分离真实耦合与 ISC / 共在假象，让结论可被推翻、可被重复。</p>
+      <p><strong>对市场</strong>：穿戴厂商若自己发一个「夫妻同步分 73%」，会遭科学与监管双反噬
+        （FDA 的数字健康技术框架，要求穿戴测到的生理信号做 fit-for-purpose 验证——分析性 + 临床验证，才能进临床证据）。<strong>测量空白，恰恰是大厂进不来的原因</strong>。
+        SyncPipe 不做硬件、不卖「连接分」，而是做中立的、可信的测量层——
+        谁先有这把标准尺，谁就握住所有关系健康应用的测量关口。</p>
+    </div>
+  </div>
+
+  <!-- rigor proof: the WCC audit console (reused engine) -->
+  <div class="console rv" style="margin-top:40px">
+    <div class="bar"><span class="d"></span><span id="barTxt">syncpipe · 存在性审计</span></div>
+    <div class="body">
+      <div class="tabs" id="tabs"></div>
+      <div class="truth">
+        <span class="lbl">GROUND TRUTH</span>
+        <span class="val" id="thVal">—</span>
+        <span class="det" id="thDet">—</span>
+      </div>
+      <div class="trlab">两个人的生理曲线</div>
+      <canvas id="cA" class="tr"></canvas>
+      <canvas id="cB" class="tr"></canvas>
+      <div class="trlab">他们有多同步（白线）／ 就算毫无关系也能达到的程度（灰带）</div>
+      <canvas id="cW" class="tr big"></canvas>
+      <div class="legend">
+        <span><i style="background:#2dd4bf"></i>第一个人</span>
+        <span><i style="background:#818cf8"></i>第二个人</span>
+        <span><i style="background:#fff"></i>实测同步程度</span>
+        <span><i style="background:#4b5a78"></i>毫无关系也能达到的范围</span>
+        <span><i style="background:#2dd4bf;border-radius:50%"></i>真正算得上默契的时刻</span>
+      </div>
+      <div style="font-size:12.5px;color:var(--dim);line-height:1.75;margin:16px 0 4px;border-left:2px solid var(--line);padding-left:12px">
+        左边是多数研究的「常规做法」：把两条曲线切成上千个 15 秒小窗，每窗算一次相关，再把上千个高度重叠的窗当成上千次独立样本做一次 t 检验——证据被凭空放大。右边是 SyncPipe 的做法。
+      </div>
+      <div class="split">
+        <div class="vpane">
+          <div class="who">常规做法 · 滑窗相关</div>
+          <div class="call" id="nCall">—</div>
+          <div class="why" id="nWhy">—</div>
+          <div class="stat" id="nStat">—</div>
+        </div>
+        <div class="vpane">
+          <div class="who">SyncPipe · L0 存在性审计</div>
+          <div class="call" id="sCall">—</div>
+          <div class="why" id="sWhy">—</div>
+          <div class="stat" id="sStat">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="score rv">
+    <div class="sh">
+      <h3>四道题，两套流程的答卷</h3>
+      <p>四个场景在开跑之前就定好，没挑选。<strong>下面这张表是跑出来的结果，不是想要的结果。</strong></p>
+    </div>
+    <table class="stab"><thead><tr>
+      <th>场景</th><th>正确答案</th><th>常规流程</th><th>SyncPipe</th>
+    </tr></thead><tbody id="scoreBody"></tbody></table>
+  </div>
+  <div class="asym rv">
+    <div class="a n">
+      <div class="t">常规流程错在这里</div>
+      <h4>把两个陌生人判成了知音</h4>
+      <p id="asymN">—</p>
+    </div>
+    <div class="a s">
+      <div class="t">SyncPipe 错在这里</div>
+      <h4>把一对真有默契的判成了「证据不够」</h4>
+      <p id="asymS">—</p>
+    </div>
+  </div>
+  <div class="punch rv" style="background:linear-gradient(135deg,rgba(45,212,191,.1),rgba(45,212,191,.02));border-color:rgba(45,212,191,.28)">
+    <div class="big">同样错一道，但一个是「无中生有」，<br>一个是「宁可不说」。</div>
+    <p>常规流程的错会变成一篇论文、被引用、被当成真发现；SyncPipe 的错只是这次没敢下结论，
+      不会有任何错误结论流进文献。<span class="accent">测量工具的第一美德是不骗人，不是不漏报。</span></p>
+  </div>
+  <p class="fine" id="modelNote">—</p>
+</section>
+
+<!-- DEMO: capability on open data, NO health claims -->
+<section id="demo">
+  <div class="rv">
+    <div class="kicker">04 / 实证能力 · <span class="line">开源真实数据</span></div>
+    <h2>SyncPipe 在真实数据上，<br>挖出了<span class="accent">比「平均同步」更多</span>的东西。</h2>
+    <p class="lead">下面所有数字来自公开双人生理数据集 <strong>LERIQUE（2024）</strong>，
+      用 SyncPipe 当前代码跑出。目的只有一件事：<strong>展示能力</strong>——
+      同样的数据，SyncPipe 能额外给出朴素方法给不了的结构特征。</p>
+    <div class="story">
+      <div class="qq">先看一个反直觉的结果</div>
+      <p>朴素做法只报一个「平均同步」数字（mean_synchrony）。我们在此之上，逐步叠加
+        SyncPipe 的关系<strong>结构层</strong>特征（同步幅度、episode 驻留、进出切换率），
+        看它能不能把「静息 vs 任务」两种状态区分开。</p>
+      <p>在 RESP（呼吸）通道上，朴素指标只有 <strong class="num">0.38</strong>——等于瞎猜；
+        加上结构层后涨到 <strong class="num">0.88</strong>。<strong class="accent">关系结构，才是信号本身，不是噪声。</strong></p>
+    </div>
+
+    <div class="iauc rv" id="iauc"></div>
+    <p class="lead" style="font-size:15px">朴素「平均同步」几乎分不出状态（RESP 仅 0.38，比瞎猜还差）；
+      叠上 SyncPipe 的结构层，三条通道命中率全线上扬——<strong class="accent">关系是一段段「连上又断开」的结构，朴素平均把它抹平了</strong>。</p>
+    <p class="fine">数据：LERIQUE 2024，n≈54–62 / 模态；5 折交叉验证逻辑回归 AUC。
+      任务：区分 rest（静息）与 trials（任务）。基线 = 朴素 mean_synchrony；逐步 + L0→L1 结构描述子。
+      <strong style="color:var(--warn)">诚实边界</strong>：小样本、数据受限，且重跑中检出疑似泄漏会把估计往下压；
+      这是「原理验证」，不是统计稳健的验证结论。</p>
+
+    <div class="story rv" style="margin-top:30px">
+      <div class="qq">再描绘「同步长什么样」</div>
+      <p>同一批 LERIQUE 数据，SyncPipe 把每条同步轨迹的形态聚成了三类——
+        这正对应 L1 那关想回答的「同步长什么样」。</p>
+    </div>
+    <div class="schema" id="schema">
+      <div class="srow"><div class="slabel">簇 0 · 深而稳<span>同步强，且长时间驻留</span></div>
+        <svg viewBox="0 0 320 62" preserveAspectRatio="none"><line class="base" x1="0" y1="52" x2="320" y2="52"/>
+          <path class="ln" d="M0,56 L22,52 L42,12 L278,12 L298,52 L320,56"/></svg></div>
+      <div class="srow"><div class="slabel">簇 1 · 几乎没连上<span>幅度低，基本只是漂移</span></div>
+        <svg viewBox="0 0 320 62" preserveAspectRatio="none"><line class="base" x1="0" y1="52" x2="320" y2="52"/>
+          <path class="ln" d="M0,54 L40,52 L80,55 L120,52 L160,55 L200,52 L240,55 L280,52 L320,54"/></svg></div>
+      <div class="srow"><div class="slabel">簇 2 · 连得很带劲<span>幅度高，但频繁进出</span></div>
+        <svg viewBox="0 0 320 62" preserveAspectRatio="none"><line class="base" x1="0" y1="52" x2="320" y2="52"/>
+          <path class="ln" d="M0,56 L16,53 L26,12 L40,53 L56,53 L66,12 L80,53 L96,53 L106,12 L120,53 L136,53 L146,12 L160,53 L176,53 L186,12 L200,53 L216,53 L226,12 L240,53 L256,53 L266,12 L280,53 L296,53 L306,12 L320,56"/></svg></div>
+    </div>
+    <div class="clusters rv" id="clusters"></div>
+    <p class="fine">把每条「两人有多同步」的曲线按形状分了三类——深而稳 / 几乎没连上 / 连得很带劲但进进出出。
+      朴素方法只给一个「平均」数字，把三种相处模式混成一个数；SyncPipe 把它们分别认了出来。
+      形态学聚类（LERIQUE，n=176 traces，EXPLORATORY / 小样本）。</p>
+
+    <div class="punch rv">
+      <div class="big">这一节我们只证明一件事：<br>SyncPipe 能比朴素方法多看到一层关系结构。</div>
+      <p>至于「这些结构特征，是否真的对应<strong>关系质量或健康程度</strong>」——
+        这需要严谨的科研验证，<strong>本 demo 不做任何断言</strong>。
+        把这一步说成已证实的结论，正是我们不做的那种事。它属于下一步的科研方向。</p>
+    </div>
+  </div>
+</section>
+
+<!-- WHY: investor logic, no seed/team (reserved for QA) -->
+<section id="why">
+  <div class="rv">
+    <div class="kicker">05 / 为什么是 SyncPipe · <span class="line">为什么是现在</span></div>
+    <h2>不是又一个同步性 App，<br>而是关系的<span class="accent">测量层 / 认证层</span>。</h2>
+    <div class="story">
+      <div class="qq">为什么是 SyncPipe（护城河）</div>
+      <p><strong>师承 DPABI，知道怎么把方法做成平台。</strong>DPABI 当年把脑影像分析从「各实验室自写脚本」变成标准化开源工具，
+        并据此养出一个大数据社区——我们亲眼见过这套玩法：不止是会写软件，更是会搭测量平台、建基准、做可复现、运营生态。
+        SyncPipe 想做的，是同步性领域同一个位置的东西：不是又一个脚本，而是一把别人绕不开的标准尺。</p>
+      <p><strong>价值不依赖同步性看涨。</strong>SyncPipe 是测量仪器——连「同步性不存在」这种 null 结果，
+        都需要被严谨地测量出来。即便未来证明同步性预测力有限，世界仍需用它<strong>严谨地确立这一点</strong>。
+        这把它和所有「同步性 App」竞品区隔成一个不同品类。</p>
+    </div>
+    <div class="story" style="border-left-color:var(--warn)">
+      <div class="qq" style="color:var(--warn)">为什么是现在（时间套利）</div>
+      <p>三件事刚同时就位：① 多模态穿戴把高质量生理信号从实验室搬到了日常，采集成本掉了一个数量级以上；
+        ② 监管把门槛抬高——FDA 的数字健康技术框架要求穿戴生理信号做 fit-for-purpose 验证，这恰是 SyncPipe 的价值锚；
+        ③ 双人信号已被证明真实存在（心率联动关联慢病管理），却<strong>没有任何可信测量工具</strong>。
+        数据到了、监管逼你测准、关系层空白——窗口就开在这三者的缝隙里。</p>
+    </div>
+    <div class="cards">
+      <div class="card">
+        <div class="h">学术侧</div>
+        <div class="k">有方法</div>
+        <p>同步性研究十余年积累，却散在各实验室自写脚本里，不可复现、不可审计。这正是要填的洞。</p>
+      </div>
+      <div class="card">
+        <div class="h">商业侧</div>
+        <div class="k">有信号</div>
+        <p>情感计算、社交信号分析已有创业公司在做，但多是单人相关指标，尚未触及「双人可证伪」。</p>
+      </div>
+      <div class="card">
+        <div class="h">卡位</div>
+        <div class="k">做标准</div>
+        <p>不抢应用层快钱，先坐实「测量标准」——应用可以很快，但底层不可信，整条路后面会推倒重来。</p>
+      </div>
+    </div>
+    <p class="sub">关于团队与融资的具体诉求，我留到<strong style="color:var(--pri)">当面</strong>展开——
+      此刻先让方法与时机自己说话。</p>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap">
+  <div class="rv">
+    <div class="kicker">06 / 路线图</div>
+    <h2>从一把可信的尺子，<br>到<span class="accent">关系健康的生态服务</span>。</h2>
+    <div class="road">
+      <div class="rstep">
+        <div class="ph done">T0 · 已完成</div>
+        <h4>方法层验证</h4>
+        <p>在公开双人生理数据集（LERIQUE 2024，31 对情侣）上跑过存在性审计；
+          506 项自动化检查全部通过、逐位一致、反向验证。尺子本身已被审计。</p>
+        <div class="tag">科研基本盘 · 现有装机</div>
+      </div>
+      <div class="rstep">
+        <div class="ph">T1 · 下一步（18 个月）</div>
+        <h4>高价值双人场景 pilot</h4>
+        <p>锁定最愿为「严谨」付费的最小市场：治疗联盟 RCT / 夫妻干预 / 高可靠团队。
+          需可审计性过 IRB / 审评。把「关系结构特征是否对应真实结局」做成第一个 powered 验证。</p>
+        <div class="tag">从验证性 → 可被采用</div>
+      </div>
+      <div class="rstep">
+        <div class="ph">T2 · 之后</div>
+        <h4>消费关系健康 + 穿戴 OEM 许可</h4>
+        <p>关系健康 App 与穿戴厂商的<strong>白标测量引擎许可</strong>。
+          不做硬件、不卖连接分，做别人绕不开的测量关口。</p>
+        <div class="tag">生态服务 · 外溢</div>
+      </div>
+    </div>
+    <div class="story">
+      <div class="qq">节奏原则</div>
+      <p>先证需求真伪，再造完整产品。绝不在没验过「有没有人需要这把尺子」之前，
+        先花两个月造一辆完整的车。方法准 ≠ 有人会用，两件事一件一件做。</p>
+    </div>
+  </div>
+</section>
+
+
+
+<div class="foot">
+  <div>SyncPipe · 让人际同步性成为可验证、可复现、可被推翻的测量</div>
+  <div id="footSrc">—</div>
+</div>
+
+<script src="demo_data.js"></script>
+<script>
+(function(){
+  /* reveal */
+  const io = new IntersectionObserver(es=>es.forEach(e=>{
+    if(e.isIntersecting) e.target.classList.add('in');
+  }),{threshold:.15});
+  document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+
+  /* hero background: two phase-drifting traces that intermittently lock */
+  const hc=document.getElementById('heroC'), hx=hc.getContext('2d');
+  function fitHero(){hc.width=hc.clientWidth*devicePixelRatio;hc.height=hc.clientHeight*devicePixelRatio;}
+  fitHero(); addEventListener('resize',fitHero);
+  let t=0;
+  (function heroLoop(){
+    const w=hc.width,h=hc.height; hx.clearRect(0,0,w,h);
+    const lock=(Math.sin(t*0.25)+1)/2;
+    [['#2dd4bf',0],['#818cf8',1]].forEach(([col,idx])=>{
+      hx.beginPath();
+      for(let x=0;x<=w;x+=5){
+        const ph = idx*(1-lock)*2.2;
+        const y = h*(0.42+idx*0.16)
+                + Math.sin(x*0.0034 + t + ph)*(h*0.085)
+                + Math.sin(x*0.0115 - t*1.25 + ph*1.5)*(h*0.032);
+        x===0?hx.moveTo(x,y):hx.lineTo(x,y);
+      }
+      hx.strokeStyle=col; hx.globalAlpha=.62; hx.lineWidth=1.8*devicePixelRatio; hx.stroke();
+    });
+    hx.globalAlpha=1; t+=0.009; requestAnimationFrame(heroLoop);
+  })();
+
+  /* ---- scenario console (driven by demo_data.js) ---- */
+  const D = window.DEMO_DATA;
+  if(D && D.scenarios){
+    const SC = D.scenarios;
+    const cvA=document.getElementById('cA'), cvB=document.getElementById('cB'), cvW=document.getElementById('cW');
+    const gA=cvA.getContext('2d'), gB=cvB.getContext('2d'), gW=cvW.getContext('2d');
+    function fit(c){c.width=c.clientWidth*devicePixelRatio;c.height=c.clientHeight*devicePixelRatio;}
+    const canvases=[cvA,cvB,cvW]; canvases.forEach(fit); addEventListener('resize',()=>canvases.forEach(fit));
+
+    const tabs=document.getElementById('tabs');
+    SC.forEach((s,i)=>{
+      const b=document.createElement('button');
+      b.className='tab'+(i===0?' on':'');
+      b.innerHTML='<div class="tt">'+s.title+'</div>'
+        +'<div class="tg '+(s.truth?'yes':'no')+'">答案：'+(s.truth?'真有默契':'毫无关系')+'</div>';
+      b.addEventListener('click',()=>{
+        tabs.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+        b.classList.add('on'); apply(i);
+      });
+      tabs.appendChild(b);
+    });
+
+    let cur=null, head=0;
+    function apply(i){
+      cur=SC[i]; head=0;
+      document.getElementById('barTxt').textContent =
+        '第一关 · 有没有 ｜ 窗长 '+cur.window_sec+' 秒 ｜ 造了 '+cur.surrogate_n+' 份反例数据来反驳自己';
+      const tv=document.getElementById('thVal');
+      tv.textContent = cur.truth?'这两人真有默契':'这两人毫无关系';
+      tv.className = 'val '+(cur.truth?'yes':'no');
+      document.getElementById('thDet').textContent = cur.truth_kind;
+
+      const nCall=document.getElementById('nCall');
+      nCall.innerHTML = (cur.naive_calls_sync?'判定：有默契':'判定：没有默契')
+        + '<span class="badge '+(cur.naive_correct?'ok':'bad')+'">'
+        + (cur.naive_correct?'判对了':'判错了')+'</span>';
+      nCall.style.color = cur.naive_calls_sync?'var(--neg)':'var(--mid)';
+      document.getElementById('nWhy').textContent = cur.naive_correct
+        ? '做法：把两条曲线切成 '+cur.n_wcc+' 个 15 秒小窗，每窗算一次相关，再把这 '+cur.n_wcc+' 个高度重叠的窗当成独立样本做一次 t 检验。'
+          + '落到「'+cur.title+'」这道题：它碰巧没上当（p = '+cur.p_naive_repr+'），但用的仍是同一套会把证据放大的逻辑——换个数据就可能翻车。'
+        : '做法：把两条曲线切成 '+cur.n_wcc+' 个 15 秒小窗，每窗算一次相关，再把 '+cur.n_wcc+' 个高度重叠的窗当成独立样本做一次 t 检验。'
+          + '落到「'+cur.title+'」这道题：它判【'+(cur.naive_calls_sync?'有默契':'没默契')+'】，但其实两人毫无关系——只是身体节奏都偏慢偏平，被它误读成了「同步」。';
+      document.getElementById('nStat').textContent =
+        'p = '+cur.p_naive_repr+' （越小越"显著"）   '
+        + '它以为有 '+cur.n_wcc+' 次独立观察，实际远远没有';
+
+      const sCall=document.getElementById('sCall');
+      const pass=cur.audit_calls_sync;
+      sCall.innerHTML = (pass?'判定：有默契':(cur.p_audited<0.20?'判定：证据不够，不下结论':'判定：没有默契'))
+        + '<span class="badge '+(cur.audit_correct?'ok':'bad')+'">'
+        + (cur.audit_correct?'判对了':'判错了')+'</span>';
+      sCall.style.color = pass?'var(--pri)':(cur.p_audited<0.20?'var(--warn)':'var(--neg)');
+      document.getElementById('sWhy').textContent = pass
+        ? '它先造了 '+cur.surrogate_n+' 份「反例」：保留两人各自的呼吸节奏和起伏习惯，只切断两人之间的对应关系。结果这些反例里，没有一份能同步到眼前这个程度——所以这份默契不是身体的迟缓能解释的，是真的。'
+        : (cur.audit_correct
+           ? '那 '+cur.surrogate_n+' 份「反例」里，有不少都能同步到这个程度。既然切断了两人的关系还能做到，那眼前这点同步就不能算默契的证据——这正是它应该给出的答案。'
+           : '这一次它太保守了。眼前确实存在真实的默契，但太微弱，没能明显超过那些反例的水平，于是它选择不下结论。这是一次漏报——宁可少说一个真的，也不肯多说一个假的。');
+      document.getElementById('sStat').textContent =
+        '实测同步强度 '+cur.obs_stat.toFixed(3)
+        + '   反例能达到的水平 '+cur.null_mean.toFixed(3)+' ~ '+cur.null_band[1].toFixed(3)
+        + '   （实测要明显高出去才算数）';
+    }
+
+    function drawSig(ctx,arr,col){
+      const w=ctx.canvas.width,h=ctx.canvas.height; ctx.clearRect(0,0,w,h);
+      let mn=Infinity,mx=-Infinity;
+      for(const v of arr){if(v<mn)mn=v;if(v>mx)mx=v;}
+      const rng=(mx-mn)||1;
+      ctx.beginPath();
+      for(let i=0;i<arr.length;i++){
+        const x=i/(arr.length-1)*w, y=h-((arr[i]-mn)/rng)*h*0.78-h*0.11;
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      }
+      ctx.strokeStyle=col; ctx.lineWidth=1.5*devicePixelRatio; ctx.globalAlpha=.92; ctx.stroke(); ctx.globalAlpha=1;
+    }
+    function yOf(val,h){return h-((val+1)/2)*h*0.9-h*0.05;}
+    function drawWCC(){
+      const w=gW.canvas.width,h=gW.canvas.height, N=cur.wcc.length;
+      gW.clearRect(0,0,w,h);
+      gW.strokeStyle='rgba(255,255,255,.07)'; gW.lineWidth=1*devicePixelRatio;
+      gW.beginPath(); gW.moveTo(0,yOf(0,h)); gW.lineTo(w,yOf(0,h)); gW.stroke();
+      gW.fillStyle='rgba(75,90,120,.42)'; gW.beginPath();
+      for(let i=0;i<N;i++){const x=i/(N-1)*w; const y=yOf(cur.env_hi[i],h); i===0?gW.moveTo(x,y):gW.lineTo(x,y);}
+      for(let i=N-1;i>=0;i--){gW.lineTo(i/(N-1)*w, yOf(cur.env_lo[i],h));}
+      gW.closePath(); gW.fill();
+      const upto=Math.max(2,Math.floor(head*N));
+      gW.beginPath();
+      for(let i=0;i<upto;i++){const x=i/(N-1)*w; const y=yOf(cur.wcc[i],h); i===0?gW.moveTo(x,y):gW.lineTo(x,y);}
+      gW.strokeStyle='#fff'; gW.lineWidth=1.9*devicePixelRatio; gW.stroke();
+      for(let i=0;i<upto;i++){
+        if(cur.wcc[i]>cur.env_hi[i]){
+          gW.fillStyle='rgba(45,212,191,.95)';
+          gW.beginPath(); gW.arc(i/(N-1)*w, yOf(cur.wcc[i],h), 2.4*devicePixelRatio, 0, 6.284); gW.fill();
+        }
+      }
+      const px=upto/(N-1)*w;
+      gW.strokeStyle='rgba(45,212,191,.55)'; gW.lineWidth=1.2*devicePixelRatio;
+      gW.beginPath(); gW.moveTo(px,0); gW.lineTo(px,h); gW.stroke();
+    }
+    (function loop(){
+      if(cur){
+        drawSig(gA,cur.signalA,'#2dd4bf');
+        drawSig(gB,cur.signalB,'#818cf8');
+        head+=0.005; if(head>1) head=0;
+        drawWCC();
+      }
+      requestAnimationFrame(loop);
+    })();
+    apply(0);
+
+    /* scoreboard */
+    const sb=D.scoreboard, body=document.getElementById('scoreBody');
+    const mark=(ok,txt)=>'<span class="'+(ok?'yes':'no')+'">'+txt+(ok?' ✓':' ✗')+'</span>';
+    SC.forEach(s=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td class="nm">'+s.title+'</td>'
+        +'<td class="'+(s.truth?'yes':'no')+'">'+(s.truth?'真有默契':'毫无关系')+'</td>'
+        +'<td>'+mark(s.naive_correct,(s.naive_calls_sync?'说有默契':'说没默契'))+'</td>'
+        +'<td>'+mark(s.audit_correct,(s.audit_calls_sync?'说有默契':'说没默契'))+'</td>';
+      body.appendChild(tr);
+    });
+    const tot=document.createElement('tr'); tot.className='tot';
+    tot.innerHTML='<td>判对几道</td><td>—</td>'
+      +'<td>'+sb.naive_correct+' / '+sb.total+'</td>'
+      +'<td>'+sb.audit_correct+' / '+sb.total+'</td>';
+    body.appendChild(tot);
+
+    const nWrong=SC.filter(s=>!s.naive_correct), sWrong=SC.filter(s=>!s.audit_correct);
+    document.getElementById('asymN').textContent = nWrong.length
+      ? '在「'+nWrong[0].title+'」这一题里，两个人的数据是各自独立生成的，彼此不含任何共同信息——也就是两个不存在的陌生人。常规流程却给出了 p = '+nWrong[0].p_naive_repr+'，一个小得惊人的数字，意思是「他们几乎不可能不同步」。它分不清「两人真的连上了」和「两条曲线各自都很平缓」。'
+      : '在这四道题里它没出错，但它的判断依据本身就分不清默契和身体的迟缓。';
+    document.getElementById('asymS').textContent = sWrong.length
+      ? '在「'+sWrong[0].title+'」这一题里，两个人确实是有联系的（'+sWrong[0].truth_kind+'），但这份联系很微弱。审计算出来只有 p = '+sWrong[0].p_audited.toFixed(3)+'，没达到它给自己定的门槛，于是它选择说「证据不够，我不下结论」。真实的东西被漏掉了——但它没有编造任何东西。'
+      : '在这四道题里它没有出错。';
+
+    document.getElementById('modelNote').textContent = '技术备注 — 仿真设定：'+D.model
+      + ' · 判定阈值 α=' + D.alpha + ' · 四个场景与判据在运行前即固定，'
+      + '生成脚本 deliverables/generate_demo_data.py 可复跑复现。';
+  }
+
+  /* ---- incremental AUC demo (embedded, verified on LERIQUE 2024, current code) ---- */
+  const INC = {
+    study:"LERIQUE 2024",
+    mods:[
+      {name:"ECG（心电）", n:54, base:0.679, hi:0.985},
+      {name:"EDA（皮肤电）", n:60, base:0.717, hi:0.972},
+      {name:"RESP（呼吸）", n:62, base:0.382, hi:0.878}
+    ]
+  };
+  const iauc=document.getElementById('iauc');
+  if(iauc){
+    INC.mods.forEach(m=>{
+      const el=document.createElement('div'); el.className='imod';
+      el.innerHTML='<div class="mt">'+m.name+' · n='+m.n
+        +'　<span style="color:var(--dim)">rest vs 任务 判别 AUC</span></div>'
+        +'<div class="ipair">'
+          +'<div class="ibar"><span class="lab">朴素 mean_sync</span>'
+            +'<div class="t"><div class="f" data-v="'+m.base+'"></div></div>'
+            +'<span class="v">'+m.base.toFixed(3)+'</span></div>'
+          +'<div class="ibar"><span class="lab">+ 结构层</span>'
+            +'<div class="t"><div class="f hi" data-v="'+m.hi+'"></div></div>'
+            +'<span class="v" style="color:#5eead4">'+m.hi.toFixed(3)+'</span></div>'
+        +'</div>'
+        +'<div class="delta">关系结构层增量 Δ = <b>+'+(m.hi-m.base).toFixed(2)+'</b>'
+          + (m.base<0.5?'　（基线已近随机，结构层把它拉回信号区）':'')+'</div>';
+      iauc.appendChild(el);
+    });
+  }
+
+  /* ---- morphology clusters (embedded, LERIQUE pilot n=176, EXPLORATORY) ---- */
+  const MORPH = {
+    feats:["mean_synchrony","peak_amplitude","dwell_time","switching_rate"],
+    flabs:["平均同步","幅度","驻留","切换率"],
+    maxv:[0.12,0.9,22,1.2],
+    clusters:[
+      {t:"簇 0 · 强而稳", desc:"高幅度、长驻留——同步深且持续", v:[0.11,0.88,21.15,1.109]},
+      {t:"簇 1 · 弱而散", desc:"幅度低、切换少——几乎只是漂移", v:[-0.006,0.466,10.286,0.244]},
+      {t:"簇 2 · 强而活", desc:"高幅度、高切换——频繁进出同步", v:[0.065,0.812,12.756,1.085]}
+    ]
+  };
+  const clu=document.getElementById('clusters');
+  if(clu){
+    MORPH.clusters.forEach(c=>{
+      const el=document.createElement('div'); el.className='clu';
+      let rows='';
+      c.v.forEach((val,i)=>{
+        const pct=Math.max(2,Math.min(100, val/MORPH.maxv[i]*100));
+        rows+='<div class="cf"><span class="fl">'+MORPH.flabs[i]+'</span>'
+          +'<div class="ct2"><div class="cf2" data-pct="'+pct+'"></div></div>'
+          +'<span class="cv">'+val.toFixed(3)+'</span></div>';
+      });
+      el.innerHTML='<div class="ct">'+c.t+'</div><h4>'+c.desc+'</h4>'+rows;
+      clu.appendChild(el);
+    });
+  }
+
+  /* animate bars on entry */
+  const barIO=new IntersectionObserver(es=>es.forEach(e=>{
+    if(!e.isIntersecting) return;
+    e.target.querySelectorAll('.f[data-v],.cf2,.fill').forEach(f=>{
+      if(f.dataset.v!==undefined){ f.style.width=(f.dataset.v*100)+'%'; }
+      else if(f.dataset.pct!==undefined){ f.style.width=f.dataset.pct+'%'; }
+    });
+  }),{threshold:.35});
+  document.querySelectorAll('.imod,.clu,.row,.dosebar').forEach(el=>barIO.observe(el));
+
+  document.getElementById('footSrc').textContent =
+    '真实数据：LERIQUE 2024（开源）· incremental AUC 与 morphology 由当前代码跑出、数据受限标注 · '
+    +'判读台四场景为耦合振子与 1/f 噪声仿真（demo_data.js，可复跑复现）';
+})();
+</script>
+</body>
+</html>
