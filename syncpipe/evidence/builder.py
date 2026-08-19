@@ -108,8 +108,8 @@ def build_evidence_chain(
         question="Does the endpoint exceed independent autocorrelated signals?",
         status=e0_status,
         permitted_claim=(
-            "synchrony-like co-fluctuation above the declared independent-signal null"
-            if e0_supported else "descriptive co-fluctuation only"
+            "co-movement larger than the independent-signal comparison"
+            if e0_supported else "description of the observed co-movement only"
         ),
         rival_addressed="independent autocorrelated dynamics",
         unresolved_rivals=("shared input", "partner mismatch", "slow drift", "co-presence"),
@@ -151,7 +151,7 @@ def build_evidence_chain(
         stage_id="E2", name="partner_specificity",
         question="Do real partners exceed mismatched partners?",
         status=e2_status,
-        permitted_claim=("partner-specific association" if e2_status is EvidenceStatus.SUPPORTED else "no partner-specificity claim"),
+        permitted_claim=("the result is stronger for real partners than mismatched partners" if e2_status is EvidenceStatus.SUPPORTED else "no clear evidence that the result is specific to the real partners"),
         rival_addressed="arbitrary partner pairing",
         unresolved_rivals=("dyad-specific common cause", "shared input", "co-presence"),
         reason=e2_reason,
@@ -177,7 +177,7 @@ def build_evidence_chain(
         stage_id="E3", name="alignment_specificity",
         question="Does the endpoint depend on original temporal alignment?",
         status=e3_status,
-        permitted_claim=("alignment-specific association" if e3_status is EvidenceStatus.SUPPORTED else "no alignment-specificity claim"),
+        permitted_claim=("the result depends on the original timing" if e3_status is EvidenceStatus.SUPPORTED else "no clear evidence that the result depends on the original timing"),
         rival_addressed="slow drift and coarse block timing",
         unresolved_rivals=("event-locked shared input", "simultaneous artifact", "co-presence"),
         reason=e3_reason,
@@ -212,7 +212,7 @@ def build_evidence_chain(
         stage_id="E4", name="shared_input_specificity",
         question="Does the endpoint exceed the measured shared-stimulus null?",
         status=e4_status,
-        permitted_claim=("not fully explained by measured shared stimulus" if e4_status is EvidenceStatus.SUPPORTED else "no shared-input-specificity claim"),
+        permitted_claim=("the measured shared stimulus does not fully explain the result" if e4_status is EvidenceStatus.SUPPORTED else "the measured shared stimulus has not been ruled out"),
         rival_addressed="measured common stimulus schedule",
         unresolved_rivals=("unmeasured common input", "co-presence", "simultaneous artifact"),
         reason=e4_reason,
@@ -226,7 +226,7 @@ def build_evidence_chain(
         stage_id="E5", name="interaction_contingency",
         question="Does coordination require reciprocal interaction rather than co-presence?",
         status=EvidenceStatus.INCONCLUSIVE,
-        permitted_claim="no interaction-contingency claim",
+        permitted_claim="reciprocal interaction itself was not established",
         rival_addressed="non-interactive co-presence and parallel responding",
         unresolved_rivals=("co-presence", "parallel response", "unmeasured common cause"),
         reason="live/replay, yoked, or equivalent reciprocity-breaking contrast not supplied",
@@ -238,7 +238,7 @@ def build_evidence_chain(
         stage_id="L2", name="condition_difference",
         question="Does the declared endpoint differ across the pre-specified conditions?",
         status=l2_status,
-        permitted_claim=("condition difference in the declared endpoint" if l2_supported else "no confirmatory condition-difference claim"),
+        permitted_claim=("the chosen main measure differs between the two conditions" if l2_supported else "no reportable difference in the chosen main measure"),
         rival_addressed="within-dyad condition-label exchangeability",
         unresolved_rivals=("construct interpretation depends on E0-E5",),
         reason=l2_reason,
@@ -254,7 +254,7 @@ def build_evidence_chain(
     )
     progression = [e0, e2, e3, e4, e5]
     highest = "none"
-    claim = "descriptive co-fluctuation only"
+    claim = "description of the observed co-movement only"
     ceiling_blocked = False
     for stage in progression:
         if not ceiling_blocked and stage.status is EvidenceStatus.SUPPORTED:

@@ -7,6 +7,8 @@ def test_syncpipe_namespace_exposes_v1_public_api():
     import syncpipe as sp
 
     for name in [
+        "analyze",
+        "make_example",
         "Dyad",
         "DynamicAnalyzer",
         "InferencePipeline",

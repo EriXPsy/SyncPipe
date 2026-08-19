@@ -1,4 +1,4 @@
-"""Typed evidence stages and claim decisions for SyncPipe."""
+"""Internal result objects used to build the plain-language report."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,6 +16,8 @@ class EvidenceStatus(str, Enum):
 
 @dataclass(frozen=True)
 class EvidenceStageResult:
+    """Result of one question, such as partner or timing specificity."""
+
     stage_id: str
     name: str
     question: str
@@ -42,7 +44,7 @@ class EvidenceStageResult:
 
 @dataclass(frozen=True)
 class EvidenceProfile:
-    """Non-hierarchical status vector; stages are evidence dimensions."""
+    """Lists which checks passed, failed, lacked information, or were invalid."""
 
     supported: Tuple[str, ...]
     not_supported: Tuple[str, ...]
@@ -62,6 +64,8 @@ class EvidenceProfile:
 
 @dataclass(frozen=True)
 class ClaimDecision:
+    """Short conclusion plus explanations that remain possible."""
+
     highest_supported_stage: str
     permitted_claim: str
     condition_claim: str
@@ -84,6 +88,8 @@ class ClaimDecision:
 
 @dataclass(frozen=True)
 class EvidenceChain:
+    """All checks and the conclusion used by REPORT.md and JSON output."""
+
     version: str
     endpoint: str
     stages: Tuple[EvidenceStageResult, ...]

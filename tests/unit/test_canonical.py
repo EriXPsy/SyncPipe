@@ -81,8 +81,8 @@ def _write_config(root: Path, **over) -> Path:
     cfg = {
         "window_size": 20,
         "contrast": ["rest", "task"],
-        "primary_endpoint": "peak_amplitude",
-        "primary_modalities": ["EDA"],
+        "main_measure": "peak_amplitude",
+        "main_modalities": ["EDA"],
         "fdr_scope": "global",
         "undefined_policy": "gate",
         "observation_policy": "raise",
@@ -199,24 +199,24 @@ class TestParseConfig:
     def test_requires_primary_endpoint(self, tmp_path):
         cfg = _write_config(tmp_path)
         text = cfg.read_text(encoding="utf-8").replace(
-            'primary_endpoint = "peak_amplitude"\n', ""
+            'main_measure = "peak_amplitude"\n', ""
         )
         cfg.write_text(text, encoding="utf-8")
-        with pytest.raises(ValueError, match="primary_endpoint is required"):
+        with pytest.raises(ValueError, match="main_measure.*required"):
             parse_config(cfg)
 
     def test_requires_primary_modalities(self, tmp_path):
         cfg = _write_config(tmp_path)
         text = cfg.read_text(encoding="utf-8").replace(
-            'primary_modalities = ["EDA"]\n', ""
+            'main_modalities = ["EDA"]\n', ""
         )
         cfg.write_text(text, encoding="utf-8")
-        with pytest.raises(ValueError, match="primary_modalities is required"):
+        with pytest.raises(ValueError, match="main_modalities.*required"):
             parse_config(cfg)
 
     def test_rejects_unsupported_primary_endpoint(self, tmp_path):
-        cfg = _write_config(tmp_path, primary_endpoint="mean_synchrony")
-        with pytest.raises(ValueError, match="primary_endpoint must be one of"):
+        cfg = _write_config(tmp_path, main_measure="mean_synchrony")
+        with pytest.raises(ValueError, match="main_measure.*must be one of"):
             parse_config(cfg)
 
     def test_rejects_bad_onset_string(self, tmp_path):
@@ -251,7 +251,10 @@ class TestRunCanonical:
         assert res.qc["excluded"] == 0
         assert res.qc["modality_roles"] == {"EDA": "primary"}
         assert res.qc["endpoint_contract"]["null"] == "signal_level_segmentwise_iaaft"
-        assert "Endpoint estimand:" in (out / "REPORT.md").read_text(encoding="utf-8")
+        report_text = (out / "REPORT.md").read_text(encoding="utf-8")
+        assert "## Bottom line" in report_text
+        assert "Measure compared:" in report_text
+        assert "Still not ruled out" in report_text
         # Vulnerability A: manifest_resolved must carry resolved absolute paths
         # and content hashes, not only the original relative strings.
         manifest_payload = json.loads((out / "manifest_resolved.json").read_text())
@@ -265,7 +268,7 @@ class TestRunCanonical:
 
     def test_rejects_primary_modality_absent_from_manifest(self, tmp_path):
         man = _write_cohort(tmp_path, n_dyads=4)
-        cfg = _write_config(tmp_path, primary_modalities=["ECG"])
+        cfg = _write_config(tmp_path, main_modalities=["ECG"])
         with pytest.raises(ValueError, match="absent from the manifest"):
             run_canonical(man, cfg, tmp_path / "out")
 

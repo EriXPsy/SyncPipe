@@ -36,13 +36,7 @@ from .synthetic import generate_ground_truth_dyad
 
 
 def cmd_describe(args: argparse.Namespace) -> None:
-    """Run the design-agnostic DESCRIPTOR path on user-provided CSV files.
-
-    This is the exploratory / measurement-core entry point (A4 routing):
-    load -> align -> QC -> DynamicAnalyzer -> viewer JSON. It is NOT the
-    confirmatory scientific path; for paper-level audited analysis use
-    ``analyze`` (the canonical evidence chain via ``canonical_runner``).
-    """
+    """Describe one aligned pair without the full study-level checks."""
     input_files = [p.strip() for p in args.input.split(",") if p.strip()]
     names = [n.strip() for n in args.names.split(",") if n.strip()] if args.names else [
         f"modality_{i}" for i in range(len(input_files))
@@ -189,13 +183,7 @@ def cmd_migrate(args: argparse.Namespace) -> None:
 
 
 def cmd_analyze(args: argparse.Namespace) -> None:
-    """Run the v1 audited evidence chain from a manifest + config (canonical).
-
-    This is the paper-level scientific entry point and is structurally
-    identical to :func:`syncpipe.canonical_runner.run_canonical` — the same
-    manifest + config through the CLI and the Python API yield the same
-    report bundle (Gate 1 CLI/API parity pass criterion).
-    """
+    """Check a dyadic study and write a plain-language report plus details."""
     from .canonical_runner import run_canonical
 
     try:
@@ -207,58 +195,43 @@ def cmd_analyze(args: argparse.Namespace) -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(2)
 
-    status = res.chain.get("stage_status", {})
-    print("SyncPipe v1 audited evidence chain complete.")
-    print(f"  Output bundle: {res.output_dir}")
+    graph = res.chain.get("evidence_graph", {})
+    decision = graph.get("decision", {})
+    print("SyncPipe analysis complete.")
+    print(f"  Read first: {Path(res.output_dir) / 'REPORT.md'}")
     print(
-        f"  Manifest rows: {res.qc.get('total_rows')} | "
-        f"included: {res.qc.get('included')} | "
-        f"excluded: {len(res.exclusions)}"
+        f"  Data rows: {res.qc.get('total_rows')} listed | "
+        f"{res.qc.get('included')} analyzed | {len(res.exclusions)} excluded"
     )
-    per_feature = res.claimability.get("per_feature", [])
-    n_sig = sum(1 for f in per_feature if f.get("significant_05"))
     print(
-        f"  Claimable features: {len(per_feature)} "
-        f"({n_sig} significant @ FDR 0.05)"
+        "  Strongest conclusion supported: "
+        f"{decision.get('permitted_claim', 'not available')}"
     )
-    print(f"  WCC traces captured: {len(res.wcc_traces)}")
-    print("  Stage status:")
-    for stage, st in status.items():
-        print(f"    - {stage}: {st}")
+    print(
+        "  Condition comparison: "
+        f"{decision.get('condition_claim', 'not available')}"
+    )
+    unresolved = decision.get("unresolved_rivals") or []
+    if unresolved:
+        print("  Still not ruled out: " + ", ".join(map(str, unresolved)))
     if res.exclusions:
-        print("  Exclusions:")
-        for e in res.exclusions:
+        print("  Excluded observations:")
+        for item in res.exclusions:
             print(
-                f"    - {e['dyad_id']}/{e['modality']}/{e['condition']}: "
-                f"{e['reason']}"
+                f"    - {item.dyad_id}/{item.modality}/{item.condition}: "
+                f"{item.detail}"
             )
-    if status.get("existence") == "not_supported":
-        print(
-            "  NOTE: primary existence audit not supported — group claims are "
-            "descriptive only (see REPORT.md / claimability.json).",
-            file=sys.stderr,
-        )
 
 
-def _json_ready(obj: Any) -> Any:
-    """Convert numpy/pandas objects and NaN values to JSON-safe values."""
-    if isinstance(obj, (np.floating,)):
-        v = float(obj)
-        return None if not np.isfinite(v) else v
-    if isinstance(obj, (np.integer,)):
-        return int(obj)
-    if isinstance(obj, np.ndarray):
-        return _json_ready(obj.tolist())
-    if isinstance(obj, float):
-        return None if not np.isfinite(obj) else obj
-    if isinstance(obj, dict):
-        return {str(k): _json_ready(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_json_ready(v) for v in obj]
-    return obj
+def _json_ready(payload: Any) -> Any:
+    """Convert demo values to ordinary JSON-compatible values."""
+    from .export.runtime import json_safe
+
+    return json_safe(payload)
 
 
 def _write_json(path: Path, payload: Any) -> None:
+    """Write strict JSON for demo artifacts."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(_json_ready(payload), indent=2, ensure_ascii=False),
@@ -266,11 +239,13 @@ def _write_json(path: Path, payload: Any) -> None:
     )
 
 
-def _make_demo_cohort(n_dyads: int, *, hz: float, seed: int) -> dict[str, tuple[np.ndarray, np.ndarray]]:
-    """Small synthetic cohort used only for design-control demonstration."""
+def _make_demo_cohort(
+    n_dyads: int, *, hz: float, seed: int
+) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """Create a small synthetic cohort for the design-check demonstration."""
     cohort = {}
     for i in range(n_dyads):
-        ds_i = generate_ground_truth_dyad(
+        dataset = generate_ground_truth_dyad(
             lead_modality="behavior",
             lag_modality="neural",
             true_lag_sec=0.0,
@@ -281,10 +256,10 @@ def _make_demo_cohort(n_dyads: int, *, hz: float, seed: int) -> dict[str, tuple[
             gap_prob=0.0,
             coupling=0.65,
         )
-        df = ds_i.modalities["behavior"]
+        frame = dataset.modalities["behavior"]
         cohort[f"dyad_{i + 1:02d}"] = (
-            df["person_a"].to_numpy(dtype=float),
-            df["person_b"].to_numpy(dtype=float),
+            frame["person_a"].to_numpy(dtype=float),
+            frame["person_b"].to_numpy(dtype=float),
         )
     return cohort
 
@@ -524,49 +499,20 @@ def build_parser() -> argparse.ArgumentParser:
         # regardless of entry form. argparse's own default is unusable: under
         # `python -m` it derives prog from sys.argv[0] and prints "__main__.py".
         prog="syncpipe",
-        description="SyncPipe: Dynamic process analysis for multimodal synchrony.",
+        description=(
+            "SyncPipe checks co-movement between two aligned signals, tests "
+            "common alternative explanations, and writes a readable report."
+        ),
     )
     parser.add_argument(
         "--version", action="version", version=f"syncpipe {__version__}"
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    # external validation — independent usability/reproduction scaffold
-    p_external_kit = sub.add_parser(
-        "external-kit", help="Create a self-contained external validation kit."
-    )
-    p_external_kit.add_argument("-o", "--output", required=True)
-    p_external_kit.add_argument("--seed", type=int, default=20260819)
-    p_external_kit.add_argument("--n-dyads", type=_min_int(4), default=4)
-    p_external_kit.set_defaults(func=cmd_external_kit)
-
-    p_external_check = sub.add_parser(
-        "external-check", help="Audit an external canonical result bundle."
-    )
-    p_external_check.add_argument("-i", "--input", required=True)
-    p_external_check.add_argument("-o", "--output")
-    p_external_check.set_defaults(func=cmd_external_check)
-
-    # migrate — explicit v1 canonical input migration
-    p_migrate = sub.add_parser(
-        "migrate",
-        help="Migrate legacy v1 manifest/config inputs to v2 contracts.",
-    )
-    p_migrate.add_argument("-m", "--manifest", required=True)
-    p_migrate.add_argument("-c", "--config", required=True)
-    p_migrate.add_argument("-o", "--output", required=True)
-    p_migrate.add_argument("--signal-type", required=True)
-    p_migrate.add_argument("--unit", required=True)
-    p_migrate.add_argument("--preprocessing-path", required=True)
-    p_migrate.add_argument("--primary-modalities", nargs="+", required=True)
-    p_migrate.add_argument("--primary-endpoint", default="peak_amplitude")
-    p_migrate.set_defaults(func=cmd_migrate)
-
     # analyze — canonical locked-protocol evidence chain
     p_analyze = sub.add_parser(
         "analyze",
-        help="Run the canonical locked-protocol evidence chain from a v2 "
-             "manifest + config.",
+        help="Analyze a multi-dyad study and write a report with checks and limits.",
     )
     p_analyze.add_argument(
         "-m", "--manifest", required=True,
@@ -575,19 +521,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_analyze.add_argument(
         "-c", "--config", required=True,
-        help="TOML config with [analysis] section (contrast required).",
+        help="TOML file describing the conditions, main measure, and settings.",
     )
     p_analyze.add_argument(
         "-o", "--output", default="canonical_results",
-        help="Output directory for the 12-file report bundle.",
+        help="Output directory. Start with REPORT.md after the run.",
     )
     p_analyze.set_defaults(func=cmd_analyze)
 
     # describe — design-agnostic descriptor path (exploratory / measurement core)
     p_describe = sub.add_parser(
         "describe",
-        help="Run the design-agnostic DESCRIPTOR path on ad-hoc CSV files "
-             "(exploratory; not the confirmatory scientific path).",
+        help="Describe one aligned pair without running the full study checks.",
     )
     p_describe.add_argument("-i", "--input", required=True, help="Comma-separated CSV paths.")
     p_describe.add_argument("-n", "--names", help="Comma-separated modality names.")
@@ -611,9 +556,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_describe.add_argument(
         "--full-family-fdr", action="store_true",
-        help="Record that the L2 between-condition BH-FDR should enter ALL 12 "
-             "implemented features (strictly more conservative) instead of the "
-             "frozen 3-feature confirmatory family.",
+        help="Advanced: include every implemented measure in multiple-test correction.",
     )
     p_describe.set_defaults(func=cmd_describe)
 
@@ -635,6 +578,44 @@ def build_parser() -> argparse.ArgumentParser:
         help="Synthetic dyads used for pseudo-pair/time-shift design controls.",
     )
     p_demo.set_defaults(func=cmd_demo)
+
+    # Utilities for migration and independent testing
+    # external validation — independent usability/reproduction scaffold
+    p_external_kit = sub.add_parser(
+        "external-kit", help="Create an example project for independent testing."
+    )
+    p_external_kit.add_argument("-o", "--output", required=True)
+    p_external_kit.add_argument("--seed", type=int, default=20260819)
+    p_external_kit.add_argument("--n-dyads", type=_min_int(4), default=4)
+    p_external_kit.set_defaults(func=cmd_external_kit)
+
+    p_external_check = sub.add_parser(
+        "external-check", help="Check that a result folder is complete and readable."
+    )
+    p_external_check.add_argument("-i", "--input", required=True)
+    p_external_check.add_argument("-o", "--output")
+    p_external_check.set_defaults(func=cmd_external_check)
+
+    # migrate — explicit v1 canonical input migration
+    p_migrate = sub.add_parser(
+        "migrate",
+        help="Convert older project files to the current format.",
+    )
+    p_migrate.add_argument("-m", "--manifest", required=True)
+    p_migrate.add_argument("-c", "--config", required=True)
+    p_migrate.add_argument("-o", "--output", required=True)
+    p_migrate.add_argument("--signal-type", required=True)
+    p_migrate.add_argument("--unit", required=True)
+    p_migrate.add_argument("--preprocessing-path", required=True)
+    p_migrate.add_argument(
+        "--main-modalities", "--primary-modalities", dest="primary_modalities",
+        nargs="+", required=True, help="Signal types used for the main result."
+    )
+    p_migrate.add_argument(
+        "--main-measure", "--primary-endpoint", dest="primary_endpoint",
+        default="peak_amplitude", help="Main value to compare between conditions."
+    )
+    p_migrate.set_defaults(func=cmd_migrate)
 
     return parser
 

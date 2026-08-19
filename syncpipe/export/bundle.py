@@ -110,8 +110,8 @@ def _write_report_bundle(
         f'surrogate_n = {cfg.surrogate_n}',
         f'design_threshold = {cfg.design_threshold}',
         f'design_condition = {_toml_str(cfg.resolved_design_condition())}',
-        f'primary_endpoint = {_toml_str(cfg.resolved_primary_endpoint())}',
-        "primary_modalities = [" + ", ".join(
+        f'main_measure = {_toml_str(cfg.resolved_primary_endpoint())}',
+        "main_modalities = [" + ", ".join(
             _toml_str(x) for x in cfg.resolved_primary_modalities()
         ) + "]",
         f'existence_alpha = {cfg.existence_alpha}',

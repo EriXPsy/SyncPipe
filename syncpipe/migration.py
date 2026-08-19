@@ -31,8 +31,9 @@ def detect_config_contract(path: str | Path) -> str:
     with open(path, "rb") as handle:
         data = tomllib.load(handle)
     section = data.get("analysis", data) if isinstance(data, dict) else {}
-    required_v2 = {"contrast", "primary_endpoint", "primary_modalities"}
-    return CONFIG_SCHEMA_VERSION if isinstance(section, dict) and required_v2 <= set(section) else "1.x-legacy"
+    has_measure = "main_measure" in section or "primary_endpoint" in section
+    has_modalities = "main_modalities" in section or "primary_modalities" in section
+    return CONFIG_SCHEMA_VERSION if isinstance(section, dict) and "contrast" in section and has_measure and has_modalities else "1.x-legacy"
 
 
 def _toml_value(value: Any) -> str:
@@ -117,6 +118,8 @@ def migrate_config_v1_to_v2(
     # Validate through the actual v2 contract before writing.
     spec = analysis_spec_from_mapping(section, require_declarations=True)
     resolved = spec.to_dict()
+    resolved["main_measure"] = resolved.pop("primary_endpoint")
+    resolved["main_modalities"] = resolved.pop("primary_modalities")
     destination.parent.mkdir(parents=True, exist_ok=True)
     lines = ["[analysis]"]
     for key, value in resolved.items():

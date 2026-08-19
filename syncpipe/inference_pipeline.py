@@ -278,40 +278,12 @@ def _existence_gate_by_modality(
 
 
 class InferencePipeline:
-    """Audited inference pipeline for WCC-derived synchrony descriptors.
+    """Run the study-level checks and condition comparison.
 
-    Parameters
-    ----------
-    features_df : pd.DataFrame
-        DataFrame with one row per observation, containing feature columns
-        and metadata (dyad_id, condition, modality, etc.).
-    hz : float
-        Signal sampling rate (Hz).
-    wcc_window_sec : float
-        WCC window duration in seconds.
-    surrogate_n : int
-        Number of surrogate iterations for L0/L1 tests. Default 100.
-    seed : int
-        Random seed for reproducibility.
-    n_workers : int
-        Number of worker processes for the per-pair existence audit. Default 1
-        (serial). Values > 1 distribute *pairs* across processes; results are
-        bit-identical to serial because each pair's audit seeds its own
-        Generator from ``seed`` and shares no RNG state with any other pair
-        (see :meth:`run_synchrony_existence_audit`).
-
-    Examples
-    --------
-    >>> pipe = InferencePipeline(df, hz=4.0, wcc_window_sec=10.0)
-    >>> # Per-observation tests (legacy L0/L1/L2 API):
-    >>> l0 = pipe.test_l0_signal(wcc, (sig_a, sig_b), wcc_window_size=40)
-    >>> l1 = pipe.test_l1_structure(wcc, label="dyad_01")
-    >>> l2 = pipe.test_l2_condition(condition_col="condition", dyad_col="dyad_id")
-    >>> # Or run the full v1 evidence chain in three steps:
-    >>> pipe.run_synchrony_existence_audit(raw_signals, wcc_window_size=40)
-    >>> pipe.run_design_control_audit(signal_pairs, wcc_window_size=40)
-    >>> pipe.run_group_condition_inference(condition_col="condition", dyad_col="dyad_id")
-    >>> report = pipe.summarize()
+    Most users should call :func:`syncpipe.analyze` instead. This lower-level
+    class is available when signals and calculated values are already prepared.
+    It checks independent-signal, partner, timing, and shared-event explanations,
+    then summarizes the strongest conclusion supported.
     """
 
     def __init__(
@@ -347,7 +319,7 @@ class InferencePipeline:
 
     @property
     def evidence_chain(self) -> Optional[EvidenceChain]:
-        """Typed E0-E5 evidence graph from the latest audited run."""
+        """Detailed machine-readable checks from the latest run."""
         return self._evidence_chain
 
     # ---- v1 evidence chain: synchrony-existence → design controls → group inference ----
@@ -640,19 +612,11 @@ class InferencePipeline:
         primary_modalities: Optional[Sequence[str]] = None,
         existence_alpha: float = EXISTENCE_GATE_ALPHA,
     ) -> Dict[str, Any]:
-        """Run the recommended v1 evidence chain end-to-end.
+        """Run all study checks and return detailed results plus a conclusion.
 
-        Chain:
-        1. synchrony-existence audit (signal-level IAAFT)
-        2. design-control audit (pseudo-pair/time-shift; optional across-stim)
-        3. group condition inference (paired permutation + FDR)
-
-        Parameters
-        ----------
-        discontinuity_mask : dict or None
-            Optional label -> per-sample boundary mask (signal-resolution).
-            Forwarded to the synchrony-existence audit so L0 gating respects
-            segment seams (see ``discontinuity_mask`` on the audit for detail).
+        The checks ask whether co-movement exceeds independent signals, is
+        specific to real partners and timing, survives an optional shared-event
+        comparison, and differs between the chosen conditions.
         """
         existence = self.run_synchrony_existence_audit(
             raw_signals, wcc_window_size=wcc_window_size, window_type=window_type,

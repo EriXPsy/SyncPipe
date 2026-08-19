@@ -168,7 +168,7 @@ def test_evidence_claim_propagation_blocks_all_claims_when_e0_fails():
     )
     assert graph.decision.highest_supported_stage == "none"
     assert graph.decision.blocked_by == ("E0", "E2", "E3", "E4", "E5")
-    assert graph.decision.permitted_claim == "descriptive co-fluctuation only"
+    assert graph.decision.permitted_claim == "description of the observed co-movement only"
 
 
 # === source: test_cascade_summary_l2_path.py ===

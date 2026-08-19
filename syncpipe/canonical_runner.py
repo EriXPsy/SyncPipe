@@ -1,29 +1,9 @@
-"""
-Canonical scientific runner for SyncPipe v1.
+"""Run a complete SyncPipe study analysis.
 
-This module is the *single* entry point for paper-level analyses. Both the
-Python API (:func:`run_canonical`) and the CLI (``syncpipe analyze``) route
-through it, which is exactly what guarantees CLI/API parity (Gate 1 pass
-criterion: same manifest + config through either entry point yields
-byte-equivalent results).
-
-Design note (reuse, do not rewrite):
-    The scientific core already exists and is tested:
-      * :func:`syncpipe.pipeline_bridge.records_to_inference_inputs` turns
-        loader records into WCC + descriptor ``InferenceInputs`` (ComputationPipeline).
-      * :meth:`syncpipe.inference_pipeline.InferencePipeline.run_audited_evidence_chain`
-        runs the v1 audited evidence chain (L0 existence -> design controls ->
-        L2 paired inference -> FDR / definedness / eligibility governance).
-    This module only adds the *outer shell*: manifest/config parsing,
-    orchestration, and the unified 12-file report bundle. No inference math
-    is touched.
-
-Pipeline:
-    manifest + config
-        -> parse_manifest / parse_config
-        -> records_to_inference_inputs   (ComputationPipeline: WCC + features)
-        -> InferencePipeline.run_audited_evidence_chain
-        -> unified report bundle (12 files)
+Both ``syncpipe analyze`` and :func:`run_canonical` use this path:
+read inputs, check data, calculate values, run alternative-explanation checks,
+compare conditions, and write the result files. Most users should start with
+``REPORT.md`` in the output folder.
 """
 from __future__ import annotations
 
@@ -154,7 +134,7 @@ def run_canonical(
     missing_primary = sorted(set(primary_modalities) - available_modalities)
     if missing_primary:
         raise ValueError(
-            "config.primary_modalities contains label(s) absent from the manifest: "
+            "main_modalities contains signal label(s) absent from the manifest: "
             f"{missing_primary}; available modalities are {sorted(available_modalities)}"
         )
     modality_specs = cfg.modality_specs(tuple(sorted(available_modalities)))

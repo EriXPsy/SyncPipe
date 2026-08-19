@@ -1,8 +1,7 @@
-"""Typed, immutable scientific analysis contracts.
+"""Internal definitions for one reproducible analysis.
 
-This module is the single source of truth for canonical analysis semantics.
-Parsing, orchestration, schemas, and reports consume these objects rather than
-redeclaring endpoint/null/modality policy in separate modules.
+Users normally edit a small TOML file. These immutable classes keep those
+settings consistent across calculation and reporting.
 """
 from __future__ import annotations
 
@@ -14,7 +13,7 @@ from ..feature_definitions import PRIMARY_EXISTENCE_ENDPOINT
 
 @dataclass(frozen=True)
 class NullSpec:
-    """Null-model contract attached to a confirmatory endpoint."""
+    """How randomized comparison data are made for the main measure."""
 
     name: str
     level: str
@@ -27,7 +26,7 @@ class NullSpec:
 
 @dataclass(frozen=True)
 class EndpointSpec:
-    """Scientific estimand and governance contract for one endpoint."""
+    """Definition, comparison method, and interpretation limits for one measure."""
 
     name: str
     estimand: str
@@ -41,7 +40,7 @@ class EndpointSpec:
 
 @dataclass(frozen=True)
 class ModalitySpec:
-    """A study-declared modality role in the existence gate."""
+    """A signal label and whether it is used for the study's main result."""
 
     label: str
     role: str  # primary | comparator
@@ -87,17 +86,16 @@ def resolve_endpoint_spec(name: str) -> EndpointSpec:
         return ENDPOINT_SPECS[str(name)]
     except KeyError as exc:
         raise ValueError(
-            f"config.primary_endpoint must be one of {sorted(ENDPOINT_SPECS)}; "
+            f"analysis setting 'main_measure' must be one of {sorted(ENDPOINT_SPECS)}; "
             f"got {name!r}"
         ) from exc
 
 
 @dataclass(frozen=True)
 class AnalysisSpec:
-    """Immutable canonical analysis specification.
+    """Validated settings for one study analysis.
 
-    ``SyncPipeConfig`` remains a compatibility alias to this class. Scientific
-    code should use ``AnalysisSpec`` in new APIs.
+    ``SyncPipeConfig`` is kept as an older name for compatibility.
     """
 
     window_size: int = 30
@@ -121,43 +119,43 @@ class AnalysisSpec:
 
     def __post_init__(self) -> None:
         if int(self.window_size) != self.window_size or self.window_size < 2:
-            raise ValueError("config.window_size must be an integer >= 2")
+            raise ValueError("window_size must be an integer >= 2")
         allowed_windows = {
             "rect", "boxcar", "rectangular", "hann", "hanning", "hamming",
             "triang", "gaussian",
         }
         if self.window_type not in allowed_windows:
-            raise ValueError(f"unsupported config.window_type: {self.window_type!r}")
+            raise ValueError(f"unsupported window_type: {self.window_type!r}")
         if self.contrast is not None:
             contrast = tuple(str(x).strip() for x in self.contrast)
             if len(contrast) != 2 or not all(contrast) or contrast[0] == contrast[1]:
-                raise ValueError("config.contrast must contain two different non-empty conditions")
+                raise ValueError("contrast must contain two different non-empty conditions")
             object.__setattr__(self, "contrast", contrast)
         if self.fdr_scope not in {"global", "within_modality"}:
-            raise ValueError("config.fdr_scope must be 'global' or 'within_modality'")
+            raise ValueError("multiple-test scope must be 'global' or 'within_modality'")
         if self.undefined_policy not in {"flag", "gate"}:
-            raise ValueError("config.undefined_policy must be 'flag' or 'gate'")
+            raise ValueError("missing-result policy must be 'flag' or 'gate'")
         if self.observation_policy not in {"ignore", "warn", "raise"}:
-            raise ValueError("config.observation_policy must be 'ignore', 'warn', or 'raise'")
+            raise ValueError("unequal-observation policy must be 'ignore', 'warn', or 'raise'")
         if self.eligibility_policy not in {"ignore", "warn", "raise"}:
-            raise ValueError("config.eligibility_policy must be 'ignore', 'warn', or 'raise'")
+            raise ValueError("small-sample policy must be 'ignore', 'warn', or 'raise'")
         if self.n_min_dyads < 4:
-            raise ValueError("config.n_min_dyads must be >= 4")
+            raise ValueError("minimum dyads must be >= 4")
         if self.n_permutations < 1 or self.surrogate_n < 1:
-            raise ValueError("config.n_permutations and surrogate_n must be >= 1")
+            raise ValueError("n_permutations and surrogate_n must be >= 1")
         if isinstance(self.onset_threshold, str):
             if self.onset_threshold != "session_pooled":
                 raise ValueError(
-                    "config.onset_threshold string must be 'session_pooled'"
+                    "onset_threshold string must be 'session_pooled'"
                 )
         elif not -1.0 <= float(self.onset_threshold) <= 1.0:
-            raise ValueError("numeric config.onset_threshold must lie in [-1, 1]")
+            raise ValueError("onset_threshold must lie in [-1, 1]")
         if not -1.0 <= self.design_threshold <= 1.0:
-            raise ValueError("config.design_threshold must lie in [-1, 1]")
+            raise ValueError("design_threshold must lie in [-1, 1]")
         if not 0.0 < self.existence_alpha < 1.0:
-            raise ValueError("config.existence_alpha must lie in (0, 1)")
+            raise ValueError("significance level must lie in (0, 1)")
         if int(self.n_workers) != self.n_workers or self.n_workers < 1:
-            raise ValueError("config.n_workers must be an integer >= 1")
+            raise ValueError("n_workers must be an integer >= 1")
         if self.primary_endpoint is not None:
             endpoint = str(self.primary_endpoint).strip()
             resolve_endpoint_spec(endpoint)
@@ -165,9 +163,9 @@ class AnalysisSpec:
         if self.primary_modalities is not None:
             modalities = tuple(str(x).strip() for x in self.primary_modalities)
             if not modalities or any(not x for x in modalities):
-                raise ValueError("config.primary_modalities must contain non-empty labels")
+                raise ValueError("main_modalities must contain non-empty labels")
             if len(set(modalities)) != len(modalities):
-                raise ValueError("config.primary_modalities must not contain duplicates")
+                raise ValueError("main_modalities must not contain duplicates")
             object.__setattr__(self, "primary_modalities", modalities)
         if self.design_condition is not None:
             value = str(self.design_condition).strip()
@@ -176,7 +174,7 @@ class AnalysisSpec:
     def resolved_contrast(self) -> Tuple[str, str]:
         if self.contrast is None:
             raise ValueError(
-                "config.contrast is required and must list exactly two "
+                "contrast is required and must list exactly two "
                 "pre-specified conditions, e.g. ['rest', 'task']"
             )
         return self.contrast
@@ -184,7 +182,7 @@ class AnalysisSpec:
     def resolved_endpoint_spec(self) -> EndpointSpec:
         if self.primary_endpoint is None:
             raise ValueError(
-                "config.primary_endpoint is required for the canonical path"
+                "main_measure is required for the canonical path"
             )
         return resolve_endpoint_spec(self.primary_endpoint)
 
@@ -194,7 +192,7 @@ class AnalysisSpec:
     def resolved_primary_modalities(self) -> Tuple[str, ...]:
         if not self.primary_modalities:
             raise ValueError(
-                "config.primary_modalities is required for the canonical path; "
+                "main_modalities is required for the canonical path; "
                 "declare the pre-specified modality set explicitly"
             )
         return self.primary_modalities
@@ -220,31 +218,44 @@ def analysis_spec_from_mapping(
     mapping: Mapping[str, Any], *, require_declarations: bool = True
 ) -> AnalysisSpec:
     """Parse a mapping through the one typed AnalysisSpec contract."""
+    values = dict(mapping)
+    aliases = {
+        "main_measure": "primary_endpoint",
+        "main_modalities": "primary_modalities",
+    }
+    for plain_name, internal_name in aliases.items():
+        if plain_name in values:
+            if internal_name in values:
+                raise ValueError(
+                    f"use either {plain_name!r} or legacy {internal_name!r}, not both"
+                )
+            values[internal_name] = values.pop(plain_name)
+
     allowed = {field.name for field in fields(AnalysisSpec)}
-    unknown = sorted(set(mapping) - allowed)
+    unknown = sorted(set(values) - allowed)
     if unknown:
-        raise ValueError(f"unknown analysis config keys: {unknown}")
+        raise ValueError(f"unknown analysis settings: {unknown}")
     if require_declarations:
         missing = [
             key for key in ("contrast", "primary_endpoint", "primary_modalities")
-            if key not in mapping
+            if key not in values
         ]
         if missing:
-            raise ValueError(
-                f"config.{missing[0]} is required for the canonical path; "
-                f"missing declarations: {missing}"
-            )
+            plain = {
+                "primary_endpoint": "main_measure",
+                "primary_modalities": "main_modalities",
+            }.get(missing[0], missing[0])
+            raise ValueError(f"analysis setting {plain!r} is required")
 
-    values = dict(mapping)
     if "contrast" in values:
         raw = values["contrast"]
         if not isinstance(raw, (list, tuple)) or len(raw) != 2:
-            raise ValueError("config.contrast must be a list/tuple of exactly two labels")
+            raise ValueError("contrast must be a list/tuple of exactly two labels")
         values["contrast"] = tuple(str(x) for x in raw)
     if "primary_modalities" in values:
         raw = values["primary_modalities"]
         if not isinstance(raw, (list, tuple)) or not raw:
-            raise ValueError("config.primary_modalities must be a non-empty list")
+            raise ValueError("main_modalities must be a non-empty list")
         values["primary_modalities"] = tuple(str(x) for x in raw)
 
     integer_fields = {

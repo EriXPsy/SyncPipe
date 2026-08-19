@@ -1,10 +1,7 @@
-"""
-Pipeline 2: Computation pipeline.
+"""Calculate a sliding-window correlation trace and its summary values.
 
-Purpose: Load data, compute WCC, extract features, return a clean DataFrame.
-
-This is the "how to compute" layer — users feed in raw time series and get
-back structured feature data ready for analysis or the inference pipeline.
+Inputs must already be aligned, preprocessed one-dimensional signals. This
+module does not preprocess raw physiological recordings.
 """
 
 from typing import Any, Dict, List, Optional, Tuple, Union

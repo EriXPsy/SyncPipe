@@ -4,6 +4,9 @@
 
 ### Changed
 
+- Rewrites the first-run documentation, CLI help, and main report in plain language.
+- Adds `main_measure` and `main_modalities` as preferred settings; older names remain accepted.
+- Adds `syncpipe.analyze()` and `syncpipe.make_example()` as simple starting points.
 - Requires canonical endpoint and modality declarations.
 - Requires signal type, unit, and preprocessing provenance in manifests.
 - Uses immutable analysis, preparation, and evidence contracts.

@@ -1,10 +1,7 @@
-"""
-syncpipe — public v1 API for SyncPipe.
+"""SyncPipe public API.
 
-The top-level namespace is intentionally small.  Import advanced, experimental,
-or dataset-specific utilities from their submodules (for example
-``syncpipe.synthetic`` or ``syncpipe.morphology``) rather than treating them as
-stable v1 public API.
+Most users need only :func:`analyze` or the ``syncpipe analyze`` command.
+Lower-level classes remain available for advanced and legacy use.
 """
 
 from .__about__ import (
@@ -84,6 +81,21 @@ from .session_threshold import (
     compute_session_pooled_thresholds_by_modality,
 )
 
+
+def analyze(manifest, settings, output="results"):
+    """Analyze a dyadic study and write its report files.
+
+    Parameters are paths to the manifest CSV, analysis TOML, and output folder.
+    Start with ``REPORT.md`` in the returned output folder.
+    """
+    return run_canonical(manifest, settings, output)
+
+
+def make_example(output="syncpipe_example"):
+    """Create a small example project that can be analyzed immediately."""
+    return create_external_validation_kit(output)
+
+
 __all__ = [
     "__version__",
     "PACKAGE_VERSION",
@@ -92,6 +104,8 @@ __all__ = [
     "MANIFEST_SCHEMA_VERSION",
     "PREPROCESSING_SCHEMA_VERSION",
     "EVIDENCE_SCHEMA_VERSION",
+    "analyze",
+    "make_example",
     # Core user objects
     "Dyad",
     "DynamicAnalyzer",

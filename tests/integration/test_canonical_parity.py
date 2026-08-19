@@ -78,8 +78,8 @@ def _write_config(root: Path, **over) -> Path:
     cfg = {
         "window_size": 20,
         "contrast": ["rest", "task"],
-        "primary_endpoint": "peak_amplitude",
-        "primary_modalities": ["EDA"],
+        "main_measure": "peak_amplitude",
+        "main_modalities": ["EDA"],
         "fdr_scope": "global",
         "undefined_policy": "gate",
         "observation_policy": "raise",

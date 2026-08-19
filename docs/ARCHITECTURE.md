@@ -2,9 +2,11 @@
 
 ## Direction
 
-SyncPipe is converging from feature-oriented modules toward a typed evidence
-pipeline. New descriptors are frozen while contracts, prepared observations,
-evidence stages, exports, and schema migration are consolidated.
+SyncPipe is converging from feature-oriented modules toward a checked analysis
+pipeline. New descriptors are frozen while settings, prepared data, checks,
+reports, and migration are consolidated. Internal typed objects preserve rigor;
+public language follows [`PLAIN_LANGUAGE.md`](PLAIN_LANGUAGE.md) so users can
+work from ordinary questions rather than architecture terms.
 
 ## Milestone A — unified analysis specification (implemented)
 

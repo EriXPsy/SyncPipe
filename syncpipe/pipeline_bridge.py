@@ -1,51 +1,8 @@
-"""
-Pipeline bridge — connect the data layer to the three SyncPipe pipelines.
+"""Turn loaded study records into checked inputs for calculation and testing.
 
-The three pipelines
-
-    feature_pipeline.py     (Pipeline 1: consult / select features)
-    computation_pipeline.py (Pipeline 2: load -> WCC -> features -> DataFrame)
-    inference_pipeline.py   (Pipeline 3: audited evidence chain)
-
-are intentionally thin and decoupled.  This module is the *missing seam* a
-reviewer needs: it turns a list of loader records (anything shaped like
-``syncpipe.realtest.lerique_2024.LeriqueDyadCondition`` — i.e. with
-``dyad_label``, ``modality``, ``condition``, ``person_a``/``person_b``
-DataFrames, ``target_hz``, ``duration_sec``, ``incomplete``) into the exact
-inputs the computation and inference pipelines expect:
-
-    features_df  : one row per (dyad, modality, condition), with the columns
-                   the InferencePipeline needs (``dyad_id``, ``modality``,
-                   ``condition``) plus every extracted feature.
-    raw_signals  : keyed ``"<dyad>__<modality>__<condition>"`` -> (sig_a, sig_b)
-                   for the synchrony-existence audit.
-    design_pairs : keyed ``"<dyad>__<modality>"`` -> (sig_a, sig_b) taken from
-                   ``design_condition`` (the condition whose coupling you want
-                   to audit against mismatched partners / shifted alignment).
-
-Column-name contract (must match InferencePipeline defaults)
-----------------------------------------------------------------
-    features_df columns : dyad_id, modality, condition, <features...>
-    condition_col        = "condition"
-    dyad_col             = "dyad_id"
-    (InferencePipeline default args use exactly these names, so the bridge
-     emits them — no manual renaming required downstream.)
-
-Usage
------
-    from syncpipe.pipeline_bridge import records_to_inference_inputs
-
-    features_df, raw_signals, design_pairs = records_to_inference_inputs(
-        records, hz=1.0, window_size=30, onset_threshold="session_pooled",
-        design_condition="trials_concat",
-    )
-
-    pipe = InferencePipeline(features_df, hz=1.0, wcc_window_sec=30.0)
-    chain = pipe.run_audited_evidence_chain(
-        raw_signals=raw_signals, wcc_window_size=30,
-        design_signal_pairs=design_pairs,
-        condition_col="condition", dyad_col="dyad_id",
-    )
+This module keeps the preparation details out of the user-facing runner. It
+builds the feature table, raw-pair views, comparison-pair views, shared masks,
+and preparation diagnostics from one checked cohort.
 """
 from __future__ import annotations
 
