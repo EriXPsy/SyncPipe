@@ -220,6 +220,13 @@ def records_to_inference_inputs(
         _std_floor = _QC_CONFIG["min_signal_std"]
         _skip_reason = None
         for _label, _sig in (("person_a", a), ("person_b", b)):
+            _inf_count = int(np.isinf(_sig).sum())
+            if _inf_count:
+                raise ValueError(
+                    f"Record {key!r} {_label} contains {_inf_count} infinite "
+                    "value(s). Replace invalid infinities during preprocessing; "
+                    "only explicitly governed NaN gaps are supported."
+                )
             _nan_rate = float(np.isnan(_sig).mean())
             if _nan_rate > _nan_limit:
                 _skip_reason = (

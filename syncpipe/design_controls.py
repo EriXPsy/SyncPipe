@@ -43,49 +43,49 @@ def _finite_pair(
     sig_b: np.ndarray,
     *,
     strict_length: bool = True,
-    on_length_mismatch: str = "warn",
+    on_length_mismatch: str = "raise",
 ) -> SignalPair:
-    """Return same-length finite arrays for a signal pair.
+    """Return aligned one-dimensional arrays without compressing time.
 
-    Parameters
-    ----------
-    strict_length : bool, default True
-        If True (default), unequal input lengths are not silently accepted.
-        Behaviour is controlled by ``on_length_mismatch``.
-    on_length_mismatch : {"warn", "raise", "truncate"}
-        - ``"warn"`` (default): emit ``UserWarning``, then truncate to min length.
-        - ``"raise"``: raise ``ValueError`` (recommended for confirmatory audits).
-        - ``"truncate"``: legacy silent truncate (discouraged).
+    Despite the legacy function name, non-finite samples are deliberately
+    retained.  Deleting them would join samples that were not adjacent in
+    time, alter autocorrelation, and detach a signal-resolution discontinuity
+    mask from the data it describes.  WCC handles NaN windows explicitly;
+    signal-level IAAFT callers must reject non-finite input because that null
+    model requires a complete regularly sampled series.
 
-    Notes
-    -----
-    P0-3 fix (2026-07-22): previous versions always truncated to
-    ``min(len(a), len(b))`` with no warning, so design-control statistics
-    could be computed on a hidden sub-interval when one partner's series
-    was shorter.  Joint finite masking still preserves relative alignment
-    of kept samples.
+    Unequal real-pair lengths raise by default. ``"warn"`` and ``"truncate"``
+    remain available only for explicitly requested legacy/exploratory use.
     """
     import warnings
 
     a = np.asarray(sig_a, dtype=float)
     b = np.asarray(sig_b, dtype=float)
+    if a.ndim != 1 or b.ndim != 1:
+        raise ValueError(
+            f"sig_a and sig_b must be 1-D arrays; got {a.shape} and {b.shape}."
+        )
     if a.size != b.size:
         msg = (
             f"_finite_pair: unequal lengths len(a)={a.size}, len(b)={b.size}. "
-            f"Truncating to min={min(a.size, b.size)} samples from the start — "
-            f"ensure this matches your intended analysis window."
+            "Real dyad signals must be explicitly aligned before analysis."
         )
         mode = on_length_mismatch if strict_length else "truncate"
+        if mode not in {"warn", "raise", "truncate"}:
+            raise ValueError(
+                "on_length_mismatch must be 'warn', 'raise', or 'truncate'"
+            )
         if mode == "raise":
             raise ValueError(msg)
         if mode == "warn":
-            warnings.warn(msg, UserWarning, stacklevel=2)
-        # truncate (warn already emitted, or legacy silent)
-    n = min(a.size, b.size)
-    a = a[:n]
-    b = b[:n]
-    mask = np.isfinite(a) & np.isfinite(b)
-    return a[mask], b[mask]
+            warnings.warn(
+                f"{msg} Truncating to {min(a.size, b.size)} samples.",
+                UserWarning,
+                stacklevel=2,
+            )
+        n = min(a.size, b.size)
+        a, b = a[:n], b[:n]
+    return a, b
 
 
 def extract_pair_features(
@@ -152,6 +152,22 @@ def synchrony_existence_audit(
             "reason": "signal_too_short",
             "n_samples": int(min(a.size, b.size)),
         }
+    if not (np.all(np.isfinite(a)) and np.all(np.isfinite(b))):
+        return {
+            "audit": "synchrony_existence",
+            "null_model": "signal_level_iaaft",
+            "status": "failed",
+            "reason": "nonfinite_input_requires_preprocessing",
+            "n_samples": int(a.size),
+            "n_nonfinite_a": int(np.sum(~np.isfinite(a))),
+            "n_nonfinite_b": int(np.sum(~np.isfinite(b))),
+            "interpretation": (
+                "Signal-level IAAFT requires complete regularly sampled input. "
+                "The audit was not run because dropping missing samples would "
+                "compress time and bias the null. Impute only under a declared "
+                "preprocessing rule or analyze complete contiguous segments."
+            ),
+        }
     wcc = sliding_window_wcc_masked(
         a, b, window_size=window_size, hz=hz, window_type=window_type,
         discontinuity_mask=discontinuity_mask,
@@ -210,7 +226,8 @@ def _paired_signflip_p_upper(
         return float("nan")
     obs = float(np.mean(d))
     rng = np.random.default_rng(seed)
-    if d.size <= 12:
+    exhaustive = d.size <= 12
+    if exhaustive:
         masks = np.arange(2 ** d.size, dtype=np.uint64)
         null = []
         for m in masks:
@@ -220,7 +237,10 @@ def _paired_signflip_p_upper(
     else:
         signs = rng.choice([-1.0, 1.0], size=(max_draws, d.size))
         null_arr = np.mean(signs * d, axis=1)
-    return float((np.sum(null_arr >= obs) + 1) / (null_arr.size + 1))
+    n_extreme = int(np.sum(null_arr >= obs))
+    if exhaustive:
+        return float(n_extreme / null_arr.size)
+    return float((n_extreme + 1) / (null_arr.size + 1))
 
 
 def design_control_audit(
@@ -264,6 +284,14 @@ def design_control_audit(
                 "discontinuity_masks must use the same keys as signal_pairs; "
                 f"missing masks for {missing_masks[:10]}"
             )
+        for pair_id in ids:
+            mask = np.asarray(discontinuity_masks[pair_id])
+            expected = np.asarray(signal_pairs[pair_id][0]).size
+            if mask.ndim != 1 or mask.size != expected:
+                raise ValueError(
+                    f"discontinuity mask for {pair_id!r} must be one-dimensional "
+                    f"with length {expected}, got shape {mask.shape}."
+                )
 
     def _threshold_for(pair_id: str) -> float:
         if isinstance(threshold, Mapping):
@@ -289,11 +317,11 @@ def design_control_audit(
         truncate silently, so the pseudo arm ran on a shorter effective length
         than the real arm (a length confound in the null).
 
-        Here we (1) crop both signals to a common length, (2) keep only the
-        jointly-finite sample indices, and (3) build a combined
-        discontinuity mask = mask_a AND mask_b sampled at those SAME kept
-        indices, so a pseudo window is valid only where BOTH source signals
-        are internal to a segment. Returns (a, b, combined_mask, n_kept).
+        Here we (1) crop both signals to a common length without deleting
+        non-finite positions, and (2) build a combined discontinuity mask =
+        mask_a AND mask_b on that unchanged time grid. WCC handles missing
+        positions window-wise; removing them would compress time and create
+        false adjacency. Returns (a, b, combined_mask, n_jointly_finite).
         """
         a = np.asarray(sig_a, dtype=float)
         b = np.asarray(sig_b, dtype=float)
@@ -311,14 +339,12 @@ def design_control_audit(
         mb = _crop(mask_b)
 
         finite = np.isfinite(a) & np.isfinite(b)
-        a_f = a[finite]
-        b_f = b[finite]
         combined = None
         if ma is not None or mb is not None:
-            ca = ma[finite] if ma is not None else np.ones(int(finite.sum()), dtype=bool)
-            cb = mb[finite] if mb is not None else np.ones(int(finite.sum()), dtype=bool)
+            ca = ma if ma is not None else np.ones(n, dtype=bool)
+            cb = mb if mb is not None else np.ones(n, dtype=bool)
             combined = ca & cb
-        return a_f, b_f, combined, int(finite.sum())
+        return a, b, combined, int(finite.sum())
 
     real: Dict[str, Dict[str, float]] = {}
     for dyad_id in ids:

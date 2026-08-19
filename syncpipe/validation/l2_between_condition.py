@@ -20,7 +20,8 @@ Method
 ------
 1. For each feature k, compute observed Δ_k = median(C1) - median(C2)
 2. Permute condition labels within each dyad (swap C1↔C2), recompute Δ
-3. Phipson-Smyth p-value: p = (|Δ_perm| >= |Δ_obs| + 1) / (n_perm + 1)
+3. Exact p = n_extreme/N for exhaustive enumeration; Phipson-Smyth
+   p = (n_extreme+1)/(n_perm+1) for Monte-Carlo permutations
 4. BH-FDR across the frozen PRIMARY confirmatory family (SyncPipe v1
    default = 1 primary descriptor, peak_amplitude; SECONDARY descriptors are
    reported in parallel with their own small-family correction)
@@ -75,7 +76,7 @@ def _bh_fdr(p_values: np.ndarray) -> np.ndarray:
 
 # Threshold (in #dyads) below which we enumerate *all* 2^n sign-flip
 # combinations exactly, matching design_controls._paired_signflip_p_upper.
-# For n=4 this gives a true null of 16 points (p resolution 1/17 ≈ 0.059)
+# For n=4 this gives a true null of 16 points (exact probability grid 1/16)
 # instead of the spurious 1/10001 implied by Monte-Carlo with n_permutations.
 _ENUM_THRESHOLD = 12
 
@@ -118,18 +119,24 @@ def _definedness_null(is_def_a: np.ndarray, is_def_b: np.ndarray,
     return p_a.sum(axis=1) - p_b.sum(axis=1)
 
 
-def _exact_p(obs: float, null: np.ndarray) -> float:
-    """Phipson-Smyth (2010) two-tailed p from a (possibly exhaustive) null.
+def _permutation_p(
+    obs: float, null: np.ndarray, *, exhaustive: bool = False
+) -> float:
+    """Two-tailed permutation p-value with the correct sampling denominator.
 
-    p = (|null| >= |obs| + 1) / (N + 1), where N = len(null).  Works for
-    both the exhaustive (N = 2^n) and Monte-Carlo (N = n_permutations) nulls.
+    Exhaustive enumeration already contains every assignment, including the
+    observed arrangement, so its exact p-value is ``n_extreme / N``. For a
+    Monte-Carlo sample of assignments, the Phipson-Smyth correction
+    ``(n_extreme + 1) / (N + 1)`` prevents zero p-values. Mixing these formulas
+    makes a complete enumeration no longer exact.
     """
     null = np.asarray(null, dtype=float)
-    finite = np.isfinite(null)
-    null_fin = null[finite]
-    if null_fin.size == 0:
+    null_fin = null[np.isfinite(null)]
+    if null_fin.size == 0 or not np.isfinite(obs):
         return 1.0
-    n_ge = np.sum(np.abs(null_fin) >= np.abs(obs))
+    n_ge = int(np.sum(np.abs(null_fin) >= np.abs(obs)))
+    if exhaustive:
+        return float(min(n_ge / null_fin.size, 1.0))
     return float(min((n_ge + 1) / (null_fin.size + 1), 1.0))
 
 
@@ -530,7 +537,11 @@ def between_condition_fdr(
         # discrete p-value resolution (see _definedness_null).
         def_diff_obs = def_a_count - def_b_count
         def_null_diffs = _definedness_null(is_def_a, is_def_b, n_permutations, rng)
-        p_def = _exact_p(def_diff_obs, def_null_diffs)
+        p_def = _permutation_p(
+            def_diff_obs,
+            def_null_diffs,
+            exhaustive=n_dyads <= _ENUM_THRESHOLD,
+        )
         min_rate = min(def_a_count, def_b_count) / max(n_dyads, 1)
         informative_undefinedness = (p_def < alpha) or (min_rate < min_defined_fraction)
         definedness_status = "informative_undefinedness" if informative_undefinedness else "complete"
@@ -576,7 +587,11 @@ def between_condition_fdr(
 
         null_mean = float(np.mean(null_diffs))
         null_sd = float(np.std(null_diffs, ddof=1))
-        p_raw = _exact_p(observed_diff, null_diffs)
+        p_raw = _permutation_p(
+            observed_diff,
+            null_diffs,
+            exhaustive=n <= _ENUM_THRESHOLD,
+        )
         cohens_d = observed_diff / null_sd if null_sd > 1e-10 else np.nan
 
         results.append(L2Result(

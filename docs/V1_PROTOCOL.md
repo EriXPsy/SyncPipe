@@ -159,6 +159,8 @@ These conditions **fail loud** (no silent imputation, no silent positive):
 | `hz` mismatch between paired records | raise |
 | mask length mismatch | raise |
 | ambiguous signal column in bridge input | raise |
+| `+/-Inf` in either signal | raise |
+| NaN in signal-level IAAFT input | L0 not run; explicit failed status (never delete samples and compress time) |
 | `n_valid_wcc_points` below defined floor | governed by `observation_policy` / `eligibility_policy` |
 | unequal observation opportunity **across conditions** | `raise` (or `warn`) per `observation_policy` |
 | unequal observation opportunity **within a dyad-condition cell** (trial-length variation) | detected and `raise` (or `warn`) per `observation_policy` |
@@ -309,10 +311,11 @@ If any answer is missing, the element is **not** frozen into v1.
 
 ## 13. Known limitations not papered over in v1
 
-- **Peak-duration bias:** handled by reporting observation metadata + strict
-  rejection of unequal length. A duration-aware peak correction is **deferred**
-  pending independent simulation validation (no maximum-statistic correction
-  silently added).
+- **Peak-duration bias:** unequal observation opportunity is rejected or
+  flagged, and `scripts/run_peak_duration_validation.py` quantifies null-peak
+  inflation and duration-matched block dependability. No duration correction is
+  silently applied: the validation diagnoses the bias but does not establish a
+  universally valid correction for an endpoint maximum.
 - **NaN / dropout policy:** hard NaN-ratio guard exists; the methodologic
   decision (dropout vs segment-seam distinction, minimum finite WCC points,
   per-finite-segment computation, whether dwell may cross short dropouts) is

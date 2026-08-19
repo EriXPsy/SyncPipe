@@ -128,6 +128,11 @@ class ComputationPipeline:
                 f"sig_a and sig_b must have equal length; got "
                 f"{self._sig_a.size} and {self._sig_b.size}."
             )
+        if np.isinf(self._sig_a).any() or np.isinf(self._sig_b).any():
+            raise ValueError(
+                "sig_a and sig_b must not contain +/-Inf. Use finite values or "
+                "NaN for explicitly governed missing samples."
+            )
         if discontinuity_mask is not None:
             dm = np.asarray(discontinuity_mask, dtype=bool)
             if dm.ndim != 1 or dm.size != self._sig_a.size:

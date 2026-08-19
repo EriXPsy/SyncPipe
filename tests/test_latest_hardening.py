@@ -234,6 +234,24 @@ def test_bridge_skips_zero_variance_signal():
             records_to_inference_inputs([rec], hz=1.0, window_size=30)
 
 
+def test_bridge_rejects_infinite_signal():
+    """Inf is invalid data, not a governed missing sample."""
+    n = 200
+    a = np.sin(np.linspace(0, 10, n))
+    b = a.copy()
+    b[50] = np.inf
+    rec = SimpleNamespace(
+        dyad_label="d1", modality="eda", condition="A",
+        person_a=a, person_b=b, target_hz=1.0,
+        incomplete=False, discontinuity_mask=None,
+    )
+    with pytest.raises(ValueError, match="infinite"):
+        records_to_inference_inputs([rec], hz=1.0, window_size=30)
+    pipe = ComputationPipeline(hz=1.0, window_size=30)
+    with pytest.raises(ValueError, match="Inf"):
+        pipe.load_signals(a, b)
+
+
 def test_bridge_skips_high_nan_signal():
     """The bridge QC gate must skip records with excessive NaN
     (>5% per qc.DEFAULT_CONFIG) rather than letting them through."""
