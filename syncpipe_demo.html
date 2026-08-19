@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07110f">
+<title>SyncPipe｜从量化自己，到理解彼此</title>
+<style>
+:root{
+  --bg:#07110f;--bg-2:#0a1714;--card:#0e1d19;--card-2:#122620;
+  --text:#f4f5ef;--muted:#a7b6ae;--dim:#708078;--line:rgba(236,246,239,.12);
+  --mint:#72f2bd;--mint-2:#2fd39b;--amber:#ffc66d;--blue:#83b8ff;--red:#ff8b89;
+  --serif:"Iowan Old Style","Songti SC","Noto Serif SC",serif;
+  --sans:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;background:radial-gradient(circle at 70% 8%,rgba(47,211,155,.12),transparent 31%),radial-gradient(circle at 15% 55%,rgba(131,184,255,.07),transparent 28%),linear-gradient(rgba(255,255,255,.017) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.017) 1px,transparent 1px);background-size:auto,auto,56px 56px,56px 56px}
+a{color:inherit}.nav{position:fixed;z-index:50;top:0;left:0;right:0;height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(20px,4vw,64px);background:rgba(7,17,15,.76);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:11px;font-weight:760;letter-spacing:.08em}.brand svg{width:30px;height:30px}.brand b{color:var(--mint)}
+.navlinks{display:flex;gap:24px;color:var(--muted);font-size:13px}.navlinks a{text-decoration:none}.navlinks a:hover{color:var(--mint)}
+.progress{position:fixed;top:68px;left:0;z-index:60;height:2px;width:0;background:linear-gradient(90deg,var(--mint),var(--blue));transition:width .1s}
+section{min-height:92vh;padding:clamp(104px,12vh,150px) clamp(24px,7vw,112px);display:flex;align-items:center;border-bottom:1px solid var(--line);position:relative}.wrap{width:min(1180px,100%);margin:auto}.narrow{width:min(920px,100%);margin:auto}
+.eyebrow{color:var(--mint);font:700 12px/1 var(--mono);letter-spacing:.17em;text-transform:uppercase;margin-bottom:22px}.eyebrow span{color:var(--dim)}
+h1,h2,h3,p{margin-top:0}h1{font-size:clamp(47px,7vw,96px);line-height:1.02;letter-spacing:-.055em;margin-bottom:26px;max-width:1100px}h2{font-size:clamp(36px,5.2vw,68px);line-height:1.08;letter-spacing:-.045em;margin-bottom:25px;max-width:1000px}h3{font-size:21px;line-height:1.3;letter-spacing:-.02em}.gradient{background:linear-gradient(110deg,var(--mint),#d5ffe9 50%,var(--blue));-webkit-background-clip:text;background-clip:text;color:transparent}.lead{font-size:clamp(18px,2vw,25px);line-height:1.55;color:var(--muted);max-width:880px}.lead strong{color:var(--text)}.small{font-size:13px;color:var(--dim)}
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .75s ease,transform .75s cubic-bezier(.2,.8,.2,1)}.reveal.in{opacity:1;transform:none}
+.hero{min-height:100vh;padding-top:130px;overflow:hidden}.hero-copy{position:relative;z-index:2}.hero .lead{max-width:720px}.watch-question{display:inline-flex;align-items:center;gap:10px;border:1px solid rgba(114,242,189,.33);background:rgba(114,242,189,.07);border-radius:999px;padding:10px 15px;margin-bottom:34px;color:#d8f8e9;font-size:14px}.watch-question i{width:8px;height:8px;border-radius:50%;background:var(--mint);box-shadow:0 0 20px var(--mint)}
+.hero-art{position:absolute;right:-6vw;bottom:-12vh;width:min(57vw,760px);height:min(73vh,700px);opacity:.74}.hero-art svg{width:100%;height:100%;overflow:visible}.wave-a,.wave-b{fill:none;stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 9px currentColor)}.wave-a{stroke:var(--mint);color:var(--mint)}.wave-b{stroke:var(--blue);color:var(--blue)}.orbit{fill:none;stroke:rgba(255,255,255,.08)}
+.scroll-cue{position:absolute;bottom:28px;color:var(--dim);font:11px var(--mono);letter-spacing:.12em}.scroll-cue:after{content:"";display:inline-block;width:45px;height:1px;background:var(--dim);margin-left:12px;vertical-align:middle}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:42px}.card{background:linear-gradient(145deg,rgba(18,38,32,.9),rgba(10,23,20,.92));border:1px solid var(--line);border-radius:22px;padding:27px}.card .icon{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:rgba(114,242,189,.1);color:var(--mint);font:700 17px var(--mono);margin-bottom:38px}.card p{color:var(--muted);font-size:15px;margin-bottom:0}.card .big{font-size:clamp(24px,2.5vw,36px);font-weight:740;line-height:1.15;margin-bottom:12px}.bridge{margin-top:42px;padding:26px 30px;border-left:3px solid var(--mint);background:linear-gradient(90deg,rgba(114,242,189,.09),transparent);font-size:clamp(19px,2vw,25px);max-width:960px}
+.question-stage{text-align:center}.question-stage h2{margin-left:auto;margin-right:auto}.question-stage .lead{margin-left:auto;margin-right:auto}.false-eq{display:flex;align-items:center;justify-content:center;gap:22px;margin:48px 0 34px;font-size:clamp(23px,3vw,42px);font-weight:760}.trace-mini{width:180px;height:68px;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:9px}.not-equal{color:var(--red);font:600 45px var(--serif)}
+.reasons{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;text-align:left;margin-top:38px}.reason{border:1px solid var(--line);border-radius:16px;padding:19px;background:rgba(14,29,25,.74)}.reason b{display:block;color:var(--amber);font-size:14px;margin-bottom:6px}.reason span{color:var(--muted);font-size:13px}
+.demo-shell{margin-top:40px;border:1px solid var(--line);border-radius:25px;overflow:hidden;background:#091512;box-shadow:0 35px 90px rgba(0,0,0,.28)}.demo-top{display:flex;justify-content:space-between;align-items:center;padding:15px 20px;border-bottom:1px solid var(--line);font:12px var(--mono);color:var(--dim)}.demo-top .lights{display:flex;gap:7px}.demo-top i{width:8px;height:8px;border-radius:50%;background:#375148}.demo-body{padding:25px}.scenarios{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:20px}.scenario{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--muted);padding:10px 15px;border-radius:999px;cursor:pointer;font:600 13px var(--sans)}.scenario:hover,.scenario.on{border-color:var(--mint);color:var(--text);background:rgba(114,242,189,.1)}.chart{width:100%;height:255px;display:block;border-radius:15px;background:#07110f}.verdict{display:grid;grid-template-columns:1.3fr .7fr;gap:12px;margin-top:12px}.answer,.limit{padding:20px;border-radius:15px;border:1px solid var(--line)}.answer{background:rgba(114,242,189,.07)}.limit{background:rgba(255,198,109,.05)}.label{font:700 10px var(--mono);letter-spacing:.16em;color:var(--dim);text-transform:uppercase;margin-bottom:8px}.answer strong{font-size:20px;color:var(--mint)}.limit strong{font-size:15px;color:var(--amber)}.answer p,.limit p{font-size:13px;color:var(--muted);margin:6px 0 0}.demo-note{text-align:right;font:11px var(--mono);color:var(--dim);margin:10px 3px 0}
+.flow{display:grid;grid-template-columns:1fr 52px 1fr 52px 1fr;align-items:stretch;margin-top:44px}.flow-card{padding:29px;border:1px solid var(--line);border-radius:20px;background:var(--card)}.flow-card .num{font:700 12px var(--mono);color:var(--mint);margin-bottom:28px}.flow-card h3{font-size:24px}.flow-card p{font-size:14px;color:var(--muted);margin:0}.arrow{display:grid;place-items:center;color:var(--mint);font-size:26px}.checks{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:20px}.check{padding:15px 12px;border:1px solid var(--line);border-radius:13px;color:var(--muted);font-size:12px;text-align:center;background:rgba(14,29,25,.62)}.check b{display:block;color:var(--text);font-size:13px;margin-bottom:5px}
+.report{margin-top:36px;display:grid;grid-template-columns:.85fr 1.15fr;gap:28px;align-items:center}.paper{background:#f2f1e9;color:#15201c;padding:30px;border-radius:7px;box-shadow:0 25px 70px rgba(0,0,0,.3);transform:rotate(-1deg)}.paper .phead{font:800 11px var(--mono);letter-spacing:.12em;color:#647069;border-bottom:1px solid #ccd2cb;padding-bottom:11px}.paper h3{font-size:25px;margin:25px 0 14px}.paper-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #d8ddd7;font-size:12px}.pill{color:#086b4b;background:#caecdd;border-radius:99px;padding:2px 7px;font-weight:800;height:max-content;white-space:nowrap}.paper .warning{margin-top:18px;padding:12px;background:#fff1ce;font-size:11px;border-radius:6px}.report-copy li{margin:13px 0;color:var(--muted)}.report-copy li::marker{color:var(--mint)}
+.position{display:grid;grid-template-columns:1fr 1.1fr 1fr;gap:0;margin:48px 0}.position .layer{padding:30px;border:1px solid var(--line);min-height:250px}.position .layer:first-child{border-radius:20px 0 0 20px}.position .layer:last-child{border-radius:0 20px 20px 0}.position .core{background:linear-gradient(150deg,rgba(114,242,189,.18),rgba(18,38,32,.95));border-color:rgba(114,242,189,.45);transform:scale(1.035);border-radius:20px;box-shadow:0 25px 60px rgba(0,0,0,.2)}.position .tag{font:700 11px var(--mono);color:var(--mint);letter-spacing:.12em;margin-bottom:40px}.position h3{font-size:26px}.position p{font-size:14px;color:var(--muted)}
+.usecases{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.use{padding:25px;border-top:1px solid var(--line)}.use .when{font:11px var(--mono);color:var(--mint);margin-bottom:15px}.use h3{font-size:19px}.use p{font-size:14px;color:var(--muted)}
+.assets{display:grid;grid-template-columns:1.25fr .75fr;gap:16px;margin-top:42px}.asset-main{padding:38px;border-radius:24px;background:linear-gradient(135deg,rgba(114,242,189,.15),rgba(14,29,25,.8));border:1px solid rgba(114,242,189,.28)}.asset-main .version{font:800 clamp(54px,8vw,105px)/1 var(--mono);letter-spacing:-.08em;color:var(--mint)}.asset-main p{font-size:18px;max-width:630px;color:var(--muted);margin:22px 0 0}.asset-side{display:grid;gap:16px}.stat{border:1px solid var(--line);border-radius:20px;padding:25px;background:var(--card)}.stat b{font:800 38px/1 var(--mono);color:var(--text)}.stat span{display:block;color:var(--muted);font-size:13px;margin-top:10px}.proofline{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.proofline span{border:1px solid var(--line);border-radius:99px;padding:7px 11px;font-size:12px;color:var(--muted)}
+.road{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:45px;counter-reset:road}.step{counter-increment:road;border:1px solid var(--line);border-radius:22px;padding:28px;background:var(--card);position:relative;overflow:hidden}.step:after{content:"0" counter(road);position:absolute;right:15px;top:-20px;color:rgba(114,242,189,.055);font:800 110px var(--mono)}.step .time{color:var(--mint);font:700 11px var(--mono);letter-spacing:.1em;margin-bottom:50px}.step h3{font-size:23px}.step p{color:var(--muted);font-size:14px}.step .out{border-top:1px solid var(--line);padding-top:14px;margin-top:20px;font-size:12px;color:var(--amber)}
+.close{text-align:center;min-height:100vh;background:radial-gradient(circle at center,rgba(47,211,155,.16),transparent 45%)}.close h2{margin-left:auto;margin-right:auto;font-size:clamp(45px,7vw,94px)}.close .lead{margin:0 auto}.cta{display:inline-flex;margin-top:38px;padding:14px 22px;border-radius:999px;background:var(--mint);color:#062118;text-decoration:none;font-weight:780}.closing-line{margin-top:80px;color:var(--dim);font:11px var(--mono);letter-spacing:.12em}
+@media(max-width:900px){.navlinks{display:none}.grid3,.usecases,.road{grid-template-columns:1fr}.reasons{grid-template-columns:1fr 1fr}.flow{grid-template-columns:1fr}.arrow{height:45px;transform:rotate(90deg)}.checks{grid-template-columns:1fr 1fr}.report,.assets{grid-template-columns:1fr}.position{grid-template-columns:1fr}.position .layer,.position .layer:first-child,.position .layer:last-child{border-radius:18px;margin-top:10px;min-height:auto}.position .core{transform:none}.hero-art{right:-28vw;width:90vw;opacity:.43}.verdict{grid-template-columns:1fr}}
+@media(max-width:560px){section{padding-left:20px;padding-right:20px}.reasons,.checks{grid-template-columns:1fr}.false-eq{gap:8px}.trace-mini{width:120px}.demo-body{padding:13px}.chart{height:210px}.paper{padding:20px}.watch-question{font-size:12px}.hero-art{bottom:-2vh}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.wave-a,.wave-b{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<nav class="nav" aria-label="页面导航">
+  <div class="brand">
+    <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M5 31c7 0 7-15 14-15s7 15 14 15 7-15 10-15" fill="none" stroke="#72f2bd" stroke-width="3" stroke-linecap="round"/><path d="M5 17c7 0 7 14 14 14s7-14 14-14 7 14 10 14" fill="none" stroke="#83b8ff" stroke-width="3" stroke-linecap="round"/></svg>
+    SYNC<b>PIPE</b>
+  </div>
+  <div class="navlinks"><a href="#gap">机会</a><a href="#product">产品</a><a href="#position">定位</a><a href="#today">今天</a><a href="#next">下一步</a></div>
+</nav>
+
+<section class="hero" id="top">
+  <div class="wrap hero-copy reveal">
+    <div class="watch-question"><i></i>你今天戴智能手表了吗？</div>
+    <h1>手表越来越懂你。<br><span class="gradient">但谁来理解两个人？</span></h1>
+    <p class="lead">心率、睡眠、压力与运动，正在让“量化自己”成为日常。SyncPipe 把视角从<strong>一个人</strong>转向<strong>两个人之间</strong>：用可检验的方法，探索关系发生时身体如何共同变化。</p>
+    <div class="scroll-cue">向下，进入两个人的世界</div>
+  </div>
+  <div class="hero-art" aria-hidden="true">
+    <svg viewBox="0 0 760 680">
+      <circle class="orbit" cx="410" cy="350" r="250"/><circle class="orbit" cx="410" cy="350" r="180"/>
+      <path class="wave-a" id="heroWaveA"/><path class="wave-b" id="heroWaveB"/>
+      <circle cx="610" cy="274" r="9" fill="#72f2bd"><animate attributeName="r" values="7;12;7" dur="2.4s" repeatCount="indefinite"/></circle>
+    </svg>
+  </div>
+</section>
+
+<section id="gap">
+  <div class="wrap reveal">
+    <div class="eyebrow">01 <span>/ 从个体健康到关系健康</span></div>
+    <h2>健康不只发生在身体里，<br>也发生在<span class="gradient">人与人之间。</span></h2>
+    <p class="lead">一次安静的陪伴、一场激烈的讨论、共同完成一项任务——关系会改变注意、情绪和生理状态。可穿戴设备已经能连续记录这些变化，却仍主要把每个人分开解释。</p>
+    <div class="grid3">
+      <article class="card"><div class="icon">01</div><div class="big">设备已经在手腕上</div><p>心率、皮肤电、呼吸与动作等连续信号，让互动过程第一次有机会被低成本、长时间地观察。</p></article>
+      <article class="card"><div class="icon">02</div><div class="big">关系影响真实生活</div><p>伴侣、家庭、治疗与团队中的互动质量，会影响压力调节、协作体验与日常健康行为。</p></article>
+      <article class="card"><div class="icon">03</div><div class="big">中间缺一把尺子</div><p>有数据，不等于有可靠解释。研究者仍需要一种统一方式，判断两个人是否真的出现了值得关注的共同变化。</p></article>
+    </div>
+    <div class="bridge"><strong>SyncPipe 选择的独特位置：</strong>不再只问“这个人怎么样”，而是开始严谨地问“这两个人在一起时，发生了什么”。</div>
+  </div>
+</section>
+
+<section class="question-stage" id="problem">
+  <div class="narrow reveal">
+    <div class="eyebrow">02 <span>/ 一个简单但关键的陷阱</span></div>
+    <h2>两条曲线一起动，<br><span class="gradient">就代表两个人同频吗？</span></h2>
+    <div class="false-eq">
+      <svg class="trace-mini" viewBox="0 0 180 68"><path d="M3 42 C25 8 40 60 61 24 S95 57 116 20 S147 49 177 14" fill="none" stroke="#72f2bd" stroke-width="3"/></svg>
+      <span class="not-equal">≠</span>
+      <span>关系默契</span>
+    </div>
+    <p class="lead">可能只是看了同一段视频、同时起身、设备一起漂移，或分析恰好选中了好看的片段。<strong>相关，不等于关系。</strong></p>
+    <div class="reasons">
+      <div class="reason"><b>共同刺激</b><span>同一个声音或事件，让两个人同时反应。</span></div>
+      <div class="reason"><b>动作与设备</b><span>运动、接触不良或测量误差制造了相似波动。</span></div>
+      <div class="reason"><b>时间巧合</b><span>慢趋势或有利的时间窗口造成表面一致。</span></div>
+      <div class="reason"><b>分析选择</b><span>不同算法和排除规则，可能给出不同答案。</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="product">
+  <div class="wrap reveal">
+    <div class="eyebrow">03 <span>/ SyncPipe 做什么</span></div>
+    <h2>它不是制造一个漂亮分数。<br>它负责<span class="gradient">追问这个分数凭什么成立。</span></h2>
+    <p class="lead">输入两个人已经对齐的连续信号，SyncPipe 先找到共同变化，再主动测试常见的其他解释，最后用普通人能读懂的报告交付结果。</p>
+    <div class="flow">
+      <div class="flow-card"><div class="num">STEP 01</div><h3>两个人的数据进入</h3><p>读取心率间期、皮肤电、呼吸或动作等已处理、已对齐的连续信号，并检查时间、缺失与质量。</p></div>
+      <div class="arrow">→</div>
+      <div class="flow-card"><div class="num">STEP 02</div><h3>让结果接受挑战</h3><p>它会比较随机信号、错误搭档和错开的时间，避免把显眼的共同波动直接解释成两个人的联系。</p></div>
+      <div class="arrow">→</div>
+      <div class="flow-card"><div class="num">STEP 03</div><h3>给出可解释报告</h3><p>清楚写出数据支持什么、还有什么没有排除，以及不同情境下结果是否发生变化。</p></div>
+    </div>
+    <div class="checks">
+      <div class="check"><b>数据可靠吗？</b>时间、缺失、平直信号</div><div class="check"><b>超过巧合吗？</b>与随机比较</div><div class="check"><b>真是这两人吗？</b>与错误搭档比较</div><div class="check"><b>依赖原时间吗？</b>错开后再比较</div><div class="check"><b>情境有差别吗？</b>预先选定条件比较</div>
+    </div>
+
+    <div class="demo-shell" aria-label="交互式原理演示">
+      <div class="demo-top"><span><span class="lights"><i></i><i></i><i></i></span></span><span>SYNCPIPE / 原理演示</span></div>
+      <div class="demo-body">
+        <div class="scenarios" id="scenarios">
+          <button class="scenario on" data-case="partners">真实搭档 + 原始时间</button>
+          <button class="scenario" data-case="mismatch">换成错误搭档</button>
+          <button class="scenario" data-case="shift">把时间错开</button>
+          <button class="scenario" data-case="stimulus">共同刺激</button>
+        </div>
+        <canvas class="chart" id="chart"></canvas>
+        <div class="verdict"><div class="answer"><div class="label">这次检查告诉我们</div><strong id="answerTitle">两条信号出现明显的共同变化</strong><p id="answerText">这是观察的起点，还不是关系结论。</p></div><div class="limit"><div class="label">仍需追问</div><strong id="limitTitle">巧合、刺激与设备影响仍可能存在</strong><p>SyncPipe 将问题分开回答，不用一个总分掩盖未知。</p></div></div>
+        <div class="demo-note">示意数据，仅用于解释工作原理</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="report">
+  <div class="wrap reveal">
+    <div class="eyebrow">04 <span>/ 复杂留给软件，清楚留给用户</span></div>
+    <h2>研究者不该先学一套黑话，<br>才能知道<span class="gradient">结果意味着什么。</span></h2>
+    <div class="report">
+      <div class="paper" aria-label="报告示意">
+        <div class="phead">SYNCPIPE / REPORT.md</div><h3>结论摘要</h3>
+        <div class="paper-row"><span class="pill">支持</span><span>共同变化超过了独立信号的比较结果</span></div>
+        <div class="paper-row"><span class="pill">支持</span><span>结果依赖两个人原本的时间对应</span></div>
+        <div class="paper-row"><span class="pill">待判断</span><span>当前设计还不能排除所有共同刺激</span></div>
+        <div class="warning"><b>可以说：</b>观察到与原时间对应有关的共同变化。<br><b>不能说：</b>已经证明关系质量、因果方向或临床意义。</div>
+      </div>
+      <div class="report-copy">
+        <p class="lead"><strong>一页先回答最重要的问题：</strong></p>
+        <ul><li>最有把握的发现是什么？</li><li>做了哪些反证检查？</li><li>哪些其他解释仍然可能？</li><li>哪些数据被排除，为什么？</li><li>别人能否按同样步骤复跑？</li></ul>
+        <p class="small">严谨不是把术语堆给用户，而是让每一句结论都能追溯、能被挑战。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="position">
+  <div class="wrap reveal">
+    <div class="eyebrow">05 <span>/ 独特定位</span></div>
+    <h2>站在可穿戴数据与关系应用之间，<br>先把<span class="gradient">测量基础</span>做好。</h2>
+    <p class="lead">SyncPipe 当前首先是一套学术研究软件。它的长期价值，是为双人算法提供一层独立、透明、可验证的基础，而不是过早把“同步”包装成消费级关系评分。</p>
+    <div class="position">
+      <div class="layer"><div class="tag">上游 / 已经成熟</div><h3>可穿戴设备</h3><p>持续产生个人的心率、皮肤电、呼吸、动作与睡眠数据。</p></div>
+      <div class="layer core"><div class="tag">中间层 / SYNCPIPE</div><h3>双人测量与验证</h3><p>统一数据检查、共同变化计算、替代解释测试与结论报告。</p></div>
+      <div class="layer"><div class="tag">下游 / 新机会</div><h3>关系研究与产品研发</h3><p>为伴侣互动、心理治疗、照护、团队协作和穿戴创新提供更可靠的研究依据。</p></div>
+    </div>
+    <div class="usecases">
+      <div class="use"><div class="when">今天</div><h3>研究者的标准分析工具</h3><p>减少各实验室重复写脚本，让研究更容易比较、复现与审查。</p></div>
+      <div class="use"><div class="when">下一阶段</div><h3>穿戴研发的验证底座</h3><p>帮助团队判断一个双人信号是否稳定、是否超越简单相关、是否值得进入产品实验。</p></div>
+      <div class="use"><div class="when">长期启发</div><h3>关系健康的新测量维度</h3><p>把“关系如何影响身体”变成可持续研究的问题，为反馈、干预与个性化体验提供科学起点。</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="today">
+  <div class="wrap reveal">
+    <div class="eyebrow">06 <span>/ 已经做成什么</span></div>
+    <h2>故事从未来开始，<br>但产品<span class="gradient">已经可以运行。</span></h2>
+    <p class="lead">SyncPipe 已从个人研究代码推进为一套可安装、可复跑、可审计的方法引擎。核心不是展示更多指标，而是把容易出错的步骤固定成同一套可靠流程。</p>
+    <div class="assets">
+      <div class="asset-main"><div class="version">2.0</div><p>完整连接数据检查、共同变化分析、反证比较、条件检验与可读报告。内部保持统计严谨，对外只回答用户真正关心的问题。</p><div class="proofline"><span>开源代码</span><span>公开数据开发流程</span><span>外部测试工具包</span><span>版本化输入与报告</span></div></div>
+      <div class="asset-side"><div class="stat"><b>521</b><span>项自动化工程与方法契约测试，持续守住计算行为</span></div><div class="stat"><b>1 → 2</b><span>从两条个人信号，迈向一个可研究的关系过程</span></div></div>
+    </div>
+    <p class="small" style="margin-top:18px">自动化测试用于保障软件与方法实现一致，不等同于 521 次科学验证。科学价值将通过方法论文、独立数据与外部团队持续建立。</p>
+  </div>
+</section>
+
+<section id="next">
+  <div class="wrap reveal">
+    <div class="eyebrow">07 <span>/ 从方法引擎到领域入口</span></div>
+    <h2>先成为研究者信任的工具，<br>再成为产业需要的<span class="gradient">双人测量层。</span></h2>
+    <div class="road">
+      <article class="step"><div class="time">现在 → 6 个月</div><h3>建立学术可信度</h3><p>完成方法论文，与首批研究伙伴在他们自己的数据上复跑、比较和修正工作流。</p><div class="out">关键产出：论文 · 独立复现 · 设计伙伴</div></article>
+      <article class="step"><div class="time">6 → 18 个月</div><h3>形成研究工作流</h3><p>把复杂设置变成项目向导、批量分析和团队协作，服务实验室、心理研究与穿戴算法团队。</p><div class="out">关键产出：真实项目 · 团队工具 · 付费试点</div></article>
+      <article class="step"><div class="time">长期上行空间</div><h3>支持关系健康创新</h3><p>在外部验证、隐私治理和真实结局研究成熟后，探索双人算法接口与穿戴合作。</p><div class="out">关键产出：联合研究 · 算法验证 · 产业合作</div></article>
+    </div>
+    <div class="bridge"><strong>这是一条清晰的价值链：</strong>研究标准带来可信度，可信度带来采用，采用让双人数据真正有机会进入下一代健康体验。</div>
+  </div>
+</section>
+
+<section class="close" id="close">
+  <div class="narrow reveal">
+    <div class="eyebrow">SYNCPIPE</div>
+    <h2>可穿戴量化了“我”。<br><span class="gradient">现在，开始理解“我们”。</span></h2>
+    <p class="lead">不是替关系打分，而是给关系研究一把更可信的尺子。</p>
+    <a class="cta" href="https://github.com/EriXPsy/SyncPipe">了解 SyncPipe →</a>
+    <div class="closing-line">MEASURE TOGETHER · QUESTION CAREFULLY · REPORT CLEARLY</div>
+  </div>
+</section>
+
+<script>
+(()=>{
+  const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:.12});
+  $$('.reveal').forEach(x=>io.observe(x));
+  addEventListener('scroll',()=>{const d=document.documentElement;$('#progress').style.width=(scrollY/(d.scrollHeight-innerHeight)*100)+'%'},{passive:true});
+
+  function wavePath(phase,offset,similarity=1){let d='';for(let x=0;x<=760;x+=8){const shared=Math.sin(x*.025+phase)*48+Math.sin(x*.009-phase*.6)*30;const own=Math.sin(x*.046+phase*1.7+offset)*30;const y=340+offset*58+shared*similarity+own*(1-similarity);d+=(x?'L':'M')+x.toFixed(1)+','+y.toFixed(1)}return d}
+  let tick=0;function animateHero(){tick+=.008;$('#heroWaveA').setAttribute('d',wavePath(tick,-.52,.83));$('#heroWaveB').setAttribute('d',wavePath(tick+.28,.52,.83));requestAnimationFrame(animateHero)}
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches)animateHero();else{$('#heroWaveA').setAttribute('d',wavePath(0,-.52,.83));$('#heroWaveB').setAttribute('d',wavePath(.28,.52,.83))}
+
+  const cases={
+    partners:{sync:.82,shift:.18,title:'两条信号出现明显的共同变化',text:'这是观察的起点，还不是关系结论。',limit:'巧合、刺激与设备影响仍可能存在'},
+    mismatch:{sync:.18,shift:2.3,title:'换成其他人后，共同变化明显减弱',text:'结果更像是这两个人所特有，而非任意两人都会出现。',limit:'仍不能单独证明关系质量或因果'},
+    shift:{sync:.12,shift:3.8,title:'错开时间后，原有模式被破坏',text:'结果依赖真实的时间对应，不只是两条慢趋势碰巧相似。',limit:'共同事件仍可能让两人同时反应'},
+    stimulus:{sync:.62,shift:.55,title:'共同刺激可以解释一部分变化',text:'看到同步并不等于看到互动；研究设计需要把两者分开。',limit:'需要更强的实验条件来识别互动本身'}
+  };
+  const canvas=$('#chart'),ctx=canvas.getContext('2d');let active='partners';
+  function draw(){const r=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);canvas.width=r.width*dpr;canvas.height=r.height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);const w=r.width,h=r.height,c=cases[active];ctx.clearRect(0,0,w,h);ctx.strokeStyle='rgba(255,255,255,.055)';ctx.lineWidth=1;for(let y=40;y<h;y+=42){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}const paths=[{color:'#72f2bd',off:-28,phase:0},{color:'#83b8ff',off:28,phase:c.shift}];paths.forEach((p,j)=>{ctx.beginPath();for(let x=0;x<=w;x+=4){const shared=Math.sin(x*.023)*26+Math.sin(x*.008+1.1)*17;const own=Math.sin(x*.047+p.phase)*25;const y=h/2+p.off+shared*c.sync+own*(1-c.sync);x?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.strokeStyle=p.color;ctx.lineWidth=2.2;ctx.shadowColor=p.color;ctx.shadowBlur=7;ctx.stroke();ctx.shadowBlur=0});ctx.font='11px '+getComputedStyle(document.documentElement).getPropertyValue('--mono');ctx.fillStyle='#708078';ctx.fillText('PERSON A',14,21);ctx.fillText('PERSON B',100,21)}
+  $$('.scenario').forEach(b=>b.addEventListener('click',()=>{active=b.dataset.case;$$('.scenario').forEach(x=>x.classList.toggle('on',x===b));$('#answerTitle').textContent=cases[active].title;$('#answerText').textContent=cases[active].text;$('#limitTitle').textContent=cases[active].limit;draw()}));
+  new ResizeObserver(draw).observe(canvas);draw();
+})();
+</script>
+</body>
+</html>
