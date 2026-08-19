@@ -542,6 +542,8 @@ class TestCLI:
             "[analysis]\n"
             "window_size = 10\n"
             "contrast = ['rest', 'task']\n"
+            "primary_endpoint = 'peak_amplitude'\n"
+            "primary_modalities = ['EDA']\n"
             "eligibility_policy = 'raise'\n"
             "n_min_dyads = 4\n"
             "n_permutations = 100\n"

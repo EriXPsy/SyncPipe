@@ -63,6 +63,8 @@ def _write_config(root: Path, **over) -> Path:
     cfg = {
         "window_size": 20,
         "contrast": ["rest", "task"],
+        "primary_endpoint": "peak_amplitude",
+        "primary_modalities": ["EDA"],
         "fdr_scope": "global",
         "undefined_policy": "gate",
         "observation_policy": "raise",
@@ -145,6 +147,31 @@ class TestParseConfig:
         assert c.eligibility_policy == "raise"
         assert c.n_min_dyads == 5
         assert c.resolved_contrast() == ("rest", "task")
+        assert c.resolved_primary_endpoint() == "peak_amplitude"
+        assert c.resolved_primary_modalities() == ("EDA",)
+
+    def test_requires_primary_endpoint(self, tmp_path):
+        cfg = _write_config(tmp_path)
+        text = cfg.read_text(encoding="utf-8").replace(
+            'primary_endpoint = "peak_amplitude"\n', ""
+        )
+        cfg.write_text(text, encoding="utf-8")
+        with pytest.raises(ValueError, match="primary_endpoint is required"):
+            parse_config(cfg)
+
+    def test_requires_primary_modalities(self, tmp_path):
+        cfg = _write_config(tmp_path)
+        text = cfg.read_text(encoding="utf-8").replace(
+            'primary_modalities = ["EDA"]\n', ""
+        )
+        cfg.write_text(text, encoding="utf-8")
+        with pytest.raises(ValueError, match="primary_modalities is required"):
+            parse_config(cfg)
+
+    def test_rejects_unsupported_primary_endpoint(self, tmp_path):
+        cfg = _write_config(tmp_path, primary_endpoint="mean_synchrony")
+        with pytest.raises(ValueError, match="must be 'peak_amplitude'"):
+            parse_config(cfg)
 
     def test_rejects_bad_onset_string(self, tmp_path):
         cfg = _write_config(tmp_path, onset_threshold="bogus")
@@ -183,6 +210,12 @@ class TestRunCanonical:
         row0 = manifest_payload["rows"][0]
         assert Path(row0["person_a_path"]).is_absolute()
         assert row0["person_a_sha256"]
+
+    def test_rejects_primary_modality_absent_from_manifest(self, tmp_path):
+        man = _write_cohort(tmp_path, n_dyads=4)
+        cfg = _write_config(tmp_path, primary_modalities=["ECG"])
+        with pytest.raises(ValueError, match="absent from the manifest"):
+            run_canonical(man, cfg, tmp_path / "out")
 
     def test_excludes_load_errors(self, tmp_path):
         man = _write_cohort(tmp_path, n_dyads=6)

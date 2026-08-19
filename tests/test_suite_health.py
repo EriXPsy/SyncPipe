@@ -36,7 +36,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 
 # Recorded 2026-08-02. Any consolidation or rename MUST update both this and
 # tests/README.md — changing the baseline is a reviewed act, not a side effect.
-_EXPECTED_COLLECTED = 497
+_EXPECTED_COLLECTED = 501
 # 2026-08-02: 4 tests promoted from the nightly slow layer to the PR gate
 # (whole-cascade summary, L2 kwarg names, L1 denominator, cross-process seed
 # stability), so slow went 59 -> 55 and not-slow 447 -> 451.
@@ -56,9 +56,11 @@ _EXPECTED_COLLECTED = 497
 # (475 -> 481, not-slow 420 -> 426). Robustness hardening added 3 fast tests
 # (481 -> 484, not-slow 426 -> 429). Peak-duration and discriminant-validity
 # validation added 12 slow tests plus one suite-health path case for the new
-# module (484 -> 497, slow 55 -> 67, not-slow 429 -> 430).
+# module (484 -> 497, slow 55 -> 67, not-slow 429 -> 430). Explicit canonical
+# endpoint/modality declarations added 4 fast contracts (497 -> 501,
+# not-slow 430 -> 434).
 _EXPECTED_SLOW = 67
-_EXPECTED_NOT_SLOW = 430
+_EXPECTED_NOT_SLOW = 434
 
 # Module-level Path constants that are legitimately allowed not to exist
 # (e.g. output paths written during a test run). Keyed by "module:attribute"

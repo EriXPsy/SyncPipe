@@ -130,8 +130,10 @@ Runs the audited evidence chain from a manifest + config:
 syncpipe analyze -m manifest.csv -c config.toml -o results/
 ```
 - `manifest.csv` columns: `dyad_id,modality,condition,person_a_path,person_b_path,hz[,mask_path]`
-- `config.toml`: `[analysis]` section; `contrast` is required (two
-  pre-specified condition labels).
+- `config.toml`: `[analysis]` section; `contrast`, `primary_endpoint`, and
+  `primary_modalities` are required and must be pre-specified. The canonical v1
+  null currently supports only `primary_endpoint = "peak_amplitude"`; use
+  `syncpipe describe` when no confirmatory endpoint is declared.
 
 Minimal `manifest.csv` (two dyads, one modality, two conditions):
 ```csv
@@ -145,6 +147,8 @@ Minimal `config.toml`:
 ```toml
 [analysis]
 contrast = ["rest", "task"]
+primary_endpoint = "peak_amplitude"  # the only v1 endpoint with the canonical L0 null
+primary_modalities = ["EDA"]          # study-specific and declared before results
 window_size = 10
 surrogate_n = 1000
 n_permutations = 10000

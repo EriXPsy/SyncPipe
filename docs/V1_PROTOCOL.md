@@ -258,9 +258,13 @@ alongside but do not decide the gate.
 `PRIMARY_EXISTENCE_MODALITIES` is **dataset-specific** (the default is the
 Lerique ECG/EDA/RESP composition). Datasets with a different channel
 composition MUST declare their own primary set via
-`SyncPipeConfig.primary_modalities` **before** looking at results; leaving it
-`None` inherits the Lerique default. The parameters are recorded in the run
-config and report, so the declared set is auditable after the fact.
+`SyncPipeConfig.primary_modalities` **before** looking at results. The canonical
+runner rejects a missing declaration and rejects labels absent from the
+manifest; it never inherits the Lerique default silently. The parameters are
+recorded in the resolved config and report, so the declared set is auditable
+after the fact. The canonical endpoint must likewise be declared explicitly;
+v1 currently accepts only `peak_amplitude` because other descriptors do not yet
+have a validated signal-level existence null.
 
 ### FDR and governance parameters (must be explicit in every run)
 

@@ -48,7 +48,11 @@ from .__about__ import __version__, CONFIG_SCHEMA_VERSION, ANALYSIS_SCHEMA_VERSI
 from .io import load_csv
 from .pipeline_bridge import InferenceInputs, records_to_inference_inputs
 from .inference_pipeline import InferencePipeline
-from .feature_definitions import FDR_FEATURES, REFERENCE_FEATURE
+from .feature_definitions import (
+    FDR_FEATURES,
+    PRIMARY_EXISTENCE_ENDPOINT,
+    REFERENCE_FEATURE,
+)
 
 __all__ = [
     "ManifestRecord",
@@ -130,11 +134,11 @@ class SyncPipeConfig:
     surrogate_n: int = 1000
     design_threshold: float = 0.5
     design_condition: Optional[str] = None
-    # ③ Existence gate: pre-registered primary modalities (second-order group
-    # surrogate gate). None -> use the SSoT default
-    # (PRIMARY_EXISTENCE_MODALITIES = ECG + EDA, the autonomic primary set).
-    # Dataset-specific: override for datasets whose channel composition
-    # differs (e.g. single-channel HR/SCR datasets, behavioural Gordon).
+    # Canonical confirmatory analyses must explicitly declare the endpoint and
+    # modality family in config. None is retained only so constructing a config
+    # object for exploratory/validation code remains possible; run_canonical()
+    # rejects unresolved declarations.
+    primary_endpoint: Optional[str] = None
     primary_modalities: Optional[Tuple[str, ...]] = None
     # Significance threshold for the second-order group existence gate
     # (per-modality group p, BH-corrected across the primary set).
@@ -171,6 +175,18 @@ class SyncPipeConfig:
             raise ValueError("config.existence_alpha must lie in (0, 1)")
         if int(self.n_workers) != self.n_workers or self.n_workers < 1:
             raise ValueError("config.n_workers must be an integer >= 1")
+        if self.primary_endpoint is not None and self.primary_endpoint != PRIMARY_EXISTENCE_ENDPOINT:
+            raise ValueError(
+                "config.primary_endpoint must be 'peak_amplitude' in v1; "
+                "other endpoints require their own validated existence null"
+            )
+        if self.primary_modalities is not None:
+            cleaned = tuple(str(x).strip() for x in self.primary_modalities)
+            if not cleaned or any(not x for x in cleaned):
+                raise ValueError("config.primary_modalities must contain non-empty labels")
+            if len(set(cleaned)) != len(cleaned):
+                raise ValueError("config.primary_modalities must not contain duplicates")
+            self.primary_modalities = cleaned
 
     def resolved_contrast(self) -> Tuple[str, str]:
         if not self.contrast or len(self.contrast) != 2:
@@ -179,6 +195,22 @@ class SyncPipeConfig:
                 "pre-specified conditions, e.g. ['rest', 'task']."
             )
         return (str(self.contrast[0]), str(self.contrast[1]))
+
+    def resolved_primary_endpoint(self) -> str:
+        if self.primary_endpoint is None:
+            raise ValueError(
+                "config.primary_endpoint is required for the canonical path; "
+                "v1 currently supports only 'peak_amplitude'"
+            )
+        return str(self.primary_endpoint)
+
+    def resolved_primary_modalities(self) -> Tuple[str, ...]:
+        if not self.primary_modalities:
+            raise ValueError(
+                "config.primary_modalities is required for the canonical path; "
+                "declare the pre-specified modality set explicitly"
+            )
+        return tuple(self.primary_modalities)
 
 
 @dataclass
@@ -302,6 +334,22 @@ def parse_config(path: Union[str, Path]) -> SyncPipeConfig:
     if design_condition is not None:
         design_condition = str(design_condition)
 
+    primary_endpoint = section.get("primary_endpoint", None)
+    if primary_endpoint is None:
+        raise ValueError(
+            "config.primary_endpoint is required: v1 currently supports "
+            "primary_endpoint = 'peak_amplitude'."
+        )
+    primary_endpoint = str(primary_endpoint).strip()
+
+    primary_modalities_raw = section.get("primary_modalities", None)
+    if not isinstance(primary_modalities_raw, (list, tuple)) or not primary_modalities_raw:
+        raise ValueError(
+            "config.primary_modalities is required and must be a non-empty list "
+            "of pre-specified modality labels."
+        )
+    primary_modalities = tuple(str(x).strip() for x in primary_modalities_raw)
+
     return SyncPipeConfig(
         window_size=int(section.get("window_size", DEFAULT_CONFIG.window_size)),
         window_type=str(section.get("window_type", DEFAULT_CONFIG.window_type)),
@@ -317,6 +365,9 @@ def parse_config(path: Union[str, Path]) -> SyncPipeConfig:
         surrogate_n=int(section.get("surrogate_n", DEFAULT_CONFIG.surrogate_n)),
         design_threshold=float(section.get("design_threshold", DEFAULT_CONFIG.design_threshold)),
         design_condition=design_condition,
+        primary_endpoint=primary_endpoint,
+        primary_modalities=primary_modalities,
+        existence_alpha=float(section.get("existence_alpha", DEFAULT_CONFIG.existence_alpha)),
         n_workers=int(section.get("n_workers", DEFAULT_CONFIG.n_workers)),
     )
 
@@ -563,6 +614,15 @@ def run_canonical(
     records = parse_manifest(manifest) if not isinstance(manifest, list) else list(manifest)
     cfg = parse_config(config) if not isinstance(config, SyncPipeConfig) else config
     contrast = cfg.resolved_contrast()
+    primary_endpoint = cfg.resolved_primary_endpoint()
+    primary_modalities = cfg.resolved_primary_modalities()
+    available_modalities = {r.modality for r in records}
+    missing_primary = sorted(set(primary_modalities) - available_modalities)
+    if missing_primary:
+        raise ValueError(
+            "config.primary_modalities contains label(s) absent from the manifest: "
+            f"{missing_primary}; available modalities are {sorted(available_modalities)}"
+        )
     if cfg.design_condition is None:
         cfg.design_condition = contrast[1]
     available_conditions = {r.condition for r in records}
@@ -702,7 +762,7 @@ def run_canonical(
         n_permutations=cfg.n_permutations,
         design_threshold=design_threshold,
         feature_cols=list(FDR_FEATURES) + list(REFERENCE_FEATURE),
-        primary_modalities=cfg.primary_modalities,
+        primary_modalities=primary_modalities,
         existence_alpha=cfg.existence_alpha,
     )
 
@@ -844,6 +904,11 @@ def _write_report_bundle(
         f'design_threshold = {cfg.design_threshold}',
         (f'design_condition = {_toml_str(cfg.design_condition)}'
          if cfg.design_condition else 'design_condition = ""'),
+        f'primary_endpoint = {_toml_str(cfg.resolved_primary_endpoint())}',
+        "primary_modalities = [" + ", ".join(
+            _toml_str(x) for x in cfg.resolved_primary_modalities()
+        ) + "]",
+        f'existence_alpha = {cfg.existence_alpha}',
         # Recorded for provenance only: n_workers changes wall-clock, never
         # numbers (each pair seeds its own Generator). Replaying this config
         # with a different n_workers reproduces the same results.
@@ -917,6 +982,8 @@ def _build_report_md(
         f"- hz: {qc.get('hz')} | window_size: {cfg.window_size} | "
         f"window_type: {cfg.window_type}",
         f"- Contrast: {cfg.contrast}",
+        f"- Declared primary endpoint: {cfg.primary_endpoint} | "
+        f"primary modalities: {cfg.primary_modalities}",
         f"- FDR scope: {cfg.fdr_scope} | undefined_policy: {cfg.undefined_policy} | "
         f"observation_policy: {cfg.observation_policy} | eligibility_policy: {cfg.eligibility_policy}",
         f"- Rows in manifest: {qc.get('total_rows')} | included: {qc.get('included')} | "
