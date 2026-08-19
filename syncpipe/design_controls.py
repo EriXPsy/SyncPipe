@@ -22,8 +22,9 @@ import numpy as np
 
 from .dynamic_features import (
     sliding_window_wcc,
-    sliding_window_wcc_masked,
     wcc_surrogate_test,
+    _prepare_iaaft_segments,
+    _segmentwise_wcc,
 )
 from .feature_definitions import ONSET_THRESHOLD, extract_features
 
@@ -50,9 +51,9 @@ def _finite_pair(
     Despite the legacy function name, non-finite samples are deliberately
     retained.  Deleting them would join samples that were not adjacent in
     time, alter autocorrelation, and detach a signal-resolution discontinuity
-    mask from the data it describes.  WCC handles NaN windows explicitly;
-    signal-level IAAFT callers must reject non-finite input because that null
-    model requires a complete regularly sampled series.
+    mask from the data it describes. WCC handles NaN windows explicitly;
+    signal-level IAAFT is generated independently within eligible finite
+    contiguous segments on the unchanged time axis.
 
     Unequal real-pair lengths raise by default. ``"warn"`` and ``"truncate"``
     remain available only for explicitly requested legacy/exploratory use.
@@ -127,6 +128,7 @@ def synchrony_existence_audit(
     seed: int = 42,
     window_type: str = "rect",
     discontinuity_mask: Optional[np.ndarray] = None,
+    min_segment_samples: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Run signal-level IAAFT synchrony-existence audit for one pair.
 
@@ -139,9 +141,12 @@ def synchrony_existence_audit(
     ----------
     discontinuity_mask : np.ndarray of bool or None
         Per-sample boundary mask (signal-resolution). When provided, the
-        observed WCC and the recomputed surrogate WCC both NaN out windows
-        straddling a seam, so the audit does not credit coupling that is an
-        artefact of segment concatenation.
+        Observed and surrogate WCC are computed only inside the same eligible
+        contiguous segments, so the audit does not cross a seam.
+    min_segment_samples : int or None
+        Minimum finite contiguous raw-signal length. The default is
+        ``max(50, window_size + 19)`` so every retained segment can contribute
+        at least 20 WCC points. Short fragments are excluded, never joined.
     """
     a, b = _finite_pair(sig_a, sig_b)
     if a.size < window_size or b.size < window_size:
@@ -152,26 +157,31 @@ def synchrony_existence_audit(
             "reason": "signal_too_short",
             "n_samples": int(min(a.size, b.size)),
         }
-    if not (np.all(np.isfinite(a)) and np.all(np.isfinite(b))):
+    runs, _, segment_info = _prepare_iaaft_segments(
+        a, b,
+        window_size=window_size,
+        discontinuity_mask=discontinuity_mask,
+        min_segment_samples=min_segment_samples,
+    )
+    wcc = _segmentwise_wcc(
+        a, b, runs,
+        window_size=window_size, hz=hz, window_type=window_type,
+    )
+    if np.isfinite(wcc).sum() < 20:
         return {
             "audit": "synchrony_existence",
             "null_model": "signal_level_iaaft",
             "status": "failed",
-            "reason": "nonfinite_input_requires_preprocessing",
+            "reason": "insufficient_contiguous_data_for_iaaft",
             "n_samples": int(a.size),
-            "n_nonfinite_a": int(np.sum(~np.isfinite(a))),
-            "n_nonfinite_b": int(np.sum(~np.isfinite(b))),
+            "n_wcc": int(np.isfinite(wcc).sum()),
+            "segmentation": segment_info,
             "interpretation": (
-                "Signal-level IAAFT requires complete regularly sampled input. "
-                "The audit was not run because dropping missing samples would "
-                "compress time and bias the null. Impute only under a declared "
-                "preprocessing rule or analyze complete contiguous segments."
+                "No eligible set of finite contiguous segments produced at "
+                "least 20 WCC points. Samples were not deleted, joined, or "
+                "imputed."
             ),
         }
-    wcc = sliding_window_wcc_masked(
-        a, b, window_size=window_size, hz=hz, window_type=window_type,
-        discontinuity_mask=discontinuity_mask,
-    )
     result = wcc_surrogate_test(
         wcc,
         hz=hz,
@@ -182,13 +192,16 @@ def synchrony_existence_audit(
         wcc_window_sec=window_size / hz if hz > 0 else float(window_size),
         window_type=window_type,
         discontinuity_mask=discontinuity_mask,
+        min_segment_samples=min_segment_samples,
     )
+    result_segmentation = result.get("segmentation", segment_info)
     return {
         "audit": "synchrony_existence",
         "null_model": "signal_level_iaaft",
         "status": "ok",
         "n_samples": int(a.size),
         "n_wcc": int(np.isfinite(wcc).sum()),
+        "segmentation": result_segmentation,
         "n_surrogates": int(result.get("n_surrogates", surrogate_n)),
         "per_feature_significant": result.get("per_feature_significant", {}),
         "p_values": {

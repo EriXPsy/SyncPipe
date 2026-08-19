@@ -69,6 +69,14 @@ Required checks:
 
 This is software reliability, not psychological reliability.
 
+For signal-level IAAFT with dropout or concatenated sessions, SyncPipe keeps the
+original time axis and generates A/B surrogates independently inside each
+eligible finite contiguous segment. The default minimum segment length is
+`max(50, window_size + 19)` raw samples; shorter fragments are excluded and
+reported. Observed and null WCC use the identical segment set and are pooled by
+eligible WCC point for distributional summaries. No missing sample is deleted,
+joined to a non-adjacent neighbor, or implicitly imputed.
+
 ### 3.2 Within-session dependability
 
 Question: would the descriptor be similar under another representative sample

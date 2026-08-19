@@ -160,7 +160,7 @@ These conditions **fail loud** (no silent imputation, no silent positive):
 | mask length mismatch | raise |
 | ambiguous signal column in bridge input | raise |
 | `+/-Inf` in either signal | raise |
-| NaN in signal-level IAAFT input | L0 not run; explicit failed status (never delete samples and compress time) |
+| NaN / seam in signal-level IAAFT input | segment-wise IAAFT on eligible finite contiguous runs; short fragments excluded; L0 fails if fewer than 20 eligible WCC points remain |
 | `n_valid_wcc_points` below defined floor | governed by `observation_policy` / `eligibility_policy` |
 | unequal observation opportunity **across conditions** | `raise` (or `warn`) per `observation_policy` |
 | unequal observation opportunity **within a dyad-condition cell** (trial-length variation) | detected and `raise` (or `warn`) per `observation_policy` |

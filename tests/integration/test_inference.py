@@ -808,7 +808,7 @@ def test_p0_3_finite_pair_legacy_warn_preserves_time_positions():
     assert np.isnan(aa[3])  # missing samples are retained, never time-compressed
 
 
-def test_existence_audit_rejects_nonfinite_input_without_compressing_time():
+def test_existence_audit_uses_finite_segments_without_compressing_time():
     from syncpipe.design_controls import synchrony_existence_audit
 
     a = np.sin(np.linspace(0, 10, 100))
@@ -818,12 +818,30 @@ def test_existence_audit_rejects_nonfinite_input_without_compressing_time():
     mask[50] = False
     result = synchrony_existence_audit(
         a, b, hz=1.0, window_size=10, surrogate_n=5,
-        discontinuity_mask=mask,
+        discontinuity_mask=mask, min_segment_samples=40,
+    )
+    assert result["status"] == "ok"
+    assert result["n_samples"] == 100
+    # Runs [0,30), [31,50), and [51,100): only the 49-sample final run
+    # survives an explicit 40-sample floor, producing 49-10+1 WCC points.
+    assert result["segmentation"]["n_segments_total"] == 3
+    assert result["segmentation"]["n_segments_used"] == 1
+    assert result["segmentation"]["segment_lengths_used"] == [49]
+    assert result["n_wcc"] == 40
+
+
+def test_existence_audit_fails_when_all_finite_segments_are_too_short():
+    from syncpipe.design_controls import synchrony_existence_audit
+
+    a = np.sin(np.linspace(0, 10, 120))
+    b = a.copy()
+    a[[30, 60, 90]] = np.nan
+    result = synchrony_existence_audit(
+        a, b, hz=1.0, window_size=10, surrogate_n=5,
     )
     assert result["status"] == "failed"
-    assert result["reason"] == "nonfinite_input_requires_preprocessing"
-    assert result["n_samples"] == 100
-    assert result["n_nonfinite_a"] == 1
+    assert result["reason"] == "insufficient_contiguous_data_for_iaaft"
+    assert result["segmentation"]["n_segments_used"] == 0
 
 
 def test_p1_1_dwell_splits_across_nan_seam():
