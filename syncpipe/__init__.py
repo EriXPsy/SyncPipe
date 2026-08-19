@@ -33,6 +33,7 @@ from .preparation import (
     PreparedCohort, PreparedObservation, PreparationExclusion, SignalGeometry,
 )
 from .contracts import AnalysisSpec, EndpointSpec, ModalitySpec, NullSpec
+from .evidence import ClaimDecision, EvidenceChain, EvidenceStageResult, EvidenceStatus
 from .canonical_runner import (
     CanonicalResult,
     DEFAULT_CONFIG,
@@ -95,6 +96,10 @@ __all__ = [
     "PreparedCohort",
     "PreparationExclusion",
     "SignalGeometry",
+    "EvidenceStatus",
+    "EvidenceStageResult",
+    "EvidenceChain",
+    "ClaimDecision",
     # Canonical scientific runner (Gate 1 single entry point)
     "run_canonical",
     "parse_manifest",

@@ -47,7 +47,10 @@ yoked partner, separated shared-stimulus exposure, or another design that
 breaks reciprocity while preserving relevant sensory input.
 
 `condition` labels are not evidence by themselves. Reports must describe what
-was held constant and what rival explanation the contrast changes.
+was held constant and what rival explanation the contrast changes. SyncPipe
+serializes this hierarchy in `evidence_graph.json`; the final `ClaimDecision`
+stops at the first unsupported lower evidence level and always lists unresolved
+rivals and forbidden claims.
 
 ## 3. Reliability is feature- and timescale-specific
 

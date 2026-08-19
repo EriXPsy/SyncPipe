@@ -23,6 +23,7 @@ import json
 import numpy as np
 import pandas as pd
 
+from .evidence import EvidenceChain, build_evidence_chain
 from .design_controls import (
     DEFAULT_AUDIT_FEATURES,
     SignalPair,
@@ -342,6 +343,12 @@ class InferencePipeline:
         self._design_control_results: Optional[Dict[str, Any]] = None
         self._across_stim_results: Optional[Dict[str, Any]] = None
         self._group_inference_results: Optional[Dict[str, Any]] = None
+        self._evidence_chain: Optional[EvidenceChain] = None
+
+    @property
+    def evidence_chain(self) -> Optional[EvidenceChain]:
+        """Typed E0-E5 evidence graph from the latest audited run."""
+        return self._evidence_chain
 
     # ---- v1 evidence chain: synchrony-existence → design controls → group inference ----
 
@@ -691,26 +698,40 @@ class InferencePipeline:
             alpha=existence_alpha,
             endpoint=primary_endpoint,
         )
-        primary_pass = gate["primary_pass"]
+        graph = build_evidence_chain(
+            endpoint=primary_endpoint,
+            existence_gate=gate,
+            design=design,
+            across_stimulus=across,
+            group=group,
+            alpha=existence_alpha,
+        )
+        self._evidence_chain = graph
+        stage_by_id = {stage.stage_id: stage.status.value for stage in graph.stages}
+        # Legacy keys remain during the migration window, but are now derived
+        # from the typed graph rather than independently hand-authored.
         return {
             "evidence_chain_version": "v1",
+            "evidence_graph": graph.to_dict(),
             "synchrony_existence": existence,
             "existence_gate": gate,
             "design_controls": design,
             "across_stimulus_shuffle": across,
             "group_condition_inference": group,
             "stage_status": {
-                "existence": "passed" if primary_pass else "not_supported",
-                "design_controls": "completed" if design is not None else "not_run",
-                "across_stimulus": "completed" if across is not None else "not_run",
-                "group_inference": "completed" if group is not None else "not_run",
+                "existence": "passed" if stage_by_id["E0"] == "supported" else "not_supported",
+                "design_controls": (
+                    "completed" if design is not None else "not_run"
+                ),
+                "across_stimulus": (
+                    "completed" if across is not None else "not_run"
+                ),
+                "group_inference": (
+                    "completed" if group is not None else "not_run"
+                ),
             },
-            "claim_ceiling": (
-                "Existence support is present but does not establish dyad-specific "
-                "interpersonal coupling." if primary_pass else
-                "Group differences are descriptive only because the primary "
-                "existence audit was not supported."
-            ),
+            "claim_ceiling": graph.decision.permitted_claim + "; forbidden: "
+            + ", ".join(graph.decision.forbidden_claims),
             "summary": self._build_audited_chain_summary(existence, design, across, group),
         }
 
@@ -1290,6 +1311,9 @@ class InferencePipeline:
             "design_control_results": self._design_control_results,
             "across_stimulus_results": self._across_stim_results,
             "group_inference_results": self._group_inference_results,
+            "evidence_graph": (
+                self._evidence_chain.to_dict() if self._evidence_chain else None
+            ),
         }
 
         def _sanitize(o):

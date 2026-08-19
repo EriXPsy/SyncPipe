@@ -498,9 +498,12 @@ def _derive_claimability(chain: Dict[str, Any]) -> Dict[str, Any]:
     for mod in sorted(group.keys(), key=str):
         _collect(str(mod), group[mod])
 
+    evidence_graph = chain.get("evidence_graph", {})
     return {
         "stage_status": chain.get("stage_status", {}),
         "claim_ceiling": chain.get("claim_ceiling"),
+        "claim_decision": evidence_graph.get("decision", {}),
+        "evidence_stages": evidence_graph.get("stages", []),
         "per_feature": per_feature,
     }
 
@@ -912,6 +915,7 @@ def _write_report_bundle(
     _dump_json("existence_gate.json", chain.get("existence_gate"))
     _dump_json("design_control_audit.json", chain.get("design_controls"))
     _dump_json("group_inference.json", chain.get("group_condition_inference"))
+    _dump_json("evidence_graph.json", chain.get("evidence_graph"))
     _dump_json("claimability.json", claimability)
 
     # REPORT.md. `paths` is passed so the report's "Output files" section is

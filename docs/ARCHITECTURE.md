@@ -42,11 +42,15 @@ stages, details and claim effects inside `PreparedCohort`; canonical exclusion
 CSV/Markdown are rendered from those objects. Milestone B is complete for the
 v1 canonical path.
 
-## Milestone C — typed evidence graph
+## Milestone C — typed evidence graph (implemented with compatibility layer)
 
-Replace stage dictionaries and `completed/not_run` strings with typed stage
-results (`supported`, `not_supported`, `inconclusive`, `not_applicable`,
-`invalid`) and explicit claim propagation from E0 through E5.
+`EvidenceStageResult`, `EvidenceStatus`, `EvidenceChain`, and `ClaimDecision`
+now represent E0–E5 plus L2. Claim propagation is cumulative and stops at the
+first unsupported/inconclusive lower stage: E3 cannot justify an
+alignment-specific headline when E2 partner specificity failed, and E5 remains
+inconclusive without a reciprocity-breaking design. Canonical output includes
+`evidence_graph.json`; legacy `stage_status` and `claim_ceiling` keys are derived
+from the graph during migration rather than authored independently.
 
 ## Milestone D — orchestration/export split
 

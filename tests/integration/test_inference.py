@@ -85,6 +85,69 @@ def test_run_audited_evidence_chain_returns_summary():
     assert result["synchrony_existence"]["n_pairs"] == 1
     assert result["design_controls"] is not None
     assert result["group_condition_inference"] is not None
+    graph = result["evidence_graph"]
+    assert [stage["stage_id"] for stage in graph["stages"]] == [
+        "E0", "E1", "E2", "E3", "E4", "E5", "L2"
+    ]
+    assert graph["stages"][5]["status"] == "inconclusive"
+    assert "causal interpersonal coupling" in graph["decision"]["forbidden_claims"]
+    assert pipe.evidence_chain is not None
+
+def test_evidence_claim_propagation_stops_at_first_unsupported_stage():
+    from syncpipe.evidence import build_evidence_chain
+
+    graph = build_evidence_chain(
+        endpoint="peak_amplitude",
+        existence_gate={"primary_pass": True},
+        design={"feature_summary": {"peak_amplitude": {
+            "p_real_gt_pseudo": 0.40,
+            "p_real_gt_time_shift": 0.01,
+        }}},
+        across_stimulus=None,
+        group=None,
+        alpha=0.05,
+    )
+    assert graph.decision.highest_supported_stage == "E0"
+    assert graph.decision.blocked_by == ("E2",)
+    assert graph.stage("E3").status.value == "supported"
+    # E3 cannot be promoted past unsupported E2.
+    assert "alignment-specific" not in graph.decision.permitted_claim
+
+
+def test_evidence_claim_propagation_reaches_e4_but_never_infers_e5():
+    from syncpipe.evidence import build_evidence_chain
+
+    graph = build_evidence_chain(
+        endpoint="peak_amplitude",
+        existence_gate={"primary_pass": True},
+        design={"feature_summary": {"peak_amplitude": {
+            "p_real_gt_pseudo": 0.01,
+            "p_real_gt_time_shift": 0.01,
+        }}},
+        across_stimulus={"results": {"peak_amplitude": {"p_value": 0.01}}},
+        group=None,
+        alpha=0.05,
+    )
+    assert graph.decision.highest_supported_stage == "E4"
+    assert graph.decision.blocked_by == ("E5",)
+    assert graph.stage("E5").status.value == "inconclusive"
+
+
+def test_evidence_claim_propagation_blocks_all_claims_when_e0_fails():
+    from syncpipe.evidence import build_evidence_chain
+
+    graph = build_evidence_chain(
+        endpoint="peak_amplitude",
+        existence_gate={"primary_pass": False},
+        design=None,
+        across_stimulus=None,
+        group=None,
+        alpha=0.05,
+    )
+    assert graph.decision.highest_supported_stage == "none"
+    assert graph.decision.blocked_by == ("E0",)
+    assert graph.decision.permitted_claim == "descriptive co-fluctuation only"
+
 
 # === source: test_cascade_summary_l2_path.py ===
 """Regression test for the _build_cascade_summary() NameError on the

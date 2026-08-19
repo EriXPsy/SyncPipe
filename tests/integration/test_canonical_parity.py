@@ -23,7 +23,7 @@ EXPECTED_BUNDLE = [
     "manifest_resolved.json", "config_resolved.toml", "environment.json",
     "qc_report.json", "exclusion_report.csv", "features.csv",
     "existence_audit.json", "design_control_audit.json",
-    "group_inference.json", "claimability.json", "REPORT.md",
+    "group_inference.json", "evidence_graph.json", "claimability.json", "REPORT.md",
 ]
 
 
