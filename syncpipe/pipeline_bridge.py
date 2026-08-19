@@ -59,6 +59,7 @@ import pandas as pd
 from .computation_pipeline import ComputationPipeline
 from .feature_definitions import FDR_FEATURES, ONSET_THRESHOLD, REFERENCE_FEATURE
 from .qc import DEFAULT_CONFIG as _QC_CONFIG
+from .preparation import PreparedCohort, PreparedObservation
 from .session_threshold import compute_session_pooled_thresholds_by_modality
 
 
@@ -74,6 +75,8 @@ class InferenceInputs:
     condition_col: str = "condition"
     dyad_col: str = "dyad_id"
     thresholds_by_modality: Optional[Dict[str, float]] = None
+    prepared_cohort: Optional[PreparedCohort] = None
+    preparation_diagnostics: Optional[Dict[str, Dict[str, object]]] = None
 
 
 def _as_array(df_or_series) -> Optional[np.ndarray]:
@@ -251,15 +254,23 @@ def records_to_inference_inputs(
             )
             continue
 
+        prepared = PreparedObservation.from_signals(
+            key=key, dyad_id=dyad, modality=mod, condition=cond,
+            hz=rec_hz, signal_a=a, signal_b=b,
+            discontinuity_mask=mask,
+        )
         entries.append({
-            "a": a.astype(float),
-            "b": b.astype(float),
+            "observation": prepared,
+            "a": prepared.signal_a,
+            "b": prepared.signal_b,
             "dyad": dyad,
             "mod": mod,
             "cond": cond,
             "key": key,
             "rec_hz": rec_hz,
-            "mask": mask,
+            # Legacy name retained at the API edge; this is now the shared
+            # analysis mask (source discontinuities AND joint finite samples).
+            "mask": prepared.geometry.analysis_mask,
         })
 
     if not entries:
@@ -267,6 +278,10 @@ def records_to_inference_inputs(
             "No usable records: every record was incomplete, missing a person, "
             "or shorter than window_size. Check the loader filters / durations."
         )
+
+    prepared_cohort = PreparedCohort(
+        tuple(e["observation"] for e in entries)
+    )
 
     # ------------------------------------------------------------------
     # Canonical default: per-modality pooled IAAFT onset threshold.
@@ -364,4 +379,6 @@ def records_to_inference_inputs(
         condition_col=condition_col,
         dyad_col=dyad_col,
         thresholds_by_modality=thresholds_by_modality,
+        prepared_cohort=prepared_cohort,
+        preparation_diagnostics=prepared_cohort.diagnostics(window_size),
     )

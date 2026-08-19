@@ -45,6 +45,7 @@ import logging
 import warnings
 
 from .surrogate import iaaft_surrogate, ft_surrogate, prtf_surrogate  # noqa: F401  # re-export
+from .preparation import resolve_signal_geometry
 
 # Feature math lives in feature_definitions (SSoT); re-export DynamicFeatures
 # for backward-compatible imports (syncpipe.DynamicFeatures, core.py, etc.)
@@ -584,8 +585,6 @@ def _prepare_iaaft_segments(
     """
     a = np.asarray(sig_A, dtype=float)
     b = np.asarray(sig_B, dtype=float)
-    if a.ndim != 1 or b.ndim != 1 or a.size != b.size:
-        raise ValueError("segment-wise IAAFT requires equal-length 1-D signals")
     if int(window_size) != window_size or window_size < 2:
         raise ValueError("window_size must be an integer >= 2")
     minimum = (
@@ -593,38 +592,24 @@ def _prepare_iaaft_segments(
         if min_segment_samples is None else int(min_segment_samples)
     )
     if minimum < max(4, int(window_size)):
-        raise ValueError(
-            "min_segment_samples must be >= max(4, window_size)"
-        )
+        raise ValueError("min_segment_samples must be >= max(4, window_size)")
 
-    valid = np.isfinite(a) & np.isfinite(b)
-    if discontinuity_mask is not None:
-        dm = np.asarray(discontinuity_mask)
-        if dm.ndim != 1 or dm.size != a.size:
-            raise ValueError(
-                "discontinuity_mask must be one-dimensional and match signal length"
-            )
-        valid &= dm.astype(bool)
-
-    padded = np.concatenate(([False], valid, [False])).astype(np.int8)
-    changes = np.diff(padded)
-    starts = np.flatnonzero(changes == 1)
-    ends = np.flatnonzero(changes == -1)
-    all_runs = [(int(s), int(e)) for s, e in zip(starts, ends)]
-    runs = [(s, e) for s, e in all_runs if e - s >= minimum]
+    geometry = resolve_signal_geometry(a, b, discontinuity_mask)
+    all_runs = geometry.segments
+    runs = list(geometry.segments_at_least(minimum))
     eligible = np.zeros(a.size, dtype=bool)
     for start, end in runs:
         eligible[start:end] = True
 
     diagnostics = {
-        "mode": "segment_wise_iaaft" if len(all_runs) > 1 or not valid.all() else "whole_series_iaaft",
+        "mode": "segment_wise_iaaft" if len(all_runs) > 1 or not geometry.analysis_mask.all() else "whole_series_iaaft",
         "min_segment_samples": minimum,
         "n_segments_total": len(all_runs),
         "n_segments_used": len(runs),
         "n_segments_excluded_short": len(all_runs) - len(runs),
         "segment_lengths_used": [end - start for start, end in runs],
         "n_samples_total": int(a.size),
-        "n_samples_jointly_finite": int(np.sum(np.isfinite(a) & np.isfinite(b))),
+        "n_samples_jointly_finite": int(geometry.joint_finite_mask.sum()),
         "n_samples_eligible": int(eligible.sum()),
         "eligible_fraction": float(eligible.mean()) if eligible.size else 0.0,
     }

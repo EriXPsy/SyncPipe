@@ -27,12 +27,18 @@ The v1 registry currently contains only `peak_amplitude`, because adding an
 endpoint requires a matching validated null contract rather than only feature
 math.
 
-## Milestone B — prepared observations (next)
+## Milestone B — prepared observations (implemented core)
 
-Create immutable `PreparedObservation` / `PreparedCohort` objects that own the
-shared time axis, finite/discontinuity masks, eligible segments, WCC opportunity,
-threshold eligibility and exclusions. Computation, L0 and design controls must
-consume these objects instead of re-deriving masks independently.
+Immutable `PreparedObservation`, `SignalGeometry`, and `PreparedCohort` now own
+the joint finite mask, source discontinuity mask, combined analysis mask,
+contiguous segments, WCC opportunity and threshold eligibility. Pipeline bridge
+construction hard-gates computation with the shared analysis mask; segment-wise
+IAAFT delegates to the same geometry resolver; canonical design controls receive
+the prepared design-condition masks; pooled surrogate thresholds generate within
+the same eligible segments. Preparation diagnostics are exported in QC.
+
+Remaining Milestone B work is to move loader-level exclusion reasons into the
+prepared cohort itself rather than retaining canonical runner's separate list.
 
 ## Milestone C — typed evidence graph
 

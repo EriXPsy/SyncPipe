@@ -29,6 +29,7 @@ from .computation_pipeline import (
 )
 from .inference_pipeline import InferencePipeline
 from .pipeline_bridge import InferenceInputs, records_to_inference_inputs
+from .preparation import PreparedCohort, PreparedObservation, SignalGeometry
 from .contracts import AnalysisSpec, EndpointSpec, ModalitySpec, NullSpec
 from .canonical_runner import (
     CanonicalResult,
@@ -88,6 +89,9 @@ __all__ = [
     # Data-layer -> pipeline bridge (reviewer entry point)
     "records_to_inference_inputs",
     "InferenceInputs",
+    "PreparedObservation",
+    "PreparedCohort",
+    "SignalGeometry",
     # Canonical scientific runner (Gate 1 single entry point)
     "run_canonical",
     "parse_manifest",

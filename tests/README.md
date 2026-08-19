@@ -145,11 +145,11 @@ intentionally add or remove tests, update both places in the same commit.
 
 | Metric                              | Value |
 |------------------------------------|-------|
-| Collected tests (`--collect-only`) | **505** |
+| Collected tests (`--collect-only`) | **508** |
 | `slow` subset (`-m slow`)          | 67    |
-| `not slow` subset (`-m "not slow"`)| 438   |
+| `not slow` subset (`-m "not slow"`)| 441   |
 
-> Recorded 2026-08-19. Collected total **505** = 438 fast (`not slow`) + 67
+> Recorded 2026-08-19. Collected total **508** = 441 fast (`not slow`) + 67
 > `slow`. Enforced automatically by `tests/test_suite_health.py`; changing these
 > numbers is a reviewed act, not a side effect.
 >

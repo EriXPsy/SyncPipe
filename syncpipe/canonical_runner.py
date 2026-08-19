@@ -660,19 +660,15 @@ def run_canonical(
     # manifest (Gate 1 residual P0-2).
     design_keys = set(inputs.design_pairs)
     design_masks: Optional[Dict[str, np.ndarray]] = None
-    if inputs.discontinuity_mask and any(
-        m is not None for m in inputs.discontinuity_mask.values()
-    ):
-        design_masks = {}
-        for lr in loader_records:
-            if lr.condition != design_condition or lr.discontinuity_mask is None:
-                continue
-            pair_key = f"{lr.dyad_label}__{lr.modality}"
-            design_masks[pair_key] = lr.discontinuity_mask
+    if inputs.prepared_cohort is not None:
+        design_masks = {
+            f"{obs.dyad_id}__{obs.modality}": obs.geometry.analysis_mask
+            for obs in inputs.prepared_cohort.observations
+            if obs.condition == design_condition
+        }
         if set(design_masks) != design_keys:
             raise ValueError(
-                "design-condition discontinuity masks must cover exactly the "
-                "design_signal_pairs keys"
+                "prepared design masks must cover exactly the design_signal_pairs keys"
             )
 
     # P0-1: when onset thresholds are session-pooled, the design-control audit
@@ -736,6 +732,7 @@ def run_canonical(
             "duration_policy": endpoint_spec.duration_policy,
         },
         "pair_summary": pair_summary,
+        "preparation": inputs.preparation_diagnostics,
         "design_threshold_scope": (
             "per_modality_pooled" if cfg.onset_threshold == "session_pooled" else "fixed"
         ),

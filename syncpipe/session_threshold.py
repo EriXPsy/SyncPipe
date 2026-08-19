@@ -37,7 +37,8 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from .dynamic_features import sliding_window_wcc, _apply_discontinuity_mask
+from .dynamic_features import sliding_window_wcc
+from .preparation import resolve_signal_geometry
 from .feature_definitions import (
     compute_surrogate_threshold,
     ONSET_THRESHOLD,
@@ -92,32 +93,32 @@ def _generate_surrogate_coupling_matrix(
     rng = np.random.default_rng(seed)
     _gen = iaaft_surrogate if surrogate_method == "iaaft" else ft_surrogate
 
+    sig_a = np.asarray(sig_a, dtype=float)
+    sig_b = np.asarray(sig_b, dtype=float)
+    geometry = resolve_signal_geometry(sig_a, sig_b, discontinuity_mask)
+    runs = geometry.segments_at_least(window_size)
+    n_out = max(0, len(sig_a) - window_size + 1)
+
     surrogate_couplings: List[np.ndarray] = []
     for _ in range(surrogate_n):
-        a_surr = _gen(sig_a, rng)
-        b_surr = _gen(sig_b, rng)
-        if backend == "wclr":
-            coup_s = wclr_coupling_trace(
-                a_surr, b_surr,
-                window_size=window_size,
-                hz=hz,
-                max_lag_samples=wclr_max_lag_samples,
-            )
-            # WCLR path: mask application is best-effort on length match only.
-            if discontinuity_mask is not None:
-                coup_s = _apply_discontinuity_mask(
-                    coup_s, discontinuity_mask, window_size
+        coup_s = np.full(n_out, np.nan, dtype=float)
+        for start, end in runs:
+            a_surr = _gen(sig_a[start:end], rng)
+            b_surr = _gen(sig_b[start:end], rng)
+            if backend == "wclr":
+                segment = wclr_coupling_trace(
+                    a_surr, b_surr,
+                    window_size=window_size,
+                    hz=hz,
+                    max_lag_samples=wclr_max_lag_samples,
                 )
-        else:
-            coup_s = sliding_window_wcc(
-                a_surr, b_surr,
-                window_size=window_size,
-                hz=hz,
-            )
-            if discontinuity_mask is not None:
-                coup_s = _apply_discontinuity_mask(
-                    coup_s, discontinuity_mask, window_size
+            else:
+                segment = sliding_window_wcc(
+                    a_surr, b_surr,
+                    window_size=window_size,
+                    hz=hz,
                 )
+            coup_s[start:start + len(segment)] = segment
         surrogate_couplings.append(coup_s)
 
     return np.vstack(surrogate_couplings)
@@ -175,8 +176,9 @@ def compute_session_pooled_threshold(
         - ``n_dyads``: number of dyads that actually contributed
         - ``n_dyads_input``: total number of dyads passed in
         - ``n_dyads_used``: number of dyads that contributed (same as n_dyads)
-        - ``n_dyads_excluded_nonfinite``: dyads excluded due to NaN/Inf
+        - ``n_dyads_excluded_nonfinite``: legacy field (segment-wise preparation now handles NaN)
         - ``n_dyads_excluded_length_mismatch``: dyads excluded due to length mismatch
+        - ``n_dyads_excluded_no_eligible_segments``: no complete segment could form WCC
         - ``surrogate_n_per_dyad``: surrogates per dyad
         - ``total_replicates``: total number of surrogate coupling series
         - ``n_finite_coupling_values``: number of finite coupling values pooled
@@ -202,15 +204,13 @@ def compute_session_pooled_threshold(
         )
 
     pooled_values: List[np.ndarray] = []
-    n_excluded_nonfinite = 0
+    n_excluded_nonfinite = 0  # retained for backward-compatible metadata
     n_excluded_length_mismatch = 0
+    n_excluded_no_eligible_segments = 0
     n_masks_applied = 0
     for i, (sig_a, sig_b) in enumerate(dyad_signals):
         sig_a = np.asarray(sig_a, dtype=float)
         sig_b = np.asarray(sig_b, dtype=float)
-        if not (np.all(np.isfinite(sig_a)) and np.all(np.isfinite(sig_b))):
-            n_excluded_nonfinite += 1
-            continue
         if len(sig_a) != len(sig_b):
             n_excluded_length_mismatch += 1
             continue
@@ -226,16 +226,24 @@ def compute_session_pooled_threshold(
             wclr_max_lag_samples=wclr_max_lag_samples,
             discontinuity_mask=mask_i,
         )
+        if not np.isfinite(coup_matrix).any():
+            n_excluded_no_eligible_segments += 1
+            continue
         pooled_values.append(coup_matrix)
 
-    n_excluded_total = n_excluded_nonfinite + n_excluded_length_mismatch
+    n_excluded_total = (
+        n_excluded_nonfinite + n_excluded_length_mismatch
+        + n_excluded_no_eligible_segments
+    )
     if n_excluded_total:
         logger.warning(
             "compute_session_pooled_threshold: excluded %d/%d dyad(s) from "
-            "threshold pooling (%d non-finite, %d length-mismatch). The "
-            "pooled threshold reflects only the remaining %d dyad(s).",
+            "threshold pooling (%d legacy non-finite, %d length-mismatch, "
+            "%d without eligible contiguous segments). The pooled threshold "
+            "reflects only the remaining %d dyad(s).",
             n_excluded_total, len(dyad_signals), n_excluded_nonfinite,
-            n_excluded_length_mismatch, len(dyad_signals) - n_excluded_total,
+            n_excluded_length_mismatch, n_excluded_no_eligible_segments,
+            len(dyad_signals) - n_excluded_total,
         )
 
     if not pooled_values:
@@ -247,6 +255,7 @@ def compute_session_pooled_threshold(
             "n_dyads_used": 0,
             "n_dyads_excluded_nonfinite": n_excluded_nonfinite,
             "n_dyads_excluded_length_mismatch": n_excluded_length_mismatch,
+            "n_dyads_excluded_no_eligible_segments": n_excluded_no_eligible_segments,
         }
 
     # Memory guard (gstack OOM #6): estimate the pooled surrogate matrix size
@@ -284,6 +293,7 @@ def compute_session_pooled_threshold(
         "n_dyads_used": len(pooled_values),
         "n_dyads_excluded_nonfinite": n_excluded_nonfinite,
         "n_dyads_excluded_length_mismatch": n_excluded_length_mismatch,
+        "n_dyads_excluded_no_eligible_segments": n_excluded_no_eligible_segments,
         "surrogate_n_per_dyad": surrogate_n,
         "total_replicates": sum(int(m.shape[0]) for m in pooled_values),
         "n_finite_coupling_values": int(np.isfinite(pooled).sum()),

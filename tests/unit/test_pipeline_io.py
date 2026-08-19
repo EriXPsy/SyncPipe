@@ -330,6 +330,11 @@ def test_bridge_propagates_discontinuity_mask():
     assert key in inputs.discontinuity_mask
     assert np.array_equal(inputs.discontinuity_mask[key], mask)
     assert not inputs.features_df.empty
+    assert inputs.prepared_cohort is not None
+    prepared = inputs.prepared_cohort.by_key()[key]
+    assert np.array_equal(prepared.geometry.analysis_mask, mask)
+    assert prepared.signal_a.flags.writeable is False
+    assert inputs.preparation_diagnostics[key]["n_wcc_eligible"] == 0
 
 
 def test_bridge_handles_missing_mask_gracefully():
@@ -348,5 +353,10 @@ def test_bridge_handles_missing_mask_gracefully():
     inputs = records_to_inference_inputs([rec], hz=HZ, window_size=20)
     key = "pce02__ecg__rest1"
     assert inputs.discontinuity_mask is not None
-    assert inputs.discontinuity_mask.get(key) is None
+    # Legacy field now carries the shared analysis mask. With finite signals
+    # and no source discontinuity it is explicitly all True, never re-inferred.
+    assert np.asarray(inputs.discontinuity_mask[key]).all()
+    prepared = inputs.prepared_cohort.by_key()[key]
+    assert prepared.geometry.segments == ((0, N),)
+    assert inputs.preparation_diagnostics[key]["threshold_eligible"] is True
 

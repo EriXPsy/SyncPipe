@@ -12,6 +12,8 @@ def test_syncpipe_namespace_exposes_v1_public_api():
         "InferencePipeline",
         "AnalysisSpec",
         "EndpointSpec",
+        "PreparedObservation",
+        "PreparedCohort",
         "feature_status_table",
         "feature_status_latex",
         "explain_feature",
