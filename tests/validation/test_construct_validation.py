@@ -6,6 +6,8 @@ import pytest
 
 from syncpipe.validation.discriminant import (
     SCENARIO_METADATA,
+    evaluate_discriminant_acceptance,
+    exact_binomial_interval,
     generate_discriminant_pair,
     run_discriminant_benchmark,
 )
@@ -92,6 +94,16 @@ def test_discriminant_benchmark_reports_l0_and_design_controls():
         "independent_ar1", "shared_stimulus", "reciprocal_var"
     }
     assert "construct_false_positive_rate" in summary
+    assert "n_l0_detected" in summary
     assert controls.set_index("scenario").loc[
         "reciprocal_var", "real_minus_pseudo_mean"
     ] > 0
+    acceptance = evaluate_discriminant_acceptance(
+        summary, controls, minimum_positive_power=0.80,
+        maximum_construct_fpr=0.10,
+    )
+    assert not acceptance.empty
+    assert set(acceptance["passed"].unique()) <= {True, False}
+    assert acceptance.attrs["criteria"]["minimum_positive_power"] == 0.80
+    lo, hi = exact_binomial_interval(0, 20)
+    assert lo == 0.0 and 0.0 < hi < 1.0

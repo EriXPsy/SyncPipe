@@ -319,13 +319,13 @@ tests and demos. Raise further for very small cohorts where the pseudo-pair
 null needs more draws to stabilise.
 
 On `surrogate_n`, the canonical path deliberately defaults **higher than the
-stated minimum**. With 100 surrogates the smallest attainable p is ≈ 1/101
-≈ 0.0099, so a run literally cannot report `p < 0.01` no matter how strong the
-effect; 1000 surrogates take the resolution to ≈ 0.001. The 100 floor remains
-correct for the standalone functions (it is the point at which a percentile-based
-threshold is stable), but a paper-level claim should not be capped by the null's
-granularity, so `SyncPipeConfig` raises it. Both numbers are intentional; neither
-is a leftover.
+stated minimum**. L0 reports a two-sided Phipson-Smyth p-value, so the minimum
+attainable p is `2/(N+1)`: approximately 0.0198 with 100 surrogates and 0.0020
+with 1000. Every audit now reports this resolution and an approximate Monte
+Carlo standard error per feature. The 100 floor remains useful for standalone
+threshold calibration, but it is not adequate for a claim requiring `p < .01`;
+a paper-level run must choose N from its required p-value resolution rather than
+copying a computational minimum.
 
 ---
 

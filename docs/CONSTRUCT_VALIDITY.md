@@ -259,3 +259,12 @@ These are adversarial diagnostics. In particular, shared-input scenarios may
 legitimately pass L0 because IAAFT does not remove common input; that outcome
 records the claim boundary rather than being relabelled as successful construct
 discrimination.
+
+The discriminant script also writes `acceptance_report.csv/json` under frozen
+default criteria: the exact independent-null FPR interval must contain alpha,
+the lower confidence bound for reciprocal-control power must reach 0.80, the
+upper confidence bound for each construct-negative L0 detection rate must not
+exceed 0.10, and pseudo/time-shift specificity must have the pre-declared
+scenario-appropriate direction. These strict criteria are allowed to fail;
+failure is evidence about the method or insufficient benchmark precision, not a
+reason to edit thresholds after seeing results.

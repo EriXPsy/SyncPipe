@@ -101,6 +101,8 @@ from .discriminant import (
     SCENARIO_METADATA,
     generate_discriminant_pair,
     run_discriminant_benchmark,
+    exact_binomial_interval,
+    evaluate_discriminant_acceptance,
 )
 
 __all__ = [
@@ -174,4 +176,6 @@ __all__ = [
     "SCENARIO_METADATA",
     "generate_discriminant_pair",
     "run_discriminant_benchmark",
+    "exact_binomial_interval",
+    "evaluate_discriminant_acceptance",
 ]

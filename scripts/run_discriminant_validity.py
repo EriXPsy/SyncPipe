@@ -8,6 +8,7 @@ from pathlib import Path
 
 from syncpipe.validation.discriminant import (
     SCENARIO_METADATA,
+    evaluate_discriminant_acceptance,
     run_discriminant_benchmark,
 )
 
@@ -20,6 +21,9 @@ def main(argv=None) -> int:
     p.add_argument("--surrogate-n", type=int, default=99)
     p.add_argument("--phi", type=float, default=0.9)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--minimum-power", type=float, default=0.80)
+    p.add_argument("--maximum-construct-fpr", type=float, default=0.10)
+    p.add_argument("--confidence", type=float, default=0.95)
     p.add_argument(
         "--scenarios", nargs="+", default=list(SCENARIO_METADATA),
         choices=list(SCENARIO_METADATA),
@@ -36,22 +40,40 @@ def main(argv=None) -> int:
         phi=args.phi,
         seed=args.seed,
     )
+    acceptance = evaluate_discriminant_acceptance(
+        summary,
+        controls,
+        confidence=args.confidence,
+        minimum_positive_power=args.minimum_power,
+        maximum_construct_fpr=args.maximum_construct_fpr,
+    )
+    acceptance_meta = {
+        "all_passed": bool(acceptance.attrs["all_passed"]),
+        "criteria": acceptance.attrs["criteria"],
+    }
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     values.to_csv(out / "replicate_results.csv", index=False)
     summary.to_csv(out / "scenario_summary.csv", index=False)
     controls.to_csv(out / "design_control_summary.csv", index=False)
+    acceptance.to_csv(out / "acceptance_report.csv", index=False)
+    (out / "acceptance_report.json").write_text(
+        json.dumps(acceptance_meta, indent=2), encoding="utf-8"
+    )
     (out / "MANIFEST.json").write_text(
         json.dumps({
             "descriptor": "peak_amplitude",
             "claim": "adversarial_validation_not_construct_proof",
             "parameters": vars(args),
             "scenario_metadata": SCENARIO_METADATA,
+            "acceptance": acceptance_meta,
         }, indent=2),
         encoding="utf-8",
     )
     print(summary.to_string(index=False))
     print("\nDesign controls\n", controls.to_string(index=False))
+    print("\nAcceptance criteria\n", acceptance.to_string(index=False))
+    print(f"\nAll criteria passed: {acceptance_meta['all_passed']}")
     print(f"\nWrote {out}")
     return 0
 

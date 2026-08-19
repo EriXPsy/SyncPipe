@@ -127,10 +127,9 @@ class SyncPipeConfig:
     onset_threshold: Union[float, str] = "session_pooled"
     n_permutations: int = 10000
     seed: int = 42
-    # Publication-grade default: 1000 surrogates gives p-value resolution down
-    # to ~1/1001 ≈ 0.001, enough to report p < 0.01. The previous default of
-    # 100 (min p ≈ 0.0099) could not resolve p < 0.01 and was a demo-grade
-    # value leaking into the canonical scientific path.
+    # Publication-grade default: the L0 test is two-sided, so 1000 surrogates
+    # gives minimum attainable p = 2/1001 ≈ 0.002. With 100 surrogates the
+    # minimum is ≈0.0198, so a run cannot report p < 0.01 regardless of effect.
     surrogate_n: int = 1000
     design_threshold: float = 0.5
     design_condition: Optional[str] = None

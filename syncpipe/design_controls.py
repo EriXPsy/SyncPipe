@@ -202,6 +202,7 @@ def synchrony_existence_audit(
         "n_samples": int(a.size),
         "n_wcc": int(np.isfinite(wcc).sum()),
         "segmentation": result_segmentation,
+        "surrogate_precision": result.get("surrogate_precision", {}),
         "n_surrogates": int(result.get("n_surrogates", surrogate_n)),
         "per_feature_significant": result.get("per_feature_significant", {}),
         "p_values": {

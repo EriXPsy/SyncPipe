@@ -206,6 +206,8 @@ def _existence_gate_by_modality(
         obs_vec = np.asarray(obs_peaks[mod], dtype=float)
         obs_mean = float(np.nanmean(obs_vec))
         p_group = float("nan")
+        p_min_attainable = float("nan")
+        p_monte_carlo_se = float("nan")
         n_null_draws = 0
         stack = null_peaks.get(mod, [])
         if stack:
@@ -217,7 +219,12 @@ def _existence_gate_by_modality(
             if finite.size:
                 p_ge = (np.sum(finite >= obs_mean) + 1) / (finite.size + 1)
                 p_le = (np.sum(finite <= obs_mean) + 1) / (finite.size + 1)
-                p_group = float(min(1.0, 2.0 * min(p_ge, p_le)))
+                q_tail = float(min(p_ge, p_le))
+                p_group = float(min(1.0, 2.0 * q_tail))
+                p_min_attainable = float(min(1.0, 2.0 / (finite.size + 1)))
+                p_monte_carlo_se = float(
+                    2.0 * np.sqrt(q_tail * (1.0 - q_tail) / finite.size)
+                )
         n_dyads = int(obs_vec.size)
         sig = frac_sig.get(mod, [])
         per_modality[mod] = {
@@ -225,6 +232,8 @@ def _existence_gate_by_modality(
             "group_observed_mean": obs_mean,
             "n_null_draws": n_null_draws,
             "p_group": p_group,
+            "min_attainable_two_sided_p": p_min_attainable,
+            "approx_monte_carlo_se": p_monte_carlo_se,
             # Descriptive only: fraction of dyads whose per-dyad test passed.
             "frac_dyads_significant": float(np.mean(sig)) if sig else float("nan"),
             "is_primary": mod in set(primary_modalities),

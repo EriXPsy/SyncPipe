@@ -15,6 +15,7 @@ from typing import Dict, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+from scipy.stats import beta
 
 from ..design_controls import design_control_audit, synchrony_existence_audit
 
@@ -247,6 +248,7 @@ def run_discriminant_benchmark(
             n_replicates=("replicate", "nunique"),
             median_peak=("peak_amplitude", "median"),
             median_p_l0=("p_peak_amplitude", "median"),
+            n_l0_detected=("l0_significant", "sum"),
             l0_detection_rate=("l0_significant", "mean"),
         )
     )
@@ -258,8 +260,137 @@ def run_discriminant_benchmark(
     return values, scenario_summary, pd.DataFrame(design_rows)
 
 
+def exact_binomial_interval(
+    successes: int, trials: int, *, confidence: float = 0.95
+) -> Tuple[float, float]:
+    """Clopper-Pearson interval for a detection or false-positive rate."""
+    successes = int(successes)
+    trials = int(trials)
+    if trials < 1 or not 0 <= successes <= trials:
+        raise ValueError("require 0 <= successes <= trials and trials >= 1")
+    if not 0.0 < confidence < 1.0:
+        raise ValueError("confidence must lie in (0, 1)")
+    alpha = 1.0 - confidence
+    lower = 0.0 if successes == 0 else float(
+        beta.ppf(alpha / 2.0, successes, trials - successes + 1)
+    )
+    upper = 1.0 if successes == trials else float(
+        beta.ppf(1.0 - alpha / 2.0, successes + 1, trials - successes)
+    )
+    return lower, upper
+
+
+def evaluate_discriminant_acceptance(
+    scenario_summary: pd.DataFrame,
+    design_controls: pd.DataFrame,
+    *,
+    alpha: float = 0.05,
+    confidence: float = 0.95,
+    minimum_positive_power: float = 0.80,
+    maximum_construct_fpr: float = 0.10,
+) -> pd.DataFrame:
+    """Evaluate pre-declared calibration and discriminant-validity criteria.
+
+    Criteria are intentionally strict and may fail. A failed criterion is not
+    rewritten after observing the benchmark; it identifies either inadequate
+    method behavior or insufficient replication precision.
+    """
+    required_summary = {
+        "scenario", "n_replicates", "n_l0_detected", "l0_detection_rate",
+        "positive_control",
+    }
+    required_controls = {
+        "scenario", "p_real_gt_pseudo", "p_real_gt_time_shift",
+        "positive_control",
+    }
+    if not required_summary.issubset(scenario_summary.columns):
+        raise ValueError("scenario_summary lacks required benchmark columns")
+    if not required_controls.issubset(design_controls.columns):
+        raise ValueError("design_controls lacks required benchmark columns")
+
+    rows = []
+    summaries = scenario_summary.set_index("scenario")
+    controls = design_controls.set_index("scenario")
+
+    def _add(scenario, criterion, observed, lower, upper, threshold, passed, note):
+        rows.append({
+            "scenario": scenario,
+            "criterion": criterion,
+            "observed": float(observed),
+            "ci_lower": float(lower) if np.isfinite(lower) else np.nan,
+            "ci_upper": float(upper) if np.isfinite(upper) else np.nan,
+            "threshold": str(threshold),
+            "passed": bool(passed),
+            "interpretation": note,
+        })
+
+    for scenario, item in summaries.iterrows():
+        n = int(item["n_replicates"])
+        k = int(item["n_l0_detected"])
+        rate = float(item["l0_detection_rate"])
+        lower, upper = exact_binomial_interval(k, n, confidence=confidence)
+        positive = bool(item["positive_control"])
+        if scenario == "independent_ar1":
+            _add(
+                scenario, "independent_null_calibration", rate, lower, upper,
+                f"CI contains alpha={alpha}", lower <= alpha <= upper,
+                "The exact FPR interval must include the nominal alpha.",
+            )
+        elif positive:
+            _add(
+                scenario, "positive_control_power", rate, lower, upper,
+                f"lower CI >= {minimum_positive_power}",
+                lower >= minimum_positive_power,
+                "Power must clear the frozen lower-confidence bound.",
+            )
+        else:
+            _add(
+                scenario, "construct_false_positive_rate", rate, lower, upper,
+                f"upper CI <= {maximum_construct_fpr}",
+                upper <= maximum_construct_fpr,
+                "Negative-control detections quantify construct-level false positives.",
+            )
+
+        if scenario in controls.index:
+            control = controls.loc[scenario]
+            p_pseudo = float(control["p_real_gt_pseudo"])
+            p_shift = float(control["p_real_gt_time_shift"])
+            if positive:
+                pseudo_pass = np.isfinite(p_pseudo) and p_pseudo < alpha
+                shift_pass = np.isfinite(p_shift) and p_shift < alpha
+                pseudo_note = "The reciprocal positive control should exceed pseudo-pairs."
+                shift_note = "The reciprocal positive control should exceed shifted pairs."
+                threshold = f"p < {alpha}"
+            else:
+                pseudo_pass = np.isfinite(p_pseudo) and p_pseudo >= alpha
+                shift_pass = np.isfinite(p_shift) and p_shift >= alpha
+                pseudo_note = "A negative control must not acquire false partner specificity."
+                shift_note = "A negative control must not acquire false alignment specificity."
+                threshold = f"p >= {alpha}"
+            _add(
+                scenario, "pseudo_pair_specificity", p_pseudo,
+                np.nan, np.nan, threshold, pseudo_pass, pseudo_note,
+            )
+            _add(
+                scenario, "time_shift_specificity", p_shift,
+                np.nan, np.nan, threshold, shift_pass, shift_note,
+            )
+
+    result = pd.DataFrame(rows)
+    result.attrs["all_passed"] = bool(result["passed"].all()) if not result.empty else False
+    result.attrs["criteria"] = {
+        "alpha": float(alpha),
+        "confidence": float(confidence),
+        "minimum_positive_power": float(minimum_positive_power),
+        "maximum_construct_fpr": float(maximum_construct_fpr),
+    }
+    return result
+
+
 __all__ = [
     "SCENARIO_METADATA",
     "generate_discriminant_pair",
     "run_discriminant_benchmark",
+    "exact_binomial_interval",
+    "evaluate_discriminant_acceptance",
 ]

@@ -817,13 +817,15 @@ def _signal_level_surrogate_test(
     # Each feature gets its OWN finite mask, count, and slice — a
     # degenerate bimodality_coefficient draw must not borrow
     # null_mean's denominator or alignment.
-    def _phipson_smyth_p(null_arr: np.ndarray, obs_val: float) -> Tuple[float, np.ndarray, int]:
+    def _phipson_smyth_p(
+        null_arr: np.ndarray, obs_val: float
+    ) -> Tuple[float, np.ndarray, int, float]:
         finite_null = null_arr[np.isfinite(null_arr)]
         n = finite_null.size
         if n < int(surrogate_n * 0.8):
             logger.warning(f"Only {n}/{surrogate_n} valid surrogates for this feature")
         if n == 0 or not np.isfinite(obs_val):
-            return 1.0, finite_null, 0
+            return 1.0, finite_null, 0, float("nan")
         # Two-tailed Phipson-Smyth (BUG-4 fix): unify L0 with the L1
         # _wcc_level_surrogate_test, which already uses this conservative
         # two-tailed form.  An upper-tail was methodologically arguable for
@@ -832,12 +834,36 @@ def _signal_level_surrogate_test(
         # consistent choice and matches tests/validation/test_per_feature_significance.py.
         p_ge = (np.sum(finite_null >= obs_val) + 1) / (n + 1)
         p_le = (np.sum(finite_null <= obs_val) + 1) / (n + 1)
-        p = float(min(1.0, 2.0 * min(p_ge, p_le)))
-        return p, finite_null, n
+        tail_probability = float(min(p_ge, p_le))
+        p = float(min(1.0, 2.0 * tail_probability))
+        return p, finite_null, n, tail_probability
 
-    p_mean, null_mean_valid, n_mean = _phipson_smyth_p(null_mean, obs_mean)
-    p_peak, null_peak_valid, n_peak = _phipson_smyth_p(null_peak, obs_peak)
-    p_bc, null_bc_valid, n_bc = _phipson_smyth_p(null_bc, obs_bc)
+    p_mean, null_mean_valid, n_mean, q_mean = _phipson_smyth_p(null_mean, obs_mean)
+    p_peak, null_peak_valid, n_peak, q_peak = _phipson_smyth_p(null_peak, obs_peak)
+    p_bc, null_bc_valid, n_bc, q_bc = _phipson_smyth_p(null_bc, obs_bc)
+
+    def _mc_precision(n: int, tail_probability: float) -> Dict[str, float]:
+        if n <= 0 or not np.isfinite(tail_probability):
+            return {
+                "n_valid_surrogates": int(n),
+                "min_attainable_two_sided_p": float("nan"),
+                "approx_monte_carlo_se": float("nan"),
+            }
+        # The reported p is two-sided (= 2 * smaller tail), hence both the
+        # minimum attainable p and the MCSE carry a factor of two.
+        return {
+            "n_valid_surrogates": int(n),
+            "min_attainable_two_sided_p": float(min(1.0, 2.0 / (n + 1))),
+            "approx_monte_carlo_se": float(
+                2.0 * np.sqrt(tail_probability * (1.0 - tail_probability) / n)
+            ),
+        }
+
+    precision = {
+        "mean_synchrony": _mc_precision(n_mean, q_mean),
+        "peak_amplitude": _mc_precision(n_peak, q_peak),
+        "bimodality_coefficient": _mc_precision(n_bc, q_bc),
+    }
 
     # Per-feature significance — callers (e.g. InferencePipeline.run_full_cascade)
     # need per-feature pass rates to track frozen primary endpoints
@@ -865,6 +891,7 @@ def _signal_level_surrogate_test(
         "null_model": "signal_level_iaaft",
         "per_feature_significant": per_feature_significant,
         "alpha": alpha,
+        "surrogate_precision": precision,
         "segmentation": segment_info,
         "notes": "",
     }
