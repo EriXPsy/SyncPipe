@@ -159,6 +159,7 @@ These conditions **fail loud** (no silent imputation, no silent positive):
 | `hz` mismatch between paired records | raise |
 | mask length mismatch | raise |
 | ambiguous signal column in bridge input | raise |
+| missing/malformed preprocessing provenance or signal type/unit mismatch | raise before participant-level exclusions |
 | `+/-Inf` in either signal | raise |
 | NaN / seam in signal-level IAAFT input | segment-wise IAAFT on eligible finite contiguous runs; short fragments excluded; L0 fails if fewer than 20 eligible WCC points remain |
 | `n_valid_wcc_points` below defined floor | governed by `observation_policy` / `eligibility_policy` |

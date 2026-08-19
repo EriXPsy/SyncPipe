@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EriXPsy/SyncPipe/schemas/preprocessing.schema.json",
+  "title": "SyncPipe preprocessing provenance",
+  "type": "object",
+  "required": ["schema_version", "signal_type", "output_unit", "software", "steps"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "signal_type": {"type": "string", "minLength": 1},
+    "output_unit": {"type": "string", "minLength": 1},
+    "software": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": true
+    },
+    "steps": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "parameters"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "parameters": {"type": "object"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "notes": {"type": "string"}
+  },
+  "additionalProperties": true
+}

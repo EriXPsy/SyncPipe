@@ -13,6 +13,7 @@ import pytest
 from pathlib import Path
 
 from syncpipe.canonical_runner import (
+    load_schema,
     parse_config,
     parse_manifest,
     run_canonical,
@@ -37,6 +38,14 @@ def _fmt(v):
 def _write_cohort(root: Path, n_dyads: int = 4) -> Path:
     sigdir = root / "data"
     sigdir.mkdir(exist_ok=True)
+    provenance = root / "preprocessing.json"
+    provenance.write_text(json.dumps({
+        "schema_version": "1.0.0",
+        "signal_type": "EDA_envelope",
+        "output_unit": "z_score",
+        "software": {"name": "test-preprocessor", "version": "1.0"},
+        "steps": [{"name": "synthetic_generation", "parameters": {}}],
+    }), encoding="utf-8")
     rng = np.random.default_rng(7)
     n = 240
     t = np.arange(n, dtype=float)
@@ -50,11 +59,17 @@ def _write_cohort(root: Path, n_dyads: int = 4) -> Path:
             pb = sigdir / f"d{i:03d}_{cond}_b.csv"
             pd.DataFrame({"time": t, "val": a}).to_csv(pa, index=False)
             pd.DataFrame({"time": t, "val": b}).to_csv(pb, index=False)
-            rows.append((f"d{i:03d}", "EDA", cond, str(pa), str(pb), 1.0, ""))
+            rows.append((
+                f"d{i:03d}", "EDA", cond, str(pa), str(pb), 1.0,
+                "EDA_envelope", "z_score", str(provenance), "",
+            ))
     man = root / "manifest.csv"
     pd.DataFrame(
         rows,
-        columns=["dyad_id", "modality", "condition", "person_a_path", "person_b_path", "hz", "mask_path"],
+        columns=[
+            "dyad_id", "modality", "condition", "person_a_path", "person_b_path",
+            "hz", "signal_type", "unit", "preprocessing_path", "mask_path",
+        ],
     ).to_csv(man, index=False)
     return man
 
@@ -94,11 +109,15 @@ class TestParseManifest:
         man = tmp_path / "m.csv"
         pd.DataFrame([
             {"dyad_id": "d1", "modality": "EDA", "condition": "rest",
-             "person_a_path": "a", "person_b_path": "b", "hz": 1.0},
+             "person_a_path": "a", "person_b_path": "b", "hz": 1.0,
+             "signal_type": "EDA_envelope", "unit": "z_score",
+             "preprocessing_path": "preprocessing.json"},
             {"dyad_id": "d2", "modality": "EDA", "condition": "task",
-             "person_a_path": "a", "person_b_path": "b", "hz": 2.0},
+             "person_a_path": "a", "person_b_path": "b", "hz": 2.0,
+             "signal_type": "EDA_envelope", "unit": "z_score",
+             "preprocessing_path": "preprocessing.json"},
         ]).to_csv(man, index=False)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="hz must be uniform"):
             parse_manifest(man)
 
     def test_parses_ok(self, tmp_path):
@@ -112,6 +131,21 @@ class TestParseManifest:
         pd.DataFrame(columns=["dyad_id", "modality", "condition", "person_a_path", "person_b_path", "hz"]).to_csv(man, index=False)
         with pytest.raises(ValueError, match="at least one"):
             parse_manifest(man)
+
+    def test_packaged_schemas_load(self):
+        assert load_schema("config")["$schema"].endswith("2020-12/schema")
+        assert "preprocessing_path" in load_schema("manifest_record")["required"]
+        assert load_schema("preprocessing")["properties"]["steps"]["minItems"] == 1
+
+    def test_rejects_mismatched_preprocessing_provenance(self, tmp_path):
+        man = _write_cohort(tmp_path, n_dyads=4)
+        provenance = tmp_path / "preprocessing.json"
+        payload = json.loads(provenance.read_text(encoding="utf-8"))
+        payload["output_unit"] = "microsiemens"
+        provenance.write_text(json.dumps(payload), encoding="utf-8")
+        cfg = _write_config(tmp_path)
+        with pytest.raises(ValueError, match="output_unit does not match"):
+            run_canonical(man, cfg, tmp_path / "out")
 
     def test_rejects_duplicate_manifest_key(self, tmp_path):
         man = _write_cohort(tmp_path, n_dyads=1)
@@ -210,6 +244,9 @@ class TestRunCanonical:
         row0 = manifest_payload["rows"][0]
         assert Path(row0["person_a_path"]).is_absolute()
         assert row0["person_a_sha256"]
+        assert row0["preprocessing_sha256"]
+        assert row0["preprocessing"]["output_unit"] == "z_score"
+        assert manifest_payload["schema_ids"]["preprocessing"]
 
     def test_rejects_primary_modality_absent_from_manifest(self, tmp_path):
         man = _write_cohort(tmp_path, n_dyads=4)

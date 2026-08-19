@@ -30,6 +30,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from importlib import resources
 import platform
 import subprocess
 from dataclasses import dataclass, field
@@ -62,6 +63,7 @@ __all__ = [
     "DEFAULT_CONFIG",
     "parse_manifest",
     "parse_config",
+    "load_schema",
     "run_canonical",
 ]
 
@@ -70,8 +72,23 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 MANIFEST_COLUMNS = [
     "dyad_id", "modality", "condition",
-    "person_a_path", "person_b_path", "hz", "mask_path",
+    "person_a_path", "person_b_path", "hz",
+    "signal_type", "unit", "preprocessing_path", "mask_path",
 ]
+
+_SCHEMA_NAMES = {
+    "config": "config.schema.json",
+    "manifest_record": "manifest-record.schema.json",
+    "preprocessing": "preprocessing.schema.json",
+}
+
+
+def load_schema(name: str) -> Dict[str, Any]:
+    """Load a packaged JSON Schema by stable public name."""
+    if name not in _SCHEMA_NAMES:
+        raise ValueError(f"unknown schema {name!r}; choose from {sorted(_SCHEMA_NAMES)}")
+    resource = resources.files("syncpipe").joinpath("schemas", _SCHEMA_NAMES[name])
+    return json.loads(resource.read_text(encoding="utf-8"))
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -81,8 +98,8 @@ MANIFEST_COLUMNS = [
 class ManifestRecord:
     """One row of the strict manifest CSV.
 
-    Columns: dyad_id, modality, condition, person_a_path, person_b_path, hz,
-    mask_path (optional).
+    Columns include signal identity/unit and a required structured preprocessing
+    provenance file; ``mask_path`` remains optional.
     """
 
     dyad_id: str
@@ -91,6 +108,9 @@ class ManifestRecord:
     person_a_path: str
     person_b_path: str
     hz: float
+    signal_type: str
+    unit: str
+    preprocessing_path: str
     mask_path: Optional[str] = None
 
     def resolve(self, base_dir: Optional[Union[str, Path]] = None) -> "ManifestRecord":
@@ -108,6 +128,9 @@ class ManifestRecord:
             person_a_path=_abs(self.person_a_path),
             person_b_path=_abs(self.person_b_path),
             hz=self.hz,
+            signal_type=self.signal_type,
+            unit=self.unit,
+            preprocessing_path=_abs(self.preprocessing_path),
             mask_path=_abs(self.mask_path) if self.mask_path else None,
         )
 
@@ -246,7 +269,10 @@ def parse_manifest(path: Union[str, Path]) -> List[ManifestRecord]:
     df = pd.read_csv(path)
     if df.empty:
         raise ValueError("manifest must contain at least one data row")
-    required = ["dyad_id", "modality", "condition", "person_a_path", "person_b_path", "hz"]
+    required = [
+        "dyad_id", "modality", "condition", "person_a_path", "person_b_path",
+        "hz", "signal_type", "unit", "preprocessing_path",
+    ]
     missing = [c for c in required if c not in df.columns]
     if missing:
         raise ValueError(f"manifest missing required columns: {missing}")
@@ -275,6 +301,9 @@ def parse_manifest(path: Union[str, Path]) -> List[ManifestRecord]:
                 person_a_path=str(row["person_a_path"]),
                 person_b_path=str(row["person_b_path"]),
                 hz=hz,
+                signal_type=str(row["signal_type"]).strip(),
+                unit=str(row["unit"]).strip(),
+                preprocessing_path=str(row["preprocessing_path"]).strip(),
                 mask_path=mask_path,
             )
         )
@@ -285,9 +314,15 @@ def parse_manifest(path: Union[str, Path]) -> List[ManifestRecord]:
     for r in records:
         if any(
             not str(getattr(r, field)).strip()
-            for field in ("dyad_id", "modality", "condition", "person_a_path", "person_b_path")
+            for field in (
+                "dyad_id", "modality", "condition", "person_a_path",
+                "person_b_path", "signal_type", "unit", "preprocessing_path",
+            )
         ):
-            raise ValueError("manifest contains an empty identifier, condition, or signal path")
+            raise ValueError(
+                "manifest contains an empty identifier, signal identity/unit, "
+                "or required path"
+            )
 
     if len(hz_set) > 1:
         raise ValueError(
@@ -384,6 +419,48 @@ def _load_mask(path: str) -> np.ndarray:
     if not np.isfinite(values).all() or not np.isin(values, [0.0, 1.0]).all():
         raise ValueError(f"mask file {path} must contain only finite 0/1 values")
     return values.astype(bool)
+
+
+def _load_preprocessing_provenance(
+    path: str, *, expected_signal_type: str, expected_unit: str
+) -> Dict[str, Any]:
+    """Load and validate the mandatory preprocessing provenance document."""
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid preprocessing provenance {path!r}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("preprocessing provenance must be a JSON object")
+    required = ("schema_version", "signal_type", "output_unit", "software", "steps")
+    missing = [name for name in required if name not in payload]
+    if missing:
+        raise ValueError(f"preprocessing provenance missing required fields: {missing}")
+    if payload["schema_version"] != CONFIG_SCHEMA_VERSION:
+        raise ValueError(
+            f"preprocessing schema_version must be {CONFIG_SCHEMA_VERSION!r}"
+        )
+    if str(payload["signal_type"]).strip() != expected_signal_type:
+        raise ValueError(
+            "preprocessing signal_type does not match the manifest declaration"
+        )
+    if str(payload["output_unit"]).strip() != expected_unit:
+        raise ValueError(
+            "preprocessing output_unit does not match the manifest unit"
+        )
+    software = payload["software"]
+    if not isinstance(software, dict) or not all(
+        str(software.get(k, "")).strip() for k in ("name", "version")
+    ):
+        raise ValueError("preprocessing software requires non-empty name and version")
+    steps = payload["steps"]
+    if not isinstance(steps, list) or not steps:
+        raise ValueError("preprocessing steps must be a non-empty list")
+    for index, step in enumerate(steps):
+        if not isinstance(step, dict) or not str(step.get("name", "")).strip():
+            raise ValueError(f"preprocessing step {index} requires a non-empty name")
+        if not isinstance(step.get("parameters"), dict):
+            raise ValueError(f"preprocessing step {index} parameters must be an object")
+    return payload
 
 
 def _validate_aligned_signal_frames(a_df: pd.DataFrame, b_df: pd.DataFrame, *, hz: float, key: str) -> None:
@@ -648,6 +725,17 @@ def run_canonical(
     output_dir.mkdir(parents=True, exist_ok=True)
     base_dir = Path(manifest).parent if isinstance(manifest, (str, Path)) else Path.cwd()
 
+    # Provenance is an analysis contract, not participant-level bad data. Any
+    # missing/malformed document fails before load errors can be downgraded to
+    # row exclusions.
+    for rec in records:
+        resolved = rec.resolve(base_dir)
+        _load_preprocessing_provenance(
+            resolved.preprocessing_path,
+            expected_signal_type=resolved.signal_type,
+            expected_unit=resolved.unit,
+        )
+
     # --- preflight QC: resolve loader records; capture load failures ---
     loader_records: List[LoaderRecord] = []
     exclusions: List[Dict[str, Any]] = []
@@ -874,9 +962,18 @@ def _write_report_bundle(
         item["person_a_sha256"] = _sha256(rr.person_a_path)
         item["person_b_sha256"] = _sha256(rr.person_b_path)
         item["mask_sha256"] = _sha256(rr.mask_path)
+        item["preprocessing_sha256"] = _sha256(rr.preprocessing_path)
+        item["preprocessing"] = _load_preprocessing_provenance(
+            rr.preprocessing_path,
+            expected_signal_type=rr.signal_type,
+            expected_unit=rr.unit,
+        )
         resolved_rows.append(item)
     _dump_json("manifest_resolved.json", {
         "base_dir": str(base_dir.resolve()),
+        "schema_ids": {
+            name: load_schema(name).get("$id") for name in _SCHEMA_NAMES
+        },
         "rows": resolved_rows,
         "hz_uniform": qc["hz"],
     })

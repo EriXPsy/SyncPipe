@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EriXPsy/SyncPipe/schemas/config.schema.json",
+  "title": "SyncPipe canonical analysis configuration",
+  "type": "object",
+  "required": ["contrast", "primary_endpoint", "primary_modalities"],
+  "properties": {
+    "window_size": {"type": "integer", "minimum": 2, "default": 30},
+    "window_type": {"enum": ["rect", "boxcar", "rectangular", "hann", "hanning", "hamming", "triang", "gaussian"]},
+    "contrast": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "primary_endpoint": {"const": "peak_amplitude"},
+    "primary_modalities": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "fdr_scope": {"enum": ["global", "within_modality"], "default": "global"},
+    "undefined_policy": {"enum": ["flag", "gate"], "default": "gate"},
+    "observation_policy": {"enum": ["ignore", "warn", "raise"], "default": "raise"},
+    "eligibility_policy": {"enum": ["ignore", "warn", "raise"], "default": "raise"},
+    "n_min_dyads": {"type": "integer", "minimum": 4, "default": 10},
+    "onset_threshold": {
+      "oneOf": [
+        {"const": "session_pooled"},
+        {"type": "number", "minimum": -1, "maximum": 1}
+      ]
+    },
+    "n_permutations": {"type": "integer", "minimum": 1, "default": 10000},
+    "surrogate_n": {"type": "integer", "minimum": 1, "default": 1000},
+    "seed": {"type": "integer", "default": 42},
+    "design_threshold": {"type": "number", "minimum": -1, "maximum": 1},
+    "design_condition": {"type": "string"},
+    "existence_alpha": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+    "n_workers": {"type": "integer", "minimum": 1}
+  },
+  "additionalProperties": false
+}

@@ -32,6 +32,9 @@ syncpipe = "syncpipe.cli:main"
 where = ["."]
 include = ["syncpipe*"]
 
+[tool.setuptools.package-data]
+syncpipe = ["schemas/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # Only ONE marker is declared, deliberately. The suite convention is

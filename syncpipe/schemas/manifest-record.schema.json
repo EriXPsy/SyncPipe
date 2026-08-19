@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/EriXPsy/SyncPipe/schemas/manifest-record.schema.json",
+  "title": "SyncPipe canonical manifest record",
+  "type": "object",
+  "required": [
+    "dyad_id", "modality", "condition", "person_a_path", "person_b_path",
+    "hz", "signal_type", "unit", "preprocessing_path"
+  ],
+  "properties": {
+    "dyad_id": {"type": "string", "minLength": 1},
+    "modality": {"type": "string", "minLength": 1},
+    "condition": {"type": "string", "minLength": 1},
+    "person_a_path": {"type": "string", "minLength": 1},
+    "person_b_path": {"type": "string", "minLength": 1},
+    "hz": {"type": "number", "exclusiveMinimum": 0},
+    "signal_type": {"type": "string", "minLength": 1},
+    "unit": {"type": "string", "minLength": 1},
+    "preprocessing_path": {"type": "string", "minLength": 1},
+    "mask_path": {"type": ["string", "null"]}
+  },
+  "additionalProperties": false
+}

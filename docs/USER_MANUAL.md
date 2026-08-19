@@ -129,7 +129,7 @@ Runs the audited evidence chain from a manifest + config:
 ```bash
 syncpipe analyze -m manifest.csv -c config.toml -o results/
 ```
-- `manifest.csv` columns: `dyad_id,modality,condition,person_a_path,person_b_path,hz[,mask_path]`
+- `manifest.csv` columns: `dyad_id,modality,condition,person_a_path,person_b_path,hz,signal_type,unit,preprocessing_path[,mask_path]`
 - `config.toml`: `[analysis]` section; `contrast`, `primary_endpoint`, and
   `primary_modalities` are required and must be pre-specified. The canonical v1
   null currently supports only `primary_endpoint = "peak_amplitude"`; use
@@ -137,11 +137,11 @@ syncpipe analyze -m manifest.csv -c config.toml -o results/
 
 Minimal `manifest.csv` (two dyads, one modality, two conditions):
 ```csv
-dyad_id,modality,condition,person_a_path,person_b_path,hz
-d01,EDA,rest,data/d01_rest_a.csv,data/d01_rest_b.csv,1
-d01,EDA,task,data/d01_task_a.csv,data/d01_task_b.csv,1
-d02,EDA,rest,data/d02_rest_a.csv,data/d02_rest_b.csv,1
-d02,EDA,task,data/d02_task_a.csv,data/d02_task_b.csv,1
+dyad_id,modality,condition,person_a_path,person_b_path,hz,signal_type,unit,preprocessing_path
+d01,EDA,rest,data/d01_rest_a.csv,data/d01_rest_b.csv,1,EDA_envelope,z_score,preprocessing/eda.json
+d01,EDA,task,data/d01_task_a.csv,data/d01_task_b.csv,1,EDA_envelope,z_score,preprocessing/eda.json
+d02,EDA,rest,data/d02_rest_a.csv,data/d02_rest_b.csv,1,EDA_envelope,z_score,preprocessing/eda.json
+d02,EDA,task,data/d02_task_a.csv,data/d02_task_b.csv,1,EDA_envelope,z_score,preprocessing/eda.json
 ```
 Minimal `config.toml`:
 ```toml
@@ -155,6 +155,26 @@ n_permutations = 10000
 ```
 Each `person_*_path` file is a CSV with a `time` column plus one signal column,
 and person A/B time axes must be aligned (same grid, same length).
+
+`preprocessing_path` points to structured JSON, for example:
+
+```json
+{
+  "schema_version": "1.0.0",
+  "signal_type": "EDA_envelope",
+  "output_unit": "z_score",
+  "software": {"name": "custom-preprocessor", "version": "0.1.0"},
+  "steps": [
+    {"name": "lowpass", "parameters": {"cutoff_hz": 0.05}},
+    {"name": "resample", "parameters": {"target_hz": 1.0}},
+    {"name": "zscore", "parameters": {"scope": "within_person_session"}}
+  ]
+}
+```
+
+The manifest signal type/unit must match this file. SyncPipe records the
+provenance content and SHA-256 hash in `manifest_resolved.json`. Packaged JSON
+Schemas are available through `syncpipe.canonical_runner.load_schema()`.
 
 ### `syncpipe describe` (exploratory path)
 Runs the descriptor path on ad-hoc CSVs (no manifest/config):

@@ -7,6 +7,7 @@ The v1 canonical runner is the single code path for paper-level analysis;
 ``syncpipe analyze`` (CLI) and ``syncpipe.canonical_runner.run_canonical``
 (Python API) both call it, so their outputs must match file-for-file.
 """
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -37,6 +38,14 @@ def _fmt(v):
 def _write_cohort(root: Path, n_dyads: int = 4) -> Path:
     sigdir = root / "data"
     sigdir.mkdir(exist_ok=True)
+    provenance = root / "preprocessing.json"
+    provenance.write_text(json.dumps({
+        "schema_version": "1.0.0",
+        "signal_type": "EDA_envelope",
+        "output_unit": "z_score",
+        "software": {"name": "test-preprocessor", "version": "1.0"},
+        "steps": [{"name": "synthetic_generation", "parameters": {}}],
+    }), encoding="utf-8")
     rng = np.random.default_rng(7)
     n = 240
     t = np.arange(n, dtype=float)
@@ -50,11 +59,17 @@ def _write_cohort(root: Path, n_dyads: int = 4) -> Path:
             pb = sigdir / f"d{i:03d}_{cond}_b.csv"
             pd.DataFrame({"time": t, "val": a}).to_csv(pa, index=False)
             pd.DataFrame({"time": t, "val": b}).to_csv(pb, index=False)
-            rows.append((f"d{i:03d}", "EDA", cond, str(pa), str(pb), 1.0, ""))
+            rows.append((
+                f"d{i:03d}", "EDA", cond, str(pa), str(pb), 1.0,
+                "EDA_envelope", "z_score", str(provenance), "",
+            ))
     man = root / "manifest.csv"
     pd.DataFrame(
         rows,
-        columns=["dyad_id", "modality", "condition", "person_a_path", "person_b_path", "hz", "mask_path"],
+        columns=[
+            "dyad_id", "modality", "condition", "person_a_path", "person_b_path",
+            "hz", "signal_type", "unit", "preprocessing_path", "mask_path",
+        ],
     ).to_csv(man, index=False)
     return man
 
