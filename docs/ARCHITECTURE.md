@@ -37,8 +37,10 @@ IAAFT delegates to the same geometry resolver; canonical design controls receive
 the prepared design-condition masks; pooled surrogate thresholds generate within
 the same eligible segments. Preparation diagnostics are exported in QC.
 
-Remaining Milestone B work is to move loader-level exclusion reasons into the
-prepared cohort itself rather than retaining canonical runner's separate list.
+`PreparationExclusion` now carries typed loading/preparation/QC exclusion codes,
+stages, details and claim effects inside `PreparedCohort`; canonical exclusion
+CSV/Markdown are rendered from those objects. Milestone B is complete for the
+v1 canonical path.
 
 ## Milestone C — typed evidence graph
 

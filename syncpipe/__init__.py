@@ -29,7 +29,9 @@ from .computation_pipeline import (
 )
 from .inference_pipeline import InferencePipeline
 from .pipeline_bridge import InferenceInputs, records_to_inference_inputs
-from .preparation import PreparedCohort, PreparedObservation, SignalGeometry
+from .preparation import (
+    PreparedCohort, PreparedObservation, PreparationExclusion, SignalGeometry,
+)
 from .contracts import AnalysisSpec, EndpointSpec, ModalitySpec, NullSpec
 from .canonical_runner import (
     CanonicalResult,
@@ -91,6 +93,7 @@ __all__ = [
     "InferenceInputs",
     "PreparedObservation",
     "PreparedCohort",
+    "PreparationExclusion",
     "SignalGeometry",
     # Canonical scientific runner (Gate 1 single entry point)
     "run_canonical",

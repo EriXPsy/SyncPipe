@@ -2,6 +2,7 @@
 from .observation import (
     PreparedCohort,
     PreparedObservation,
+    PreparationExclusion,
     Segment,
     SignalGeometry,
     contiguous_segments,
@@ -9,6 +10,7 @@ from .observation import (
 )
 
 __all__ = [
-    "PreparedCohort", "PreparedObservation", "Segment", "SignalGeometry",
+    "PreparedCohort", "PreparedObservation", "PreparationExclusion",
+    "Segment", "SignalGeometry",
     "contiguous_segments", "resolve_signal_geometry",
 ]

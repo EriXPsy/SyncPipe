@@ -36,7 +36,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 
 # Recorded 2026-08-02. Any consolidation or rename MUST update both this and
 # tests/README.md — changing the baseline is a reviewed act, not a side effect.
-_EXPECTED_COLLECTED = 508
+_EXPECTED_COLLECTED = 509
 # 2026-08-02: 4 tests promoted from the nightly slow layer to the PR gate
 # (whole-cascade summary, L2 kwarg names, L1 denominator, cross-process seed
 # stability), so slow went 59 -> 55 and not-slow 447 -> 451.
@@ -63,9 +63,10 @@ _EXPECTED_COLLECTED = 508
 # added 2 fast tests (502 -> 504, not-slow 435 -> 437). Typed AnalysisSpec
 # immutability added one fast contract (504 -> 505, not-slow 437 -> 438).
 # Prepared-observation geometry added 2 tests plus one suite-health path case
-# (505 -> 508, not-slow 438 -> 441).
+# (505 -> 508, not-slow 438 -> 441). Typed preparation exclusions added one
+# fast contract (508 -> 509, not-slow 441 -> 442).
 _EXPECTED_SLOW = 67
-_EXPECTED_NOT_SLOW = 441
+_EXPECTED_NOT_SLOW = 442
 
 # Module-level Path constants that are legitimately allowed not to exist
 # (e.g. output paths written during a test run). Keyed by "module:attribute"

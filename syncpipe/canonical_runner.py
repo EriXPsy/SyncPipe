@@ -48,6 +48,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised only on <3.11
 from .__about__ import __version__, CONFIG_SCHEMA_VERSION, ANALYSIS_SCHEMA_VERSION
 from .io import load_csv
 from .pipeline_bridge import InferenceInputs, records_to_inference_inputs
+from .preparation import PreparationExclusion
 from .inference_pipeline import InferencePipeline
 from .feature_definitions import FDR_FEATURES, REFERENCE_FEATURE
 from .contracts import (
@@ -516,7 +517,7 @@ class CanonicalResult:
     config: SyncPipeConfig
     chain: Dict[str, Any]
     qc: Dict[str, Any]
-    exclusions: List[Dict[str, Any]]
+    exclusions: List[PreparationExclusion]
     features_df: pd.DataFrame
     wcc_traces: Dict[str, np.ndarray]
     environment: Dict[str, Any]
@@ -587,7 +588,7 @@ def run_canonical(
 
     # --- preflight QC: resolve loader records; capture load failures ---
     loader_records: List[LoaderRecord] = []
-    exclusions: List[Dict[str, Any]] = []
+    load_exclusions: List[PreparationExclusion] = []
     for rec in records:
         try:
             loader_records.append(_manifest_record_to_loader_record(rec, base_dir))
@@ -595,10 +596,12 @@ def run_canonical(
             # Expected data/input failures become exclusions. Unexpected
             # programming/runtime errors must propagate instead of being
             # mislabeled as bad participant data.
-            exclusions.append({
-                "dyad_id": rec.dyad_id, "modality": rec.modality,
-                "condition": rec.condition, "reason": f"load_error: {e}",
-            })
+            load_exclusions.append(PreparationExclusion(
+                key=f"{rec.dyad_id}__{rec.modality}__{rec.condition}",
+                dyad_id=rec.dyad_id, modality=rec.modality,
+                condition=rec.condition, code="load_error", stage="loading",
+                detail=str(e),
+            ))
 
     # records_to_inference_inputs fails loud on duplicate key / hz mismatch /
     # ambiguous column. It silently skips incomplete / too-short rows, so we
@@ -610,19 +613,9 @@ def run_canonical(
         onset_threshold=cfg.onset_threshold,
         design_condition=design_condition,
         window_type=cfg.window_type,
+        initial_exclusions=load_exclusions,
     )
-
-    included_keys = set(
-        f"{r['dyad_id']}__{r['modality']}__{r['condition']}"
-        for _, r in inputs.features_df.iterrows()
-    )
-    for lr in loader_records:
-        key = f"{lr.dyad_label}__{lr.modality}__{lr.condition}"
-        if key not in included_keys:
-            exclusions.append({
-                "dyad_id": lr.dyad_label, "modality": lr.modality,
-                "condition": lr.condition, "reason": "too_short_or_incomplete",
-            })
+    exclusions = list(inputs.prepared_cohort.exclusions)
 
     # Pairing summary is separate from row-level inclusion. A loadable orphan
     # condition row is not a paired dyad-level observation and must not look
@@ -788,7 +781,7 @@ def _write_report_bundle(
     cfg: SyncPipeConfig,
     chain: Dict[str, Any],
     qc: Dict[str, Any],
-    exclusions: List[Dict[str, Any]],
+    exclusions: List[PreparationExclusion],
     inputs: InferenceInputs,
     claimability: Dict[str, Any],
     environment: Dict[str, Any],
@@ -887,10 +880,14 @@ def _write_report_bundle(
 
     # exclusion_report.csv
     exc_path = output_dir / "exclusion_report.csv"
+    exclusion_columns = [
+        "key", "dyad_id", "modality", "condition", "code", "stage",
+        "detail", "claim_effect", "reason",
+    ]
     if exclusions:
-        exc_df = pd.DataFrame(exclusions)[["dyad_id", "modality", "condition", "reason"]]
+        exc_df = pd.DataFrame([item.to_dict() for item in exclusions])[exclusion_columns]
     else:
-        exc_df = pd.DataFrame(columns=["dyad_id", "modality", "condition", "reason"])
+        exc_df = pd.DataFrame(columns=exclusion_columns)
     exc_df.to_csv(exc_path, index=False)
     paths["exclusion_report.csv"] = str(exc_path)
 
@@ -967,8 +964,8 @@ def _build_report_md(
         lines += ["## Exclusions", ""]
         for e in exclusions:
             lines.append(
-                f"- dyad={e['dyad_id']} modality={e['modality']} "
-                f"condition={e['condition']}: {e['reason']}"
+                f"- dyad={e.dyad_id} modality={e.modality} "
+                f"condition={e.condition}: [{e.stage}/{e.code}] {e.detail}"
             )
         lines.append("")
     lines += ["## Output files", ""]

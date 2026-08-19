@@ -147,8 +147,40 @@ class PreparedObservation:
 
 
 @dataclass(frozen=True)
+class PreparationExclusion:
+    """Typed reason an observation did not enter the prepared cohort."""
+
+    key: str
+    dyad_id: str
+    modality: str
+    condition: str
+    code: str
+    stage: str
+    detail: str
+    claim_effect: str = "observation_excluded"
+
+    @property
+    def reason(self) -> str:
+        return f"{self.code}: {self.detail}" if self.detail else self.code
+
+    def to_dict(self) -> Dict[str, str]:
+        return {
+            "key": self.key,
+            "dyad_id": self.dyad_id,
+            "modality": self.modality,
+            "condition": self.condition,
+            "code": self.code,
+            "stage": self.stage,
+            "detail": self.detail,
+            "claim_effect": self.claim_effect,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
 class PreparedCohort:
     observations: Tuple[PreparedObservation, ...]
+    exclusions: Tuple[PreparationExclusion, ...] = ()
 
     def __post_init__(self) -> None:
         keys = [obs.key for obs in self.observations]
@@ -161,8 +193,12 @@ class PreparedCohort:
     def diagnostics(self, window_size: int) -> Dict[str, Dict[str, object]]:
         return {obs.key: obs.diagnostics(window_size) for obs in self.observations}
 
+    def exclusion_records(self) -> Tuple[Dict[str, str], ...]:
+        return tuple(exclusion.to_dict() for exclusion in self.exclusions)
+
 
 __all__ = [
     "Segment", "SignalGeometry", "PreparedObservation", "PreparedCohort",
+    "PreparationExclusion",
     "contiguous_segments", "resolve_signal_geometry",
 ]
