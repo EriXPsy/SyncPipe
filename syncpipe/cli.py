@@ -143,6 +143,31 @@ def cmd_describe(args: argparse.Namespace) -> None:
     print(f"  Results exported to: {output_path}")
 
 
+def cmd_external_kit(args: argparse.Namespace) -> None:
+    """Create a self-contained external usability-validation kit."""
+    from .external_validation import create_external_validation_kit
+
+    paths = create_external_validation_kit(
+        args.output, seed=args.seed, n_dyads=args.n_dyads
+    )
+    print(f"External validation kit: {paths['root']}")
+    print(f"Runbook: {paths['runbook']}")
+    print("This kit is not evidence of construct validity.")
+
+
+def cmd_external_check(args: argparse.Namespace) -> None:
+    """Audit the structure and claim fields of an external result bundle."""
+    from .external_validation import audit_external_bundle
+
+    report = audit_external_bundle(args.input)
+    text = json.dumps(report, indent=2)
+    if args.output:
+        Path(args.output).write_text(text, encoding="utf-8")
+    print(text)
+    if not report["structural_pass"]:
+        raise SystemExit(1)
+
+
 def cmd_migrate(args: argparse.Namespace) -> None:
     """Migrate legacy v1 canonical manifest/config inputs to v2 contracts."""
     from .migration import migrate_v1_project
@@ -505,6 +530,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--version", action="version", version=f"syncpipe {__version__}"
     )
     sub = parser.add_subparsers(dest="command", required=True)
+
+    # external validation — independent usability/reproduction scaffold
+    p_external_kit = sub.add_parser(
+        "external-kit", help="Create a self-contained external validation kit."
+    )
+    p_external_kit.add_argument("-o", "--output", required=True)
+    p_external_kit.add_argument("--seed", type=int, default=20260819)
+    p_external_kit.add_argument("--n-dyads", type=_min_int(4), default=4)
+    p_external_kit.set_defaults(func=cmd_external_kit)
+
+    p_external_check = sub.add_parser(
+        "external-check", help="Audit an external canonical result bundle."
+    )
+    p_external_check.add_argument("-i", "--input", required=True)
+    p_external_check.add_argument("-o", "--output")
+    p_external_check.set_defaults(func=cmd_external_check)
 
     # migrate — explicit v1 canonical input migration
     p_migrate = sub.add_parser(

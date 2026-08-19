@@ -524,6 +524,13 @@ The goal is to make synchrony measurement easier to inspect, criticize, reproduc
 
 ---
 
+## External validation
+
+Create an independent usability/reproduction scaffold with `syncpipe external-kit`
+and audit its output structure with `syncpipe external-check`. This does not make
+SyncPipe externally validated; that label requires an unaffiliated own-data run
+and critique under [`docs/EXTERNAL_VALIDATION.md`](docs/EXTERNAL_VALIDATION.md).
+
 ## Versioning and migration
 
 Package 2.0.0 introduces a breaking typed canonical contract while continuing

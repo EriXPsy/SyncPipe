@@ -18,6 +18,8 @@ def test_syncpipe_namespace_exposes_v1_public_api():
         "EvidenceStageResult",
         "ClaimDecision",
         "migrate_v1_project",
+        "create_external_validation_kit",
+        "audit_external_bundle",
         "MANIFEST_SCHEMA_VERSION",
         "EVIDENCE_SCHEMA_VERSION",
         "feature_status_table",

@@ -67,6 +67,7 @@ from .design_controls import (
     extract_pair_features,
     synchrony_existence_audit,
 )
+from .external_validation import audit_external_bundle, create_external_validation_kit
 from .migration import (
     detect_config_contract,
     detect_manifest_contract,
@@ -144,6 +145,8 @@ __all__ = [
     "design_control_audit",
     "extract_pair_features",
     "synchrony_existence_audit",
+    "create_external_validation_kit",
+    "audit_external_bundle",
     "detect_manifest_contract",
     "detect_config_contract",
     "migrate_manifest_v1_to_v2",

@@ -72,7 +72,11 @@ user explicitly supplies signal identity, unit, preprocessing provenance,
 endpoint, and primary modality assumptions. Every migration writes source and
 target hashes plus warnings in `MIGRATION_REPORT.json`.
 
-## Milestone F — external validation
+## Milestone F — external validation (infrastructure implemented; evidence pending)
 
-Freeze the architecture and obtain independent installation, data preparation,
-execution and methodological criticism before expanding substrates.
+`syncpipe external-kit` creates deterministic usability inputs, a blind protocol,
+runbook, feedback form and independent-report template. `syncpipe external-check`
+audits bundle structure and claim fields without asserting numerical findings.
+This infrastructure is not external validation: the milestone remains
+scientifically incomplete until an unaffiliated researcher publishes or archives
+an own-data run and methodological critique under `docs/EXTERNAL_VALIDATION.md`.
