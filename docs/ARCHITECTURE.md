@@ -52,11 +52,15 @@ inconclusive without a reciprocity-breaking design. Canonical output includes
 `evidence_graph.json`; legacy `stage_status` and `claim_ceiling` keys are derived
 from the graph during migration rather than authored independently.
 
-## Milestone D — orchestration/export split
+## Milestone D — orchestration/export split (implemented)
 
-Reduce `canonical_runner.py` to parse → prepare → compute → audit → infer →
-export. Move contracts, preparation, claimability, serialization and report
-rendering into dedicated packages.
+`canonical_runner.py` now contains config parsing, `CanonicalResult`, and the
+parse → prepare → compute → audit → infer → export orchestration only. Manifest
+and provenance contracts live in `syncpipe.contracts.manifest`; signal loading
+lives in `syncpipe.preparation.loading`; claimability derivation lives in
+`syncpipe.evidence.claimability`; strict JSON/runtime capture, Markdown
+rendering, and bundle writing live in `syncpipe.export`. Compatibility re-exports
+preserve the existing public API and CLI/API byte parity.
 
 ## Milestone E — versioning and migration
 
