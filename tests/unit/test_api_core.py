@@ -10,6 +10,8 @@ def test_syncpipe_namespace_exposes_v1_public_api():
         "Dyad",
         "DynamicAnalyzer",
         "InferencePipeline",
+        "AnalysisSpec",
+        "EndpointSpec",
         "feature_status_table",
         "feature_status_latex",
         "explain_feature",

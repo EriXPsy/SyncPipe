@@ -485,7 +485,7 @@ The current v1 method log is maintained in:
 docs/METHOD_LOG.md
 ```
 
-Negative results, abandoned feature promotions, and null-model limitations should be logged rather than silently removed.
+Negative results, abandoned feature promotions, and null-model limitations should be logged rather than silently removed. The typed architecture-convergence plan and milestone status are maintained in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 

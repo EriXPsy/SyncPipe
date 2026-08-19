@@ -29,6 +29,7 @@ from .computation_pipeline import (
 )
 from .inference_pipeline import InferencePipeline
 from .pipeline_bridge import InferenceInputs, records_to_inference_inputs
+from .contracts import AnalysisSpec, EndpointSpec, ModalitySpec, NullSpec
 from .canonical_runner import (
     CanonicalResult,
     DEFAULT_CONFIG,
@@ -92,7 +93,11 @@ __all__ = [
     "parse_manifest",
     "parse_config",
     "ManifestRecord",
+    "AnalysisSpec",
     "SyncPipeConfig",
+    "EndpointSpec",
+    "NullSpec",
+    "ModalitySpec",
     "CanonicalResult",
     "DEFAULT_CONFIG",
     # Feature/status governance

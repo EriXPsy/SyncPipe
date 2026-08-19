@@ -175,6 +175,7 @@ def _existence_gate_by_modality(
     existence_results: Dict[str, Any],
     primary_modalities: Sequence[str],
     alpha: float = EXISTENCE_GATE_ALPHA,
+    endpoint: str = PRIMARY_EXISTENCE_ENDPOINT,
 ) -> Dict[str, Any]:
     """Second-order group existence test per modality.
 
@@ -199,17 +200,17 @@ def _existence_gate_by_modality(
         if not isinstance(r, dict):
             continue
         mod = _modality_from_label(label)
-        ov = r.get("observed", {}).get(PRIMARY_EXISTENCE_ENDPOINT, np.nan)
+        ov = r.get("observed", {}).get(endpoint, np.nan)
         if not np.isfinite(ov):
-            ov = r.get("obs_peak_amplitude", np.nan)
+            ov = r.get(f"obs_{endpoint}", np.nan)
         if not np.isfinite(ov):
             continue
         obs_peaks.setdefault(mod, []).append(float(ov))
-        null_arr = np.asarray(r.get("null_peak_amplitude", []), dtype=float)
+        null_arr = np.asarray(r.get(f"null_{endpoint}", []), dtype=float)
         if null_arr.size:
             null_peaks.setdefault(mod, []).append(null_arr)
         frac_sig.setdefault(mod, []).append(
-            bool(r.get("per_feature_significant", {}).get(PRIMARY_EXISTENCE_ENDPOINT, False))
+            bool(r.get("per_feature_significant", {}).get(endpoint, False))
         )
 
     per_modality: Dict[str, Dict[str, Any]] = {}
@@ -270,7 +271,7 @@ def _existence_gate_by_modality(
         "per_modality": per_modality,
         "primary_modalities": list(primary_modalities),
         "alpha": float(alpha),
-        "endpoint": PRIMARY_EXISTENCE_ENDPOINT,
+        "endpoint": endpoint,
         "test": "second_order_group_surrogate",
     }
 
@@ -628,6 +629,7 @@ class InferencePipeline:
         observation_policy: str = "warn",
         eligibility_policy: str = "warn",
         n_min_dyads: int = 10,
+        primary_endpoint: str = PRIMARY_EXISTENCE_ENDPOINT,
         primary_modalities: Optional[Sequence[str]] = None,
         existence_alpha: float = EXISTENCE_GATE_ALPHA,
     ) -> Dict[str, Any]:
@@ -687,6 +689,7 @@ class InferencePipeline:
             existence_results,
             primary_modalities=prim_mods,
             alpha=existence_alpha,
+            endpoint=primary_endpoint,
         )
         primary_pass = gate["primary_pass"]
         return {

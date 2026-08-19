@@ -6,6 +6,7 @@ Covers manifest/config parsing contracts, the 12-file report bundle,
 exclusion accounting, and the eligibility governance floor.
 """
 import json
+from dataclasses import FrozenInstanceError
 
 import numpy as np
 import pandas as pd
@@ -13,6 +14,8 @@ import pytest
 from pathlib import Path
 
 from syncpipe.canonical_runner import (
+    AnalysisSpec,
+    SyncPipeConfig,
     load_schema,
     parse_config,
     parse_manifest,
@@ -184,6 +187,15 @@ class TestParseConfig:
         assert c.resolved_primary_endpoint() == "peak_amplitude"
         assert c.resolved_primary_modalities() == ("EDA",)
 
+    def test_analysis_spec_is_single_immutable_config_contract(self, tmp_path):
+        cfg = _write_config(tmp_path)
+        spec = parse_config(cfg)
+        assert isinstance(spec, AnalysisSpec)
+        assert SyncPipeConfig is AnalysisSpec
+        assert spec.resolved_endpoint_spec().null.name == "signal_level_segmentwise_iaaft"
+        with pytest.raises(FrozenInstanceError):
+            spec.window_size = 99
+
     def test_requires_primary_endpoint(self, tmp_path):
         cfg = _write_config(tmp_path)
         text = cfg.read_text(encoding="utf-8").replace(
@@ -204,7 +216,7 @@ class TestParseConfig:
 
     def test_rejects_unsupported_primary_endpoint(self, tmp_path):
         cfg = _write_config(tmp_path, primary_endpoint="mean_synchrony")
-        with pytest.raises(ValueError, match="must be 'peak_amplitude'"):
+        with pytest.raises(ValueError, match="primary_endpoint must be one of"):
             parse_config(cfg)
 
     def test_rejects_bad_onset_string(self, tmp_path):
@@ -237,6 +249,9 @@ class TestRunCanonical:
         assert res.qc["total_rows"] == 8
         assert res.qc["included"] == 8
         assert res.qc["excluded"] == 0
+        assert res.qc["modality_roles"] == {"EDA": "primary"}
+        assert res.qc["endpoint_contract"]["null"] == "signal_level_segmentwise_iaaft"
+        assert "Endpoint estimand:" in (out / "REPORT.md").read_text(encoding="utf-8")
         # Vulnerability A: manifest_resolved must carry resolved absolute paths
         # and content hashes, not only the original relative strings.
         manifest_payload = json.loads((out / "manifest_resolved.json").read_text())
