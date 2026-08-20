@@ -192,6 +192,12 @@ def test_l0_signal_level_is_two_tailed():
     assert np.isfinite(p)
     expected = _two_tailed_p(res["null_peak_amplitude"], res["obs_peak_amplitude"])
     assert abs(p - expected) < 1e-9
+    precision = res["surrogate_precision"]["peak_amplitude"]
+    n_valid = precision["n_valid_surrogates"]
+    assert precision["min_attainable_two_sided_p"] == pytest.approx(
+        min(1.0, 2.0 / (n_valid + 1))
+    )
+    assert precision["approx_monte_carlo_se"] >= 0.0
 
 
 def test_l1_wcc_level_is_two_tailed():
@@ -1012,6 +1018,8 @@ def test_group_gate_detects_effect_in_primary():
     g = _existence_gate_by_modality(res, ["ECG", "EDA"])
     assert g["test"] == "second_order_group_surrogate"
     assert g["per_modality"]["ECG"]["p_group"] < 0.05
+    assert g["per_modality"]["ECG"]["min_attainable_two_sided_p"] == pytest.approx(2 / 101)
+    assert g["per_modality"]["ECG"]["approx_monte_carlo_se"] >= 0.0
     assert g["per_modality"]["ECG"]["supports"] is True
     assert g["per_modality"]["EDA"]["supports"] is False
     assert g["primary_pass"] is True

@@ -23,6 +23,7 @@ import json
 import numpy as np
 import pandas as pd
 
+from .evidence import EvidenceChain, build_evidence_chain
 from .design_controls import (
     DEFAULT_AUDIT_FEATURES,
     SignalPair,
@@ -117,6 +118,17 @@ def _apply_global_modality_fdr(results: Dict[str, Any], alpha: float) -> Dict[st
                     "p_raw": r.p_raw, "p_fdr": r.p_fdr,
                     "significant_05": r.significant_05,
                     "perm_effect_size": r.perm_effect_size,
+                    "difference_q25": r.difference_q25,
+                    "difference_q75": r.difference_q75,
+                    "median_ci_low": r.median_ci_low,
+                    "median_ci_high": r.median_ci_high,
+                    "median_ci_confidence": r.median_ci_confidence,
+                    "median_ci_bounded": r.median_ci_bounded,
+                    "median_ci_method": r.median_ci_method,
+                    "permutation_method": r.permutation_method,
+                    "n_null_draws": r.n_null_draws,
+                    "min_attainable_p": r.min_attainable_p,
+                    "approx_monte_carlo_se": r.approx_monte_carlo_se,
                     "n_dyads": r.n_dyads, "defined_a": r.defined_a,
                     "defined_b": r.defined_b, "p_definedness": r.p_definedness,
                     "definedness_status": r.definedness_status,
@@ -164,6 +176,7 @@ def _existence_gate_by_modality(
     existence_results: Dict[str, Any],
     primary_modalities: Sequence[str],
     alpha: float = EXISTENCE_GATE_ALPHA,
+    endpoint: str = PRIMARY_EXISTENCE_ENDPOINT,
 ) -> Dict[str, Any]:
     """Second-order group existence test per modality.
 
@@ -188,17 +201,17 @@ def _existence_gate_by_modality(
         if not isinstance(r, dict):
             continue
         mod = _modality_from_label(label)
-        ov = r.get("observed", {}).get(PRIMARY_EXISTENCE_ENDPOINT, np.nan)
+        ov = r.get("observed", {}).get(endpoint, np.nan)
         if not np.isfinite(ov):
-            ov = r.get("obs_peak_amplitude", np.nan)
+            ov = r.get(f"obs_{endpoint}", np.nan)
         if not np.isfinite(ov):
             continue
         obs_peaks.setdefault(mod, []).append(float(ov))
-        null_arr = np.asarray(r.get("null_peak_amplitude", []), dtype=float)
+        null_arr = np.asarray(r.get(f"null_{endpoint}", []), dtype=float)
         if null_arr.size:
             null_peaks.setdefault(mod, []).append(null_arr)
         frac_sig.setdefault(mod, []).append(
-            bool(r.get("per_feature_significant", {}).get(PRIMARY_EXISTENCE_ENDPOINT, False))
+            bool(r.get("per_feature_significant", {}).get(endpoint, False))
         )
 
     per_modality: Dict[str, Dict[str, Any]] = {}
@@ -206,6 +219,8 @@ def _existence_gate_by_modality(
         obs_vec = np.asarray(obs_peaks[mod], dtype=float)
         obs_mean = float(np.nanmean(obs_vec))
         p_group = float("nan")
+        p_min_attainable = float("nan")
+        p_monte_carlo_se = float("nan")
         n_null_draws = 0
         stack = null_peaks.get(mod, [])
         if stack:
@@ -217,7 +232,12 @@ def _existence_gate_by_modality(
             if finite.size:
                 p_ge = (np.sum(finite >= obs_mean) + 1) / (finite.size + 1)
                 p_le = (np.sum(finite <= obs_mean) + 1) / (finite.size + 1)
-                p_group = float(min(1.0, 2.0 * min(p_ge, p_le)))
+                q_tail = float(min(p_ge, p_le))
+                p_group = float(min(1.0, 2.0 * q_tail))
+                p_min_attainable = float(min(1.0, 2.0 / (finite.size + 1)))
+                p_monte_carlo_se = float(
+                    2.0 * np.sqrt(q_tail * (1.0 - q_tail) / finite.size)
+                )
         n_dyads = int(obs_vec.size)
         sig = frac_sig.get(mod, [])
         per_modality[mod] = {
@@ -225,6 +245,8 @@ def _existence_gate_by_modality(
             "group_observed_mean": obs_mean,
             "n_null_draws": n_null_draws,
             "p_group": p_group,
+            "min_attainable_two_sided_p": p_min_attainable,
+            "approx_monte_carlo_se": p_monte_carlo_se,
             # Descriptive only: fraction of dyads whose per-dyad test passed.
             "frac_dyads_significant": float(np.mean(sig)) if sig else float("nan"),
             "is_primary": mod in set(primary_modalities),
@@ -250,46 +272,18 @@ def _existence_gate_by_modality(
         "per_modality": per_modality,
         "primary_modalities": list(primary_modalities),
         "alpha": float(alpha),
-        "endpoint": PRIMARY_EXISTENCE_ENDPOINT,
+        "endpoint": endpoint,
         "test": "second_order_group_surrogate",
     }
 
 
 class InferencePipeline:
-    """Audited inference pipeline for WCC-derived synchrony descriptors.
+    """Run the study-level checks and condition comparison.
 
-    Parameters
-    ----------
-    features_df : pd.DataFrame
-        DataFrame with one row per observation, containing feature columns
-        and metadata (dyad_id, condition, modality, etc.).
-    hz : float
-        Signal sampling rate (Hz).
-    wcc_window_sec : float
-        WCC window duration in seconds.
-    surrogate_n : int
-        Number of surrogate iterations for L0/L1 tests. Default 100.
-    seed : int
-        Random seed for reproducibility.
-    n_workers : int
-        Number of worker processes for the per-pair existence audit. Default 1
-        (serial). Values > 1 distribute *pairs* across processes; results are
-        bit-identical to serial because each pair's audit seeds its own
-        Generator from ``seed`` and shares no RNG state with any other pair
-        (see :meth:`run_synchrony_existence_audit`).
-
-    Examples
-    --------
-    >>> pipe = InferencePipeline(df, hz=4.0, wcc_window_sec=10.0)
-    >>> # Per-observation tests (legacy L0/L1/L2 API):
-    >>> l0 = pipe.test_l0_signal(wcc, (sig_a, sig_b), wcc_window_size=40)
-    >>> l1 = pipe.test_l1_structure(wcc, label="dyad_01")
-    >>> l2 = pipe.test_l2_condition(condition_col="condition", dyad_col="dyad_id")
-    >>> # Or run the full v1 evidence chain in three steps:
-    >>> pipe.run_synchrony_existence_audit(raw_signals, wcc_window_size=40)
-    >>> pipe.run_design_control_audit(signal_pairs, wcc_window_size=40)
-    >>> pipe.run_group_condition_inference(condition_col="condition", dyad_col="dyad_id")
-    >>> report = pipe.summarize()
+    Most users should call :func:`syncpipe.analyze` instead. This lower-level
+    class is available when signals and calculated values are already prepared.
+    It checks independent-signal, partner, timing, and shared-event explanations,
+    then summarizes the strongest conclusion supported.
     """
 
     def __init__(
@@ -321,6 +315,12 @@ class InferencePipeline:
         self._design_control_results: Optional[Dict[str, Any]] = None
         self._across_stim_results: Optional[Dict[str, Any]] = None
         self._group_inference_results: Optional[Dict[str, Any]] = None
+        self._evidence_chain: Optional[EvidenceChain] = None
+
+    @property
+    def evidence_chain(self) -> Optional[EvidenceChain]:
+        """Detailed machine-readable checks from the latest run."""
+        return self._evidence_chain
 
     # ---- v1 evidence chain: synchrony-existence → design controls → group inference ----
 
@@ -608,22 +608,15 @@ class InferencePipeline:
         observation_policy: str = "warn",
         eligibility_policy: str = "warn",
         n_min_dyads: int = 10,
+        primary_endpoint: str = PRIMARY_EXISTENCE_ENDPOINT,
         primary_modalities: Optional[Sequence[str]] = None,
         existence_alpha: float = EXISTENCE_GATE_ALPHA,
     ) -> Dict[str, Any]:
-        """Run the recommended v1 evidence chain end-to-end.
+        """Run all study checks and return detailed results plus a conclusion.
 
-        Chain:
-        1. synchrony-existence audit (signal-level IAAFT)
-        2. design-control audit (pseudo-pair/time-shift; optional across-stim)
-        3. group condition inference (paired permutation + FDR)
-
-        Parameters
-        ----------
-        discontinuity_mask : dict or None
-            Optional label -> per-sample boundary mask (signal-resolution).
-            Forwarded to the synchrony-existence audit so L0 gating respects
-            segment seams (see ``discontinuity_mask`` on the audit for detail).
+        The checks ask whether co-movement exceeds independent signals, is
+        specific to real partners and timing, survives an optional shared-event
+        comparison, and differs between the chosen conditions.
         """
         existence = self.run_synchrony_existence_audit(
             raw_signals, wcc_window_size=wcc_window_size, window_type=window_type,
@@ -667,27 +660,47 @@ class InferencePipeline:
             existence_results,
             primary_modalities=prim_mods,
             alpha=existence_alpha,
+            endpoint=primary_endpoint,
         )
-        primary_pass = gate["primary_pass"]
+        graph = build_evidence_chain(
+            endpoint=primary_endpoint,
+            existence_gate=gate,
+            design=design,
+            across_stimulus=across,
+            group=group,
+            alpha=existence_alpha,
+        )
+        self._evidence_chain = graph
+        stage_by_id = {stage.stage_id: stage.status.value for stage in graph.stages}
+        # Legacy keys remain during the migration window, but are now derived
+        # from the typed graph rather than independently hand-authored.
         return {
             "evidence_chain_version": "v1",
+            "evidence_graph": graph.to_dict(),
+            "legacy_fields": {
+                "deprecated": True,
+                "fields": ["stage_status", "claim_ceiling"],
+                "remove_in": "3.0.0",
+            },
             "synchrony_existence": existence,
             "existence_gate": gate,
             "design_controls": design,
             "across_stimulus_shuffle": across,
             "group_condition_inference": group,
             "stage_status": {
-                "existence": "passed" if primary_pass else "not_supported",
-                "design_controls": "completed" if design is not None else "not_run",
-                "across_stimulus": "completed" if across is not None else "not_run",
-                "group_inference": "completed" if group is not None else "not_run",
+                "existence": "passed" if stage_by_id["E0"] == "supported" else "not_supported",
+                "design_controls": (
+                    "completed" if design is not None else "not_run"
+                ),
+                "across_stimulus": (
+                    "completed" if across is not None else "not_run"
+                ),
+                "group_inference": (
+                    "completed" if group is not None else "not_run"
+                ),
             },
-            "claim_ceiling": (
-                "Existence support is present but does not establish dyad-specific "
-                "interpersonal coupling." if primary_pass else
-                "Group differences are descriptive only because the primary "
-                "existence audit was not supported."
-            ),
+            "claim_ceiling": graph.decision.permitted_claim + "; forbidden: "
+            + ", ".join(graph.decision.forbidden_claims),
             "summary": self._build_audited_chain_summary(existence, design, across, group),
         }
 
@@ -1147,9 +1160,18 @@ class InferencePipeline:
         for feat in l2.get("per_feature", []) or []:
             if getattr(feat, "significant_05", False):
                 any_sig = True
+                if getattr(feat, "median_ci_bounded", False):
+                    ci_text = (
+                        f"95% exact median CI=[{feat.median_ci_low:.3g}, "
+                        f"{feat.median_ci_high:.3g}]"
+                    )
+                else:
+                    ci_text = "95% exact median CI=unbounded at this n"
                 lines.append(
-                    f"    {feat.feature}: p_raw={feat.p_raw:.4f}, "
-                    f"p_fdr={feat.p_fdr:.4f}, d(perm)={feat.perm_effect_size:.2f}"
+                    f"    {feat.feature}: median Δ={feat.observed_diff:.3g}, "
+                    f"{ci_text}, p_raw={feat.p_raw:.4f}, "
+                    f"p_fdr={feat.p_fdr:.4f}, method={feat.permutation_method}, "
+                    f"MCSE={feat.approx_monte_carlo_se:.3g}"
                 )
             p_def = getattr(feat, "p_definedness", 1.0)
             if p_def is not None and float(p_def) < 0.05:
@@ -1258,6 +1280,9 @@ class InferencePipeline:
             "design_control_results": self._design_control_results,
             "across_stimulus_results": self._across_stim_results,
             "group_inference_results": self._group_inference_results,
+            "evidence_graph": (
+                self._evidence_chain.to_dict() if self._evidence_chain else None
+            ),
         }
 
         def _sanitize(o):

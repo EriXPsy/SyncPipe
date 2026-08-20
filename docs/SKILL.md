@@ -28,7 +28,7 @@ multiple modality families**, built on a windowed cross-correlation (WCC) substr
 
 ## Environment
 - Python ≥ 3.10. Install: `python -m pip install -e .` from the repository root.
-- Version check: `syncpipe --version` → `syncpipe 1.0.0`.
+- Version check: `syncpipe --version` → `syncpipe 2.0.0`.
 
 ## CLI entry points
 ```bash

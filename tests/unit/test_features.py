@@ -521,6 +521,14 @@ class TestCLI:
         t = np.arange(n, dtype=float)
         sigdir = tmp_path / "data"
         sigdir.mkdir()
+        provenance = tmp_path / "preprocessing.json"
+        provenance.write_text(json.dumps({
+            "schema_version": "1.0.0",
+            "signal_type": "EDA_envelope",
+            "output_unit": "z_score",
+            "software": {"name": "test-preprocessor", "version": "1.0"},
+            "steps": [{"name": "synthetic_generation", "parameters": {}}],
+        }), encoding="utf-8")
         rows = []
         for i in range(4):
             for cond, coup in (("rest", 0.2), ("task", 0.8)):
@@ -531,17 +539,25 @@ class TestCLI:
                 pb = sigdir / f"d{i:02d}_{cond}_b.csv"
                 pd.DataFrame({"time": t, "val": a}).to_csv(pa, index=False)
                 pd.DataFrame({"time": t, "val": b}).to_csv(pb, index=False)
-                rows.append((f"d{i:02d}", "EDA", cond, str(pa), str(pb), 1.0, ""))
+                rows.append((
+                    f"d{i:02d}", "EDA", cond, str(pa), str(pb), 1.0,
+                    "EDA_envelope", "z_score", str(provenance), "",
+                ))
         man = tmp_path / "manifest.csv"
         pd.DataFrame(
             rows,
-            columns=["dyad_id", "modality", "condition", "person_a_path", "person_b_path", "hz", "mask_path"],
+            columns=[
+                "dyad_id", "modality", "condition", "person_a_path", "person_b_path",
+                "hz", "signal_type", "unit", "preprocessing_path", "mask_path",
+            ],
         ).to_csv(man, index=False)
         cfg = tmp_path / "config.toml"
         cfg.write_text(
             "[analysis]\n"
             "window_size = 10\n"
             "contrast = ['rest', 'task']\n"
+            "primary_endpoint = 'peak_amplitude'\n"
+            "primary_modalities = ['EDA']\n"
             "eligibility_policy = 'raise'\n"
             "n_min_dyads = 4\n"
             "n_permutations = 100\n"

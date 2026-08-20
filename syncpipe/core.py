@@ -165,6 +165,7 @@ class AnalysisResults:
             dyad_id=d.get("dyad_id", "unknown"),
             dynamic_features=dyn_feat,
             dynamic_features_segmented=dyn_seg,
+            threshold_meta=d.get("threshold_meta", {}),
             score_view=d.get("score_view", []),
             diagnostics=d.get("diagnostics", []),
             parameters=d.get("parameters", {}),

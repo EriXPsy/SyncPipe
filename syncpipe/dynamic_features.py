@@ -45,6 +45,7 @@ import logging
 import warnings
 
 from .surrogate import iaaft_surrogate, ft_surrogate, prtf_surrogate  # noqa: F401  # re-export
+from .preparation import resolve_signal_geometry
 
 # Feature math lives in feature_definitions (SSoT); re-export DynamicFeatures
 # for backward-compatible imports (syncpipe.DynamicFeatures, core.py, etc.)
@@ -567,6 +568,76 @@ _NULL_MODEL_L0: frozenset = frozenset((
 _NULL_MODEL_L1: frozenset = frozenset(("dwell_time", "switching_rate"))
 
 
+def _prepare_iaaft_segments(
+    sig_A: np.ndarray,
+    sig_B: np.ndarray,
+    *,
+    window_size: int,
+    discontinuity_mask: Optional[np.ndarray] = None,
+    min_segment_samples: Optional[int] = None,
+) -> Tuple[List[Tuple[int, int]], np.ndarray, Dict[str, Any]]:
+    """Resolve finite contiguous segments eligible for signal-level IAAFT.
+
+    NaN/Inf positions and explicit discontinuities are hard boundaries. Short
+    runs are excluded rather than joined or imputed. The default floor ensures
+    every retained segment has at least 20 WCC positions and at least 50 raw
+    samples, matching the historical signal-level eligibility floor.
+    """
+    a = np.asarray(sig_A, dtype=float)
+    b = np.asarray(sig_B, dtype=float)
+    if int(window_size) != window_size or window_size < 2:
+        raise ValueError("window_size must be an integer >= 2")
+    minimum = (
+        max(50, int(window_size) + 19)
+        if min_segment_samples is None else int(min_segment_samples)
+    )
+    if minimum < max(4, int(window_size)):
+        raise ValueError("min_segment_samples must be >= max(4, window_size)")
+
+    geometry = resolve_signal_geometry(a, b, discontinuity_mask)
+    all_runs = geometry.segments
+    runs = list(geometry.segments_at_least(minimum))
+    eligible = np.zeros(a.size, dtype=bool)
+    for start, end in runs:
+        eligible[start:end] = True
+
+    diagnostics = {
+        "mode": "segment_wise_iaaft" if len(all_runs) > 1 or not geometry.analysis_mask.all() else "whole_series_iaaft",
+        "min_segment_samples": minimum,
+        "n_segments_total": len(all_runs),
+        "n_segments_used": len(runs),
+        "n_segments_excluded_short": len(all_runs) - len(runs),
+        "segment_lengths_used": [end - start for start, end in runs],
+        "n_samples_total": int(a.size),
+        "n_samples_jointly_finite": int(geometry.joint_finite_mask.sum()),
+        "n_samples_eligible": int(eligible.sum()),
+        "eligible_fraction": float(eligible.mean()) if eligible.size else 0.0,
+    }
+    return runs, eligible, diagnostics
+
+
+def _segmentwise_wcc(
+    sig_A: np.ndarray,
+    sig_B: np.ndarray,
+    runs: Sequence[Tuple[int, int]],
+    *,
+    window_size: int,
+    hz: float,
+    window_type: str,
+) -> np.ndarray:
+    """Compute WCC only inside declared contiguous segments on the full axis."""
+    a = np.asarray(sig_A, dtype=float)
+    b = np.asarray(sig_B, dtype=float)
+    out = np.full(max(0, a.size - window_size + 1), np.nan, dtype=float)
+    for start, end in runs:
+        segment = sliding_window_wcc(
+            a[start:end], b[start:end], window_size=window_size,
+            hz=hz, window_type=window_type,
+        )
+        out[start:start + segment.size] = segment
+    return out
+
+
 def _signal_level_surrogate_test(
     sig_A: np.ndarray,
     sig_B: np.ndarray,
@@ -578,6 +649,7 @@ def _signal_level_surrogate_test(
     wcc_window_size: Optional[int] = None,
     window_type: str = "rect",
     discontinuity_mask: Optional[np.ndarray] = None,
+    min_segment_samples: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Signal-level IAAFT null for L0 features.
 
@@ -642,9 +714,6 @@ def _signal_level_surrogate_test(
     wcc_valid = wcc[valid_mask]
     n_valid = len(wcc_valid)
 
-    if n_valid < 20:
-        return _empty_result(f"WCC too short ({n_valid}<20 samples)")
-
     sig_A = np.asarray(sig_A, dtype=float)
     sig_B = np.asarray(sig_B, dtype=float)
     if len(sig_A) < 50 or len(sig_B) < 50:
@@ -661,6 +730,29 @@ def _signal_level_surrogate_test(
             "Pass wcc_window_size explicitly to avoid this.",
             wcc_window_size,
         )
+
+    runs, _, segment_info = _prepare_iaaft_segments(
+        sig_A, sig_B,
+        window_size=wcc_window_size,
+        discontinuity_mask=discontinuity_mask,
+        min_segment_samples=min_segment_samples,
+    )
+    eligible_wcc = _segmentwise_wcc(
+        sig_A, sig_B, runs,
+        window_size=wcc_window_size, hz=hz, window_type=window_type,
+    )
+    n_eligible_wcc = int(np.isfinite(eligible_wcc).sum())
+    segment_info["n_wcc_points_eligible"] = n_eligible_wcc
+    if n_eligible_wcc < 20:
+        empty = _empty_result(
+            f"Segment-wise WCC too short ({n_eligible_wcc}<20 eligible samples)"
+        )
+        empty["segmentation"] = segment_info
+        return empty
+    if n_valid < 20:
+        empty = _empty_result(f"Observed WCC too short ({n_valid}<20 samples)")
+        empty["segmentation"] = segment_info
+        return empty
 
     # P0-1 fix (2026-07-22): L0 peak MUST match SSoT peak_amplitude
     # (3-point boxcar smoothed argmax), NOT raw np.max.  Using raw max
@@ -685,14 +777,18 @@ def _signal_level_surrogate_test(
     null_bc = np.full(surrogate_n, np.nan)
 
     for i in range(surrogate_n):
-        # Signal-level IAAFT: shuffle raw signals, then recompute WCC
-        A_s = iaaft_surrogate(sig_A, rng=rng)
-        B_s = iaaft_surrogate(sig_B, rng=rng)
-        wcc_s = sliding_window_wcc(A_s, B_s, window_size=wcc_window_size, hz=hz, window_type=window_type)
-        # Gate the SAME discontinuity windows as the observed WCC so the null
-        # distribution is computed over an identical set of valid windows.
-        # Without this, boundary windows inflate the null and bias p-values.
-        wcc_s = _apply_discontinuity_mask(wcc_s, discontinuity_mask, wcc_window_size)
+        # Generate A/B IAAFT independently INSIDE each eligible contiguous
+        # segment. NaN gaps and session seams remain fixed on the original time
+        # axis; no surrogate can borrow spectrum or samples across a boundary.
+        A_s = np.full(sig_A.size, np.nan, dtype=float)
+        B_s = np.full(sig_B.size, np.nan, dtype=float)
+        for start, end in runs:
+            A_s[start:end] = iaaft_surrogate(sig_A[start:end], rng=rng)
+            B_s[start:end] = iaaft_surrogate(sig_B[start:end], rng=rng)
+        wcc_s = _segmentwise_wcc(
+            A_s, B_s, runs,
+            window_size=wcc_window_size, hz=hz, window_type=window_type,
+        )
         wcc_s_valid = wcc_s[np.isfinite(wcc_s)]
         if len(wcc_s_valid) < 10:
             continue  # null_mean[i]/null_peak[i]/null_bc[i] remain NaN
@@ -706,13 +802,15 @@ def _signal_level_surrogate_test(
     # Each feature gets its OWN finite mask, count, and slice — a
     # degenerate bimodality_coefficient draw must not borrow
     # null_mean's denominator or alignment.
-    def _phipson_smyth_p(null_arr: np.ndarray, obs_val: float) -> Tuple[float, np.ndarray, int]:
+    def _phipson_smyth_p(
+        null_arr: np.ndarray, obs_val: float
+    ) -> Tuple[float, np.ndarray, int, float]:
         finite_null = null_arr[np.isfinite(null_arr)]
         n = finite_null.size
         if n < int(surrogate_n * 0.8):
             logger.warning(f"Only {n}/{surrogate_n} valid surrogates for this feature")
         if n == 0 or not np.isfinite(obs_val):
-            return 1.0, finite_null, 0
+            return 1.0, finite_null, 0, float("nan")
         # Two-tailed Phipson-Smyth (BUG-4 fix): unify L0 with the L1
         # _wcc_level_surrogate_test, which already uses this conservative
         # two-tailed form.  An upper-tail was methodologically arguable for
@@ -721,12 +819,36 @@ def _signal_level_surrogate_test(
         # consistent choice and matches tests/validation/test_per_feature_significance.py.
         p_ge = (np.sum(finite_null >= obs_val) + 1) / (n + 1)
         p_le = (np.sum(finite_null <= obs_val) + 1) / (n + 1)
-        p = float(min(1.0, 2.0 * min(p_ge, p_le)))
-        return p, finite_null, n
+        tail_probability = float(min(p_ge, p_le))
+        p = float(min(1.0, 2.0 * tail_probability))
+        return p, finite_null, n, tail_probability
 
-    p_mean, null_mean_valid, n_mean = _phipson_smyth_p(null_mean, obs_mean)
-    p_peak, null_peak_valid, n_peak = _phipson_smyth_p(null_peak, obs_peak)
-    p_bc, null_bc_valid, n_bc = _phipson_smyth_p(null_bc, obs_bc)
+    p_mean, null_mean_valid, n_mean, q_mean = _phipson_smyth_p(null_mean, obs_mean)
+    p_peak, null_peak_valid, n_peak, q_peak = _phipson_smyth_p(null_peak, obs_peak)
+    p_bc, null_bc_valid, n_bc, q_bc = _phipson_smyth_p(null_bc, obs_bc)
+
+    def _mc_precision(n: int, tail_probability: float) -> Dict[str, float]:
+        if n <= 0 or not np.isfinite(tail_probability):
+            return {
+                "n_valid_surrogates": int(n),
+                "min_attainable_two_sided_p": float("nan"),
+                "approx_monte_carlo_se": float("nan"),
+            }
+        # The reported p is two-sided (= 2 * smaller tail), hence both the
+        # minimum attainable p and the MCSE carry a factor of two.
+        return {
+            "n_valid_surrogates": int(n),
+            "min_attainable_two_sided_p": float(min(1.0, 2.0 / (n + 1))),
+            "approx_monte_carlo_se": float(
+                2.0 * np.sqrt(tail_probability * (1.0 - tail_probability) / n)
+            ),
+        }
+
+    precision = {
+        "mean_synchrony": _mc_precision(n_mean, q_mean),
+        "peak_amplitude": _mc_precision(n_peak, q_peak),
+        "bimodality_coefficient": _mc_precision(n_bc, q_bc),
+    }
 
     # Per-feature significance — callers (e.g. InferencePipeline.run_full_cascade)
     # need per-feature pass rates to track frozen primary endpoints
@@ -754,6 +876,8 @@ def _signal_level_surrogate_test(
         "null_model": "signal_level_iaaft",
         "per_feature_significant": per_feature_significant,
         "alpha": alpha,
+        "surrogate_precision": precision,
+        "segmentation": segment_info,
         "notes": "",
     }
 
@@ -962,6 +1086,7 @@ def wcc_surrogate_test(
     block_size: Optional[int] = None,
     threshold: float = ONSET_THRESHOLD,
     discontinuity_mask: Optional[np.ndarray] = None,
+    min_segment_samples: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Test significance of WCC features using surrogate data.
@@ -1029,6 +1154,7 @@ def wcc_surrogate_test(
             wcc_window_size=wcc_window_size,
             window_type=window_type,
             discontinuity_mask=discontinuity_mask,
+            min_segment_samples=min_segment_samples,
         )
     else:
         # WCC-LEVEL null (correct for L1 features)

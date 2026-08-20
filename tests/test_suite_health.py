@@ -36,7 +36,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 
 # Recorded 2026-08-02. Any consolidation or rename MUST update both this and
 # tests/README.md — changing the baseline is a reviewed act, not a side effect.
-_EXPECTED_COLLECTED = 481
+_EXPECTED_COLLECTED = 521
 # 2026-08-02: 4 tests promoted from the nightly slow layer to the PR gate
 # (whole-cascade summary, L2 kwarg names, L1 denominator, cross-process seed
 # stability), so slow went 59 -> 55 and not-slow 447 -> 451.
@@ -53,18 +53,31 @@ _EXPECTED_COLLECTED = 481
 # second-order group surrogate test added one net test (469 -> 470,
 # not-slow 414 -> 415). The autocorrelation-robustness validation added 5 tests
 # (470 -> 475, not-slow 415 -> 420). The envelope exporter added 6 tests
-# (475 -> 481, not-slow 420 -> 426).
-_EXPECTED_SLOW = 55
-_EXPECTED_NOT_SLOW = 426
+# (475 -> 481, not-slow 420 -> 426). Robustness hardening added 3 fast tests
+# (481 -> 484, not-slow 426 -> 429). Peak-duration and discriminant-validity
+# validation added 12 slow tests plus one suite-health path case for the new
+# module (484 -> 497, slow 55 -> 67, not-slow 429 -> 430). Explicit canonical
+# endpoint/modality declarations added 4 fast contracts (497 -> 501,
+# not-slow 430 -> 434). Segment-wise IAAFT added one fast contract
+# (501 -> 502, not-slow 434 -> 435). Canonical schema/provenance contracts
+# added 2 fast tests (502 -> 504, not-slow 435 -> 437). Typed AnalysisSpec
+# immutability added one fast contract (504 -> 505, not-slow 437 -> 438).
+# Prepared-observation geometry added 2 tests plus one suite-health path case
+# (505 -> 508, not-slow 438 -> 441). Typed preparation exclusions added one
+# fast contract (508 -> 509, not-slow 441 -> 442). Typed evidence claim
+# propagation added 3 fast contracts (509 -> 512, not-slow 442 -> 445).
+# v1-to-v2 migration added 3 tests plus one suite-health path case
+# (512 -> 516, not-slow 445 -> 449). External validation kit added 3 tests
+# plus one suite-health path case (516 -> 520, not-slow 449 -> 453).
+# Evidence-resolution governance added one fast contract
+# (520 -> 521, not-slow 453 -> 454).
+_EXPECTED_SLOW = 67
+_EXPECTED_NOT_SLOW = 454
 
 # Module-level Path constants that are legitimately allowed not to exist
 # (e.g. output paths written during a test run). Keyed by "module:attribute"
 # so each exemption is explicit and reviewable.
-_ALLOWED_MISSING_PATHS: dict[str, str] = {
-    "tests.unit.test_api_core:OUT_CSV": (
-        "output of the reproduce script; absent until that test has run"
-    ),
-}
+_ALLOWED_MISSING_PATHS: dict[str, str] = {}
 
 
 def _test_modules() -> list[str]:

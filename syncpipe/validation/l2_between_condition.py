@@ -20,7 +20,8 @@ Method
 ------
 1. For each feature k, compute observed Δ_k = median(C1) - median(C2)
 2. Permute condition labels within each dyad (swap C1↔C2), recompute Δ
-3. Phipson-Smyth p-value: p = (|Δ_perm| >= |Δ_obs| + 1) / (n_perm + 1)
+3. Exact p = n_extreme/N for exhaustive enumeration; Phipson-Smyth
+   p = (n_extreme+1)/(n_perm+1) for Monte-Carlo permutations
 4. BH-FDR across the frozen PRIMARY confirmatory family (SyncPipe v1
    default = 1 primary descriptor, peak_amplitude; SECONDARY descriptors are
    reported in parallel with their own small-family correction)
@@ -52,6 +53,7 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from scipy.stats import binom
 
 from ..batch import _bh_fdr_correction, dedupe_fdr_input
 from ..feature_definitions import (
@@ -75,7 +77,7 @@ def _bh_fdr(p_values: np.ndarray) -> np.ndarray:
 
 # Threshold (in #dyads) below which we enumerate *all* 2^n sign-flip
 # combinations exactly, matching design_controls._paired_signflip_p_upper.
-# For n=4 this gives a true null of 16 points (p resolution 1/17 ≈ 0.059)
+# For n=4 this gives a true null of 16 points (exact probability grid 1/16)
 # instead of the spurious 1/10001 implied by Monte-Carlo with n_permutations.
 _ENUM_THRESHOLD = 12
 
@@ -118,19 +120,53 @@ def _definedness_null(is_def_a: np.ndarray, is_def_b: np.ndarray,
     return p_a.sum(axis=1) - p_b.sum(axis=1)
 
 
-def _exact_p(obs: float, null: np.ndarray) -> float:
-    """Phipson-Smyth (2010) two-tailed p from a (possibly exhaustive) null.
+def _permutation_p(
+    obs: float, null: np.ndarray, *, exhaustive: bool = False
+) -> float:
+    """Two-tailed permutation p-value with the correct sampling denominator.
 
-    p = (|null| >= |obs| + 1) / (N + 1), where N = len(null).  Works for
-    both the exhaustive (N = 2^n) and Monte-Carlo (N = n_permutations) nulls.
+    Exhaustive enumeration already contains every assignment, including the
+    observed arrangement, so its exact p-value is ``n_extreme / N``. For a
+    Monte-Carlo sample of assignments, the Phipson-Smyth correction
+    ``(n_extreme + 1) / (N + 1)`` prevents zero p-values. Mixing these formulas
+    makes a complete enumeration no longer exact.
     """
     null = np.asarray(null, dtype=float)
-    finite = np.isfinite(null)
-    null_fin = null[finite]
-    if null_fin.size == 0:
+    null_fin = null[np.isfinite(null)]
+    if null_fin.size == 0 or not np.isfinite(obs):
         return 1.0
-    n_ge = np.sum(np.abs(null_fin) >= np.abs(obs))
+    n_ge = int(np.sum(np.abs(null_fin) >= np.abs(obs)))
+    if exhaustive:
+        return float(min(n_ge / null_fin.size, 1.0))
     return float(min((n_ge + 1) / (null_fin.size + 1), 1.0))
+
+
+def _exact_median_interval(
+    differences: np.ndarray, confidence: float = 0.95
+) -> Tuple[float, float, bool]:
+    """Distribution-free sign-test interval for the population median.
+
+    The paired differences are ordered and the interval indices are selected
+    from the exact Binomial(n, .5) distribution. Very small samples may not
+    support a finite interval at the requested confidence; those cases return
+    NaN bounds with ``bounded=False`` rather than pretending that min/max is a
+    95% interval.
+    """
+    x = np.sort(np.asarray(differences, dtype=float))
+    x = x[np.isfinite(x)]
+    if x.size == 0 or not 0.0 < confidence < 1.0:
+        return float("nan"), float("nan"), False
+    alpha_half = (1.0 - confidence) / 2.0
+    # k is one-indexed for [x_(k), x_(n-k+1)]. Choose the largest k whose
+    # lower-tail probability does not exceed alpha/2.
+    admissible = [
+        k for k in range(1, x.size // 2 + 1)
+        if binom.cdf(k - 1, x.size, 0.5) <= alpha_half
+    ]
+    if not admissible:
+        return float("nan"), float("nan"), False
+    k = max(admissible)
+    return float(x[k - 1]), float(x[x.size - k]), True
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -175,6 +211,15 @@ class L2Result:
         Number of dyads where this feature is defined in condition_b.
     p_definedness : float
         P-value for the difference in definedness rates between conditions.
+    median_ci_low, median_ci_high : float
+        Distribution-free sign-test interval for the population median paired
+        difference. NaN when the requested 95% interval is unbounded at the
+        available sample size.
+    permutation_method : str
+        ``exact_sign_flip`` or ``monte_carlo_sign_flip``.
+    min_attainable_p, approx_monte_carlo_se : float
+        P-value resolution and simulation uncertainty; MCSE is zero for exact
+        enumeration.
     """
     feature: str
     condition_a: str
@@ -192,6 +237,17 @@ class L2Result:
     p_definedness: float = 1.0
     definedness_status: str = "complete"
     claimable: bool = True
+    difference_q25: float = float("nan")
+    difference_q75: float = float("nan")
+    median_ci_low: float = float("nan")
+    median_ci_high: float = float("nan")
+    median_ci_confidence: float = 0.95
+    median_ci_bounded: bool = False
+    median_ci_method: str = "exact_sign_test"
+    permutation_method: str = "not_run"
+    n_null_draws: int = 0
+    min_attainable_p: float = float("nan")
+    approx_monte_carlo_se: float = float("nan")
 
     @property
     def cohens_d(self) -> float:
@@ -530,7 +586,11 @@ def between_condition_fdr(
         # discrete p-value resolution (see _definedness_null).
         def_diff_obs = def_a_count - def_b_count
         def_null_diffs = _definedness_null(is_def_a, is_def_b, n_permutations, rng)
-        p_def = _exact_p(def_diff_obs, def_null_diffs)
+        p_def = _permutation_p(
+            def_diff_obs,
+            def_null_diffs,
+            exhaustive=n_dyads <= _ENUM_THRESHOLD,
+        )
         min_rate = min(def_a_count, def_b_count) / max(n_dyads, 1)
         informative_undefinedness = (p_def < alpha) or (min_rate < min_defined_fraction)
         definedness_status = "informative_undefinedness" if informative_undefinedness else "complete"
@@ -566,17 +626,38 @@ def between_condition_fdr(
         b_fin = vals_b[valid]
         n = len(a_fin)
 
-        # Observed difference (median paired)
-        observed_diff = float(np.median(a_fin - b_fin))
+        # Observed effect in the descriptor's original units.
+        paired_diffs = a_fin - b_fin
+        observed_diff = float(np.median(paired_diffs))
+        difference_q25, difference_q75 = np.quantile(paired_diffs, [0.25, 0.75])
+        ci_low, ci_high, ci_bounded = _exact_median_interval(
+            paired_diffs, confidence=0.95
+        )
 
         # Permutation null: median over all dyad sign-flips. Exact enumeration
         # when n <= _ENUM_THRESHOLD (honest discrete resolution); otherwise
         # Monte-Carlo with n_permutations.
-        null_diffs = _signflip_null(a_fin - b_fin, n_permutations, rng)
+        exhaustive = n <= _ENUM_THRESHOLD
+        null_diffs = _signflip_null(paired_diffs, n_permutations, rng)
 
         null_mean = float(np.mean(null_diffs))
         null_sd = float(np.std(null_diffs, ddof=1))
-        p_raw = _exact_p(observed_diff, null_diffs)
+        p_raw = _permutation_p(
+            observed_diff,
+            null_diffs,
+            exhaustive=exhaustive,
+        )
+        n_null_draws = int(len(null_diffs))
+        if exhaustive:
+            permutation_method = "exact_sign_flip"
+            min_attainable_p = float(min(1.0, 2.0 / n_null_draws))
+            p_monte_carlo_se = 0.0
+        else:
+            permutation_method = "monte_carlo_sign_flip"
+            min_attainable_p = float(1.0 / (n_null_draws + 1))
+            p_monte_carlo_se = float(
+                np.sqrt(p_raw * (1.0 - p_raw) / n_null_draws)
+            )
         cohens_d = observed_diff / null_sd if null_sd > 1e-10 else np.nan
 
         results.append(L2Result(
@@ -596,6 +677,16 @@ def between_condition_fdr(
             p_definedness=p_def,
             definedness_status=definedness_status,
             claimable=claimable,
+            difference_q25=float(difference_q25),
+            difference_q75=float(difference_q75),
+            median_ci_low=ci_low,
+            median_ci_high=ci_high,
+            median_ci_confidence=0.95,
+            median_ci_bounded=ci_bounded,
+            permutation_method=permutation_method,
+            n_null_draws=n_null_draws,
+            min_attainable_p=min_attainable_p,
+            approx_monte_carlo_se=p_monte_carlo_se,
         ))
 
     # ── BH-FDR, stratified by SSoT FDR family ──────────────────────────
@@ -646,6 +737,17 @@ def between_condition_fdr(
             "p_fdr": r.p_fdr,
             "significant_05": r.significant_05,
             "perm_effect_size": r.perm_effect_size,
+            "difference_q25": r.difference_q25,
+            "difference_q75": r.difference_q75,
+            "median_ci_low": r.median_ci_low,
+            "median_ci_high": r.median_ci_high,
+            "median_ci_confidence": r.median_ci_confidence,
+            "median_ci_bounded": r.median_ci_bounded,
+            "median_ci_method": r.median_ci_method,
+            "permutation_method": r.permutation_method,
+            "n_null_draws": r.n_null_draws,
+            "min_attainable_p": r.min_attainable_p,
+            "approx_monte_carlo_se": r.approx_monte_carlo_se,
             "n_dyads": r.n_dyads,
             "defined_a": r.defined_a,
             "defined_b": r.defined_b,

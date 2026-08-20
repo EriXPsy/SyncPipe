@@ -1,5 +1,9 @@
 # SyncPipe v1.0 — Frozen Scientific Protocol
 
+> **Software note:** package 2.0.0 implements this locked v1 scientific protocol
+> under a breaking typed manifest/config architecture. Protocol version and
+> software API version are intentionally independent.
+
 > **Status:** Frozen Draft v1.0 (for maintainer ratification)  
 > **Baseline:** v1.0 frozen state + observation-opportunity audit hardening  
 > **Test baseline:** see `tests/README.md` (enforced by `tests/test_suite_health.py`)  
@@ -159,6 +163,9 @@ These conditions **fail loud** (no silent imputation, no silent positive):
 | `hz` mismatch between paired records | raise |
 | mask length mismatch | raise |
 | ambiguous signal column in bridge input | raise |
+| missing/malformed preprocessing provenance or signal type/unit mismatch | raise before participant-level exclusions |
+| `+/-Inf` in either signal | raise |
+| NaN / seam in signal-level IAAFT input | segment-wise IAAFT on eligible finite contiguous runs; short fragments excluded; L0 fails if fewer than 20 eligible WCC points remain |
 | `n_valid_wcc_points` below defined floor | governed by `observation_policy` / `eligibility_policy` |
 | unequal observation opportunity **across conditions** | `raise` (or `warn`) per `observation_policy` |
 | unequal observation opportunity **within a dyad-condition cell** (trial-length variation) | detected and `raise` (or `warn`) per `observation_policy` |
@@ -256,9 +263,13 @@ alongside but do not decide the gate.
 `PRIMARY_EXISTENCE_MODALITIES` is **dataset-specific** (the default is the
 Lerique ECG/EDA/RESP composition). Datasets with a different channel
 composition MUST declare their own primary set via
-`SyncPipeConfig.primary_modalities` **before** looking at results; leaving it
-`None` inherits the Lerique default. The parameters are recorded in the run
-config and report, so the declared set is auditable after the fact.
+`SyncPipeConfig.primary_modalities` **before** looking at results. The canonical
+runner rejects a missing declaration and rejects labels absent from the
+manifest; it never inherits the Lerique default silently. The parameters are
+recorded in the resolved config and report, so the declared set is auditable
+after the fact. The canonical endpoint must likewise be declared explicitly;
+v1 currently accepts only `peak_amplitude` because other descriptors do not yet
+have a validated signal-level existence null.
 
 ### FDR and governance parameters (must be explicit in every run)
 
@@ -269,10 +280,14 @@ config and report, so the declared set is auditable after the fact.
 - `n_min_dyads`: minimum dyads for a claimable inference (default 10).
 - `threshold` / `discontinuity_masks`: per-pair / per-modality mapping must be recorded.
 
-### Claim ceiling (stage_status)
+### Claim ceiling (typed evidence graph)
 
-Every L2 result carries `definedness_status`, `claimable`, `eligibility_status`,
-and `stage_status`. A result is confirmatory **only if** all gates pass.
+Every L2 result carries `definedness_status`, `claimable`, and
+`eligibility_status`; construct-level E0–E5 statuses live in the typed evidence
+profile. A result is confirmatory **only if** its L2 gates pass, while its
+construct interpretation remains bounded by the independent evidence profile.
+Legacy `stage_status`/`claim_ceiling` fields are deprecated compatibility views
+scheduled for removal in software 3.0.
 
 ---
 
@@ -309,10 +324,11 @@ If any answer is missing, the element is **not** frozen into v1.
 
 ## 13. Known limitations not papered over in v1
 
-- **Peak-duration bias:** handled by reporting observation metadata + strict
-  rejection of unequal length. A duration-aware peak correction is **deferred**
-  pending independent simulation validation (no maximum-statistic correction
-  silently added).
+- **Peak-duration bias:** unequal observation opportunity is rejected or
+  flagged, and `scripts/run_peak_duration_validation.py` quantifies null-peak
+  inflation and duration-matched block dependability. No duration correction is
+  silently applied: the validation diagnoses the bias but does not establish a
+  universally valid correction for an endpoint maximum.
 - **NaN / dropout policy:** hard NaN-ratio guard exists; the methodologic
   decision (dropout vs segment-seam distinction, minimum finite WCC points,
   per-finite-segment computation, whether dwell may cross short dropouts) is

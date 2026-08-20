@@ -7,9 +7,24 @@ def test_syncpipe_namespace_exposes_v1_public_api():
     import syncpipe as sp
 
     for name in [
+        "analyze",
+        "make_example",
         "Dyad",
         "DynamicAnalyzer",
         "InferencePipeline",
+        "AnalysisSpec",
+        "EndpointSpec",
+        "PreparedObservation",
+        "PreparedCohort",
+        "EvidenceChain",
+        "EvidenceStageResult",
+        "EvidenceProfile",
+        "ClaimDecision",
+        "migrate_v1_project",
+        "create_external_validation_kit",
+        "audit_external_bundle",
+        "MANIFEST_SCHEMA_VERSION",
+        "EVIDENCE_SCHEMA_VERSION",
         "feature_status_table",
         "feature_status_latex",
         "explain_feature",
@@ -84,7 +99,6 @@ import pytest
 # run it was ever collected in.
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "reproduce_lerique_paper.py"
-OUT_CSV = ROOT / "artifacts" / "paper_lerique" / "reproduce_fast_features.csv"
 
 
 @pytest.mark.slow
@@ -92,12 +106,13 @@ OUT_CSV = ROOT / "artifacts" / "paper_lerique" / "reproduce_fast_features.csv"
     not SCRIPT.exists(),
     reason="reproduce_lerique_paper.py not present",
 )
-def test_reproduce_fast_smoke():
+def test_reproduce_fast_smoke(tmp_path):
     """--fast must run the canonical chain and emit a derived CSV."""
     assert SCRIPT.exists(), f"missing {SCRIPT}"
+    output_dir = tmp_path / "paper_lerique"
 
     proc = subprocess.run(
-        [sys.executable, str(SCRIPT), "--fast"],
+        [sys.executable, str(SCRIPT), "--fast", "--out-dir", str(output_dir)],
         cwd=str(ROOT),
         capture_output=True,
         text=True,
@@ -108,8 +123,9 @@ def test_reproduce_fast_smoke():
         f"reproduce_lerique_paper.py --fast exited {proc.returncode}\n"
         f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
     )
-    assert OUT_CSV.exists(), (
-        f"expected derived table not written: {OUT_CSV}\n"
+    out_csv = output_dir / "reproduce_fast_features.csv"
+    assert out_csv.exists(), (
+        f"expected derived table not written: {out_csv}\n"
         f"STDERR:\n{proc.stderr}"
     )
 
@@ -135,6 +151,15 @@ from syncpipe.batch import _bh_fdr_correction
 from syncpipe.core import AnalysisResults
 from syncpipe.feature_pipeline import list_features, recommend_features
 from syncpipe.report import ReportGenerator
+
+
+def test_analysis_results_roundtrip_preserves_threshold_metadata():
+    original = AnalysisResults(
+        dyad_id="d1",
+        threshold_meta={"eda__pair": {"mode": "session_pooled", "threshold": 0.61}},
+    )
+    restored = AnalysisResults.from_dict(original.to_dict())
+    assert restored.threshold_meta == original.threshold_meta
 
 
 # ---------------------------------------------------------------------------

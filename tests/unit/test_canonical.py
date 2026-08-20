@@ -6,6 +6,7 @@ Covers manifest/config parsing contracts, the 12-file report bundle,
 exclusion accounting, and the eligibility governance floor.
 """
 import json
+from dataclasses import FrozenInstanceError
 
 import numpy as np
 import pandas as pd
@@ -13,6 +14,9 @@ import pytest
 from pathlib import Path
 
 from syncpipe.canonical_runner import (
+    AnalysisSpec,
+    SyncPipeConfig,
+    load_schema,
     parse_config,
     parse_manifest,
     run_canonical,
@@ -22,7 +26,7 @@ EXPECTED_BUNDLE = [
     "manifest_resolved.json", "config_resolved.toml", "environment.json",
     "qc_report.json", "exclusion_report.csv", "features.csv",
     "existence_audit.json", "design_control_audit.json",
-    "group_inference.json", "claimability.json", "REPORT.md",
+    "group_inference.json", "evidence_graph.json", "claimability.json", "REPORT.md",
 ]
 
 
@@ -37,6 +41,14 @@ def _fmt(v):
 def _write_cohort(root: Path, n_dyads: int = 4) -> Path:
     sigdir = root / "data"
     sigdir.mkdir(exist_ok=True)
+    provenance = root / "preprocessing.json"
+    provenance.write_text(json.dumps({
+        "schema_version": "1.0.0",
+        "signal_type": "EDA_envelope",
+        "output_unit": "z_score",
+        "software": {"name": "test-preprocessor", "version": "1.0"},
+        "steps": [{"name": "synthetic_generation", "parameters": {}}],
+    }), encoding="utf-8")
     rng = np.random.default_rng(7)
     n = 240
     t = np.arange(n, dtype=float)
@@ -50,11 +62,17 @@ def _write_cohort(root: Path, n_dyads: int = 4) -> Path:
             pb = sigdir / f"d{i:03d}_{cond}_b.csv"
             pd.DataFrame({"time": t, "val": a}).to_csv(pa, index=False)
             pd.DataFrame({"time": t, "val": b}).to_csv(pb, index=False)
-            rows.append((f"d{i:03d}", "EDA", cond, str(pa), str(pb), 1.0, ""))
+            rows.append((
+                f"d{i:03d}", "EDA", cond, str(pa), str(pb), 1.0,
+                "EDA_envelope", "z_score", str(provenance), "",
+            ))
     man = root / "manifest.csv"
     pd.DataFrame(
         rows,
-        columns=["dyad_id", "modality", "condition", "person_a_path", "person_b_path", "hz", "mask_path"],
+        columns=[
+            "dyad_id", "modality", "condition", "person_a_path", "person_b_path",
+            "hz", "signal_type", "unit", "preprocessing_path", "mask_path",
+        ],
     ).to_csv(man, index=False)
     return man
 
@@ -63,6 +81,8 @@ def _write_config(root: Path, **over) -> Path:
     cfg = {
         "window_size": 20,
         "contrast": ["rest", "task"],
+        "main_measure": "peak_amplitude",
+        "main_modalities": ["EDA"],
         "fdr_scope": "global",
         "undefined_policy": "gate",
         "observation_policy": "raise",
@@ -92,11 +112,15 @@ class TestParseManifest:
         man = tmp_path / "m.csv"
         pd.DataFrame([
             {"dyad_id": "d1", "modality": "EDA", "condition": "rest",
-             "person_a_path": "a", "person_b_path": "b", "hz": 1.0},
+             "person_a_path": "a", "person_b_path": "b", "hz": 1.0,
+             "signal_type": "EDA_envelope", "unit": "z_score",
+             "preprocessing_path": "preprocessing.json"},
             {"dyad_id": "d2", "modality": "EDA", "condition": "task",
-             "person_a_path": "a", "person_b_path": "b", "hz": 2.0},
+             "person_a_path": "a", "person_b_path": "b", "hz": 2.0,
+             "signal_type": "EDA_envelope", "unit": "z_score",
+             "preprocessing_path": "preprocessing.json"},
         ]).to_csv(man, index=False)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="hz must be uniform"):
             parse_manifest(man)
 
     def test_parses_ok(self, tmp_path):
@@ -110,6 +134,21 @@ class TestParseManifest:
         pd.DataFrame(columns=["dyad_id", "modality", "condition", "person_a_path", "person_b_path", "hz"]).to_csv(man, index=False)
         with pytest.raises(ValueError, match="at least one"):
             parse_manifest(man)
+
+    def test_packaged_schemas_load(self):
+        assert load_schema("config")["$schema"].endswith("2020-12/schema")
+        assert "preprocessing_path" in load_schema("manifest_record")["required"]
+        assert load_schema("preprocessing")["properties"]["steps"]["minItems"] == 1
+
+    def test_rejects_mismatched_preprocessing_provenance(self, tmp_path):
+        man = _write_cohort(tmp_path, n_dyads=4)
+        provenance = tmp_path / "preprocessing.json"
+        payload = json.loads(provenance.read_text(encoding="utf-8"))
+        payload["output_unit"] = "microsiemens"
+        provenance.write_text(json.dumps(payload), encoding="utf-8")
+        cfg = _write_config(tmp_path)
+        with pytest.raises(ValueError, match="output_unit does not match"):
+            run_canonical(man, cfg, tmp_path / "out")
 
     def test_rejects_duplicate_manifest_key(self, tmp_path):
         man = _write_cohort(tmp_path, n_dyads=1)
@@ -145,6 +184,40 @@ class TestParseConfig:
         assert c.eligibility_policy == "raise"
         assert c.n_min_dyads == 5
         assert c.resolved_contrast() == ("rest", "task")
+        assert c.resolved_primary_endpoint() == "peak_amplitude"
+        assert c.resolved_primary_modalities() == ("EDA",)
+
+    def test_analysis_spec_is_single_immutable_config_contract(self, tmp_path):
+        cfg = _write_config(tmp_path)
+        spec = parse_config(cfg)
+        assert isinstance(spec, AnalysisSpec)
+        assert SyncPipeConfig is AnalysisSpec
+        assert spec.resolved_endpoint_spec().null.name == "signal_level_segmentwise_iaaft"
+        with pytest.raises(FrozenInstanceError):
+            spec.window_size = 99
+
+    def test_requires_primary_endpoint(self, tmp_path):
+        cfg = _write_config(tmp_path)
+        text = cfg.read_text(encoding="utf-8").replace(
+            'main_measure = "peak_amplitude"\n', ""
+        )
+        cfg.write_text(text, encoding="utf-8")
+        with pytest.raises(ValueError, match="main_measure.*required"):
+            parse_config(cfg)
+
+    def test_requires_primary_modalities(self, tmp_path):
+        cfg = _write_config(tmp_path)
+        text = cfg.read_text(encoding="utf-8").replace(
+            'main_modalities = ["EDA"]\n', ""
+        )
+        cfg.write_text(text, encoding="utf-8")
+        with pytest.raises(ValueError, match="main_modalities.*required"):
+            parse_config(cfg)
+
+    def test_rejects_unsupported_primary_endpoint(self, tmp_path):
+        cfg = _write_config(tmp_path, main_measure="mean_synchrony")
+        with pytest.raises(ValueError, match="main_measure.*must be one of"):
+            parse_config(cfg)
 
     def test_rejects_bad_onset_string(self, tmp_path):
         cfg = _write_config(tmp_path, onset_threshold="bogus")
@@ -176,6 +249,12 @@ class TestRunCanonical:
         assert res.qc["total_rows"] == 8
         assert res.qc["included"] == 8
         assert res.qc["excluded"] == 0
+        assert res.qc["modality_roles"] == {"EDA": "primary"}
+        assert res.qc["endpoint_contract"]["null"] == "signal_level_segmentwise_iaaft"
+        report_text = (out / "REPORT.md").read_text(encoding="utf-8")
+        assert "## Bottom line" in report_text
+        assert "Measure compared:" in report_text
+        assert "Still not ruled out" in report_text
         # Vulnerability A: manifest_resolved must carry resolved absolute paths
         # and content hashes, not only the original relative strings.
         manifest_payload = json.loads((out / "manifest_resolved.json").read_text())
@@ -183,6 +262,15 @@ class TestRunCanonical:
         row0 = manifest_payload["rows"][0]
         assert Path(row0["person_a_path"]).is_absolute()
         assert row0["person_a_sha256"]
+        assert row0["preprocessing_sha256"]
+        assert row0["preprocessing"]["output_unit"] == "z_score"
+        assert manifest_payload["schema_ids"]["preprocessing"]
+
+    def test_rejects_primary_modality_absent_from_manifest(self, tmp_path):
+        man = _write_cohort(tmp_path, n_dyads=4)
+        cfg = _write_config(tmp_path, main_modalities=["ECG"])
+        with pytest.raises(ValueError, match="absent from the manifest"):
+            run_canonical(man, cfg, tmp_path / "out")
 
     def test_excludes_load_errors(self, tmp_path):
         man = _write_cohort(tmp_path, n_dyads=6)

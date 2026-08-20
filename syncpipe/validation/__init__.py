@@ -92,6 +92,18 @@ from .autocorr_robustness import (
     measure_power,
     run_autocorr_robustness,
 )
+from .peak_duration import (
+    moving_block_peak_stability,
+    duration_dependability_curve,
+    simulate_peak_duration_bias,
+)
+from .discriminant import (
+    SCENARIO_METADATA,
+    generate_discriminant_pair,
+    run_discriminant_benchmark,
+    exact_binomial_interval,
+    evaluate_discriminant_acceptance,
+)
 
 __all__ = [
     # Level 1
@@ -156,4 +168,14 @@ __all__ = [
     "measure_fpr",
     "measure_power",
     "run_autocorr_robustness",
+    # peak_amplitude duration/dependability validation
+    "moving_block_peak_stability",
+    "duration_dependability_curve",
+    "simulate_peak_duration_bias",
+    # adversarial discriminant-validity benchmark
+    "SCENARIO_METADATA",
+    "generate_discriminant_pair",
+    "run_discriminant_benchmark",
+    "exact_binomial_interval",
+    "evaluate_discriminant_acceptance",
 ]

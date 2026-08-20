@@ -85,6 +85,91 @@ def test_run_audited_evidence_chain_returns_summary():
     assert result["synchrony_existence"]["n_pairs"] == 1
     assert result["design_controls"] is not None
     assert result["group_condition_inference"] is not None
+    graph = result["evidence_graph"]
+    assert [stage["stage_id"] for stage in graph["stages"]] == [
+        "E0", "E1", "E2", "E3", "E4", "E5", "L2"
+    ]
+    assert graph["stages"][5]["status"] == "inconclusive"
+    assert "causal interpersonal coupling" in graph["decision"]["forbidden_claims"]
+    assert pipe.evidence_chain is not None
+
+def test_evidence_claim_propagation_stops_at_first_unsupported_stage():
+    from syncpipe.evidence import build_evidence_chain
+
+    graph = build_evidence_chain(
+        endpoint="peak_amplitude",
+        existence_gate={"primary_pass": True},
+        design={"feature_summary": {"peak_amplitude": {
+            "p_real_gt_pseudo": 0.40,
+            "p_real_gt_time_shift": 0.01,
+        }}},
+        across_stimulus=None,
+        group=None,
+        alpha=0.05,
+    )
+    assert graph.decision.highest_supported_stage == "E0"
+    assert graph.decision.blocked_by == ("E2", "E4", "E5")
+    assert graph.stage("E3").status.value == "supported"
+    # E3 cannot be promoted past unsupported E2.
+    assert "alignment-specific" not in graph.decision.permitted_claim
+
+
+def test_evidence_claim_propagation_reaches_e4_but_never_infers_e5():
+    from syncpipe.evidence import build_evidence_chain
+
+    graph = build_evidence_chain(
+        endpoint="peak_amplitude",
+        existence_gate={"primary_pass": True},
+        design={"feature_summary": {"peak_amplitude": {
+            "p_real_gt_pseudo": 0.01,
+            "p_real_gt_time_shift": 0.01,
+        }}},
+        across_stimulus={"results": {"peak_amplitude": {"p_value": 0.01}}},
+        group=None,
+        alpha=0.05,
+    )
+    assert graph.decision.highest_supported_stage == "E4"
+    assert graph.decision.blocked_by == ("E5",)
+    assert graph.stage("E5").status.value == "inconclusive"
+    assert graph.profile.supported == ("E0", "E2", "E3", "E4")
+    assert graph.decision.claimable_condition_difference is False
+
+
+def test_evidence_design_control_is_inconclusive_when_resolution_is_insufficient():
+    from syncpipe.evidence import build_evidence_chain
+
+    graph = build_evidence_chain(
+        endpoint="peak_amplitude",
+        existence_gate={"primary_pass": True},
+        design={"feature_summary": {"peak_amplitude": {
+            "p_real_gt_pseudo": 0.01,
+            "p_real_gt_time_shift": 0.01,
+            "n_real": 4,
+        }}},
+        across_stimulus=None,
+        group=None,
+        alpha=0.05,
+    )
+    assert graph.stage("E2").status.value == "inconclusive"
+    assert graph.stage("E3").status.value == "inconclusive"
+    assert graph.stage("E2").statistics["min_attainable_p"] == pytest.approx(1 / 16)
+
+
+def test_evidence_claim_propagation_blocks_all_claims_when_e0_fails():
+    from syncpipe.evidence import build_evidence_chain
+
+    graph = build_evidence_chain(
+        endpoint="peak_amplitude",
+        existence_gate={"primary_pass": False},
+        design=None,
+        across_stimulus=None,
+        group=None,
+        alpha=0.05,
+    )
+    assert graph.decision.highest_supported_stage == "none"
+    assert graph.decision.blocked_by == ("E0", "E2", "E3", "E4", "E5")
+    assert graph.decision.permitted_claim == "description of the observed co-movement only"
+
 
 # === source: test_cascade_summary_l2_path.py ===
 """Regression test for the _build_cascade_summary() NameError on the
@@ -425,6 +510,9 @@ def test_perm_effect_size_field_and_summary_column():
     assert isinstance(r.perm_effect_size, float)
     # summary_df column renamed (no longer "cohens_d").
     assert "perm_effect_size" in res["summary_df"].columns
+    assert "median_ci_low" in res["summary_df"].columns
+    assert "permutation_method" in res["summary_df"].columns
+    assert "approx_monte_carlo_se" in res["summary_df"].columns
     assert "cohens_d" not in res["summary_df"].columns
 
 
@@ -441,17 +529,21 @@ def test_cohens_d_attribute_deprecated():
 
 
 def test_small_n_exact_discrete_p_resolution():
-    """With n_dyads=4, the exact null has 2^4 = 16 points, so p_raw must be
-    a multiple of 1/17 (honest resolution), NOT 1/10001."""
+    """With n_dyads=4, exhaustive p_raw lies on the exact 1/16 grid."""
     df = _small_df(n_dyads=4)
     res = between_condition_fdr(
         df, feature_cols=["peak_amplitude"], n_permutations=10000, seed=2
     )
-    p_raw = res["per_feature"][0].p_raw
-    # p_raw = (n_ge + 1) / (16 + 1); check it lands on the 1/17 grid.
-    scaled = p_raw * 17.0
-    assert abs(scaled - round(scaled)) < 1e-9, f"p_raw={p_raw} not on 1/17 grid"
+    item = res["per_feature"][0]
+    p_raw = item.p_raw
+    scaled = p_raw * 16.0
+    assert abs(scaled - round(scaled)) < 1e-9, f"p_raw={p_raw} not on 1/16 grid"
     assert 0.0 <= p_raw <= 1.0
+    assert item.permutation_method == "exact_sign_flip"
+    assert item.n_null_draws == 16
+    assert item.min_attainable_p == pytest.approx(2 / 16)
+    assert item.approx_monte_carlo_se == 0.0
+    assert item.median_ci_bounded is False
 
 
 def test_large_n_still_runs():
@@ -461,7 +553,14 @@ def test_large_n_still_runs():
         df, feature_cols=["peak_amplitude"], n_permutations=2000, seed=3
     )
     assert res["n_dyads"] == 20
-    assert np.isfinite(res["per_feature"][0].p_raw)
+    item = res["per_feature"][0]
+    assert np.isfinite(item.p_raw)
+    assert item.permutation_method == "monte_carlo_sign_flip"
+    assert item.n_null_draws == 2000
+    assert item.min_attainable_p == pytest.approx(1 / 2001)
+    assert item.approx_monte_carlo_se >= 0.0
+    assert item.median_ci_bounded is True
+    assert item.median_ci_low <= item.observed_diff <= item.median_ci_high
 
 # === source: test_l2_modality_seed_determinism.py ===
 """Regression tests for Finding 9: per-modality RNG seed in
@@ -791,23 +890,59 @@ def test_p0_2_single_modality_still_works():
     assert abs(out["per_feature"][0].observed_diff - (0.2 - 0.8)) < 1e-9
 
 
-def test_p0_3_finite_pair_warns_on_length_mismatch():
-    from syncpipe.design_controls import _finite_pair
-
-    a = np.arange(100.0)
-    b = np.arange(70.0)
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        aa, bb = _finite_pair(a, b)
-        assert any("unequal lengths" in str(x.message) for x in w)
-    assert len(aa) == len(bb) == 70
-
-
-def test_p0_3_finite_pair_raise_mode():
+def test_p0_3_finite_pair_raises_on_length_mismatch_by_default():
     from syncpipe.design_controls import _finite_pair
 
     with pytest.raises(ValueError, match="unequal lengths"):
-        _finite_pair(np.arange(10.0), np.arange(7.0), on_length_mismatch="raise")
+        _finite_pair(np.arange(100.0), np.arange(70.0))
+
+
+def test_p0_3_finite_pair_legacy_warn_preserves_time_positions():
+    from syncpipe.design_controls import _finite_pair
+
+    a = np.arange(10.0)
+    b = np.arange(7.0)
+    a[3] = np.nan
+    with pytest.warns(UserWarning, match="unequal lengths"):
+        aa, bb = _finite_pair(a, b, on_length_mismatch="warn")
+    assert len(aa) == len(bb) == 7
+    assert np.isnan(aa[3])  # missing samples are retained, never time-compressed
+
+
+def test_existence_audit_uses_finite_segments_without_compressing_time():
+    from syncpipe.design_controls import synchrony_existence_audit
+
+    a = np.sin(np.linspace(0, 10, 100))
+    b = a.copy()
+    a[30] = np.nan
+    mask = np.ones(100, dtype=bool)
+    mask[50] = False
+    result = synchrony_existence_audit(
+        a, b, hz=1.0, window_size=10, surrogate_n=5,
+        discontinuity_mask=mask, min_segment_samples=40,
+    )
+    assert result["status"] == "ok"
+    assert result["n_samples"] == 100
+    # Runs [0,30), [31,50), and [51,100): only the 49-sample final run
+    # survives an explicit 40-sample floor, producing 49-10+1 WCC points.
+    assert result["segmentation"]["n_segments_total"] == 3
+    assert result["segmentation"]["n_segments_used"] == 1
+    assert result["segmentation"]["segment_lengths_used"] == [49]
+    assert result["n_wcc"] == 40
+
+
+def test_existence_audit_fails_when_all_finite_segments_are_too_short():
+    from syncpipe.design_controls import synchrony_existence_audit
+
+    a = np.sin(np.linspace(0, 10, 120))
+    b = a.copy()
+    a[[30, 60, 90]] = np.nan
+    result = synchrony_existence_audit(
+        a, b, hz=1.0, window_size=10, surrogate_n=5,
+    )
+    assert result["status"] == "failed"
+    assert result["reason"] == "insufficient_contiguous_data_for_iaaft"
+    assert result["segmentation"]["n_segments_used"] == 0
 
 
 def test_p1_1_dwell_splits_across_nan_seam():

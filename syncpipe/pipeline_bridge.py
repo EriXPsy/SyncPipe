@@ -1,51 +1,8 @@
-"""
-Pipeline bridge — connect the data layer to the three SyncPipe pipelines.
+"""Turn loaded study records into checked inputs for calculation and testing.
 
-The three pipelines
-
-    feature_pipeline.py     (Pipeline 1: consult / select features)
-    computation_pipeline.py (Pipeline 2: load -> WCC -> features -> DataFrame)
-    inference_pipeline.py   (Pipeline 3: audited evidence chain)
-
-are intentionally thin and decoupled.  This module is the *missing seam* a
-reviewer needs: it turns a list of loader records (anything shaped like
-``syncpipe.realtest.lerique_2024.LeriqueDyadCondition`` — i.e. with
-``dyad_label``, ``modality``, ``condition``, ``person_a``/``person_b``
-DataFrames, ``target_hz``, ``duration_sec``, ``incomplete``) into the exact
-inputs the computation and inference pipelines expect:
-
-    features_df  : one row per (dyad, modality, condition), with the columns
-                   the InferencePipeline needs (``dyad_id``, ``modality``,
-                   ``condition``) plus every extracted feature.
-    raw_signals  : keyed ``"<dyad>__<modality>__<condition>"`` -> (sig_a, sig_b)
-                   for the synchrony-existence audit.
-    design_pairs : keyed ``"<dyad>__<modality>"`` -> (sig_a, sig_b) taken from
-                   ``design_condition`` (the condition whose coupling you want
-                   to audit against mismatched partners / shifted alignment).
-
-Column-name contract (must match InferencePipeline defaults)
-----------------------------------------------------------------
-    features_df columns : dyad_id, modality, condition, <features...>
-    condition_col        = "condition"
-    dyad_col             = "dyad_id"
-    (InferencePipeline default args use exactly these names, so the bridge
-     emits them — no manual renaming required downstream.)
-
-Usage
------
-    from syncpipe.pipeline_bridge import records_to_inference_inputs
-
-    features_df, raw_signals, design_pairs = records_to_inference_inputs(
-        records, hz=1.0, window_size=30, onset_threshold="session_pooled",
-        design_condition="trials_concat",
-    )
-
-    pipe = InferencePipeline(features_df, hz=1.0, wcc_window_sec=30.0)
-    chain = pipe.run_audited_evidence_chain(
-        raw_signals=raw_signals, wcc_window_size=30,
-        design_signal_pairs=design_pairs,
-        condition_col="condition", dyad_col="dyad_id",
-    )
+This module keeps the preparation details out of the user-facing runner. It
+builds the feature table, raw-pair views, comparison-pair views, shared masks,
+and preparation diagnostics from one checked cohort.
 """
 from __future__ import annotations
 
@@ -59,6 +16,7 @@ import pandas as pd
 from .computation_pipeline import ComputationPipeline
 from .feature_definitions import FDR_FEATURES, ONSET_THRESHOLD, REFERENCE_FEATURE
 from .qc import DEFAULT_CONFIG as _QC_CONFIG
+from .preparation import PreparedCohort, PreparedObservation, PreparationExclusion
 from .session_threshold import compute_session_pooled_thresholds_by_modality
 
 
@@ -74,6 +32,8 @@ class InferenceInputs:
     condition_col: str = "condition"
     dyad_col: str = "dyad_id"
     thresholds_by_modality: Optional[Dict[str, float]] = None
+    prepared_cohort: Optional[PreparedCohort] = None
+    preparation_diagnostics: Optional[Dict[str, Dict[str, object]]] = None
 
 
 def _as_array(df_or_series) -> Optional[np.ndarray]:
@@ -115,6 +75,7 @@ def records_to_inference_inputs(
     dyad_col: str = "dyad_id",
     feature_cols: Optional[Sequence[str]] = None,
     window_type: str = "rect",
+    initial_exclusions: Sequence[PreparationExclusion] = (),
 ) -> InferenceInputs:
     """Convert loader records into the three-pipeline-ready inputs.
 
@@ -178,12 +139,25 @@ def records_to_inference_inputs(
     # computation pipeline runs.
     # ------------------------------------------------------------------
     entries: List[Dict[str, Any]] = []
+    exclusions: List[PreparationExclusion] = list(initial_exclusions)
+
+    def _exclude(rec, code: str, detail: str, stage: str = "preparation") -> None:
+        dyad = str(getattr(rec, "dyad_label", "unknown"))
+        mod = str(getattr(rec, "modality", "unknown"))
+        cond = str(getattr(rec, "condition", "unknown"))
+        exclusions.append(PreparationExclusion(
+            key=f"{dyad}__{mod}__{cond}", dyad_id=dyad, modality=mod,
+            condition=cond, code=code, stage=stage, detail=detail,
+        ))
+
     for rec in records:
         if getattr(rec, "incomplete", False):
+            _exclude(rec, "incomplete_record", "loader marked record incomplete")
             continue
         a = _as_array(getattr(rec, "person_a", None))
         b = _as_array(getattr(rec, "person_b", None))
         if a is None or b is None:
+            _exclude(rec, "missing_signal", "person_a or person_b signal is missing")
             continue
         if a.ndim != 1 or b.ndim != 1 or a.size != b.size:
             raise ValueError(
@@ -191,6 +165,10 @@ def records_to_inference_inputs(
                 f"signals; got {getattr(a, 'shape', None)} and {getattr(b, 'shape', None)}."
             )
         if a.size < window_size:
+            _exclude(
+                rec, "signal_too_short",
+                f"{a.size} samples cannot form window_size={window_size}",
+            )
             continue
         dyad = str(rec.dyad_label)
         mod = str(rec.modality)
@@ -219,9 +197,18 @@ def records_to_inference_inputs(
         _nan_limit = _QC_CONFIG["max_nan_rate"]
         _std_floor = _QC_CONFIG["min_signal_std"]
         _skip_reason = None
+        _skip_code = None
         for _label, _sig in (("person_a", a), ("person_b", b)):
+            _inf_count = int(np.isinf(_sig).sum())
+            if _inf_count:
+                raise ValueError(
+                    f"Record {key!r} {_label} contains {_inf_count} infinite "
+                    "value(s). Replace invalid infinities during preprocessing; "
+                    "only explicitly governed NaN gaps are supported."
+                )
             _nan_rate = float(np.isnan(_sig).mean())
             if _nan_rate > _nan_limit:
+                _skip_code = "high_nan_rate"
                 _skip_reason = (
                     f"{_label} NaN rate {_nan_rate:.1%} (>{_nan_limit:.0%}, "
                     "nan_integrity FAIL)"
@@ -229,12 +216,14 @@ def records_to_inference_inputs(
                 break
             _finite = _sig[np.isfinite(_sig)]
             if _finite.size >= 2 and float(np.std(_finite)) < _std_floor:
+                _skip_code = "near_zero_variance"
                 _skip_reason = (
                     f"{_label} near-zero variance (std<{_std_floor}, "
                     "signal_integrity FAIL)"
                 )
                 break
         if _skip_reason is not None:
+            _exclude(rec, _skip_code or "qc_failure", _skip_reason, stage="qc")
             warnings.warn(
                 f"Record {key!r} skipped by bridge QC gate: {_skip_reason}. "
                 "Fix sensor dropout/flatline before pooling, or exclude "
@@ -244,22 +233,35 @@ def records_to_inference_inputs(
             )
             continue
 
+        prepared = PreparedObservation.from_signals(
+            key=key, dyad_id=dyad, modality=mod, condition=cond,
+            hz=rec_hz, signal_a=a, signal_b=b,
+            discontinuity_mask=mask,
+        )
         entries.append({
-            "a": a.astype(float),
-            "b": b.astype(float),
+            "observation": prepared,
+            "a": prepared.signal_a,
+            "b": prepared.signal_b,
             "dyad": dyad,
             "mod": mod,
             "cond": cond,
             "key": key,
             "rec_hz": rec_hz,
-            "mask": mask,
+            # Legacy name retained at the API edge; this is now the shared
+            # analysis mask (source discontinuities AND joint finite samples).
+            "mask": prepared.geometry.analysis_mask,
         })
 
     if not entries:
+        codes = sorted({item.code for item in exclusions})
         raise ValueError(
-            "No usable records: every record was incomplete, missing a person, "
-            "or shorter than window_size. Check the loader filters / durations."
+            "No usable records after preparation; exclusion codes="
+            f"{codes}. Check loader filters, QC and durations."
         )
+
+    prepared_cohort = PreparedCohort(
+        tuple(e["observation"] for e in entries), tuple(exclusions)
+    )
 
     # ------------------------------------------------------------------
     # Canonical default: per-modality pooled IAAFT onset threshold.
@@ -357,4 +359,6 @@ def records_to_inference_inputs(
         condition_col=condition_col,
         dyad_col=dyad_col,
         thresholds_by_modality=thresholds_by_modality,
+        prepared_cohort=prepared_cohort,
+        preparation_diagnostics=prepared_cohort.diagnostics(window_size),
     )
