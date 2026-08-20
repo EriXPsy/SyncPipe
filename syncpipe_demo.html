@@ -37,9 +37,14 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(47px,7vw,96px);line-height:1.02;lette
 .usecases{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.use{padding:25px;border-top:1px solid var(--line)}.use .when{font:11px var(--mono);color:var(--mint);margin-bottom:15px}.use h3{font-size:19px}.use p{font-size:14px;color:var(--muted)}
 .assets{display:grid;grid-template-columns:1.25fr .75fr;gap:16px;margin-top:42px}.asset-main{padding:38px;border-radius:24px;background:linear-gradient(135deg,rgba(114,242,189,.15),rgba(14,29,25,.8));border:1px solid rgba(114,242,189,.28)}.asset-main .version{font:800 clamp(54px,8vw,105px)/1 var(--mono);letter-spacing:-.08em;color:var(--mint)}.asset-main p{font-size:18px;max-width:630px;color:var(--muted);margin:22px 0 0}.asset-side{display:grid;gap:16px}.stat{border:1px solid var(--line);border-radius:20px;padding:25px;background:var(--card)}.stat b{font:800 38px/1 var(--mono);color:var(--text)}.stat span{display:block;color:var(--muted);font-size:13px;margin-top:10px}.proofline{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.proofline span{border:1px solid var(--line);border-radius:99px;padding:7px 11px;font-size:12px;color:var(--muted)}
 .road{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:45px;counter-reset:road}.step{counter-increment:road;border:1px solid var(--line);border-radius:22px;padding:28px;background:var(--card);position:relative;overflow:hidden}.step:after{content:"0" counter(road);position:absolute;right:15px;top:-20px;color:rgba(114,242,189,.055);font:800 110px var(--mono)}.step .time{color:var(--mint);font:700 11px var(--mono);letter-spacing:.1em;margin-bottom:50px}.step h3{font-size:23px}.step p{color:var(--muted);font-size:14px}.step .out{border-top:1px solid var(--line);padding-top:14px;margin-top:20px;font-size:12px;color:var(--amber)}
+.wearable-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:46px;border:1px solid var(--line);border-radius:22px;overflow:hidden;background:var(--line)}.wearable{background:var(--card);padding:26px;min-height:230px}.wearable .name{color:var(--mint);font:700 11px var(--mono);letter-spacing:.1em;margin-bottom:42px}.wearable h3{font-size:24px}.wearable p{color:var(--muted);font-size:14px}.solo-answer{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:34px;padding:22px 27px;border:1px solid var(--line);border-radius:18px;background:rgba(14,29,25,.72)}.solo-answer b{font-size:clamp(19px,2vw,27px)}.solo-answer span{color:var(--amber);font:700 12px var(--mono);white-space:nowrap}
+.scene-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:42px}.scene{padding:28px;border:1px solid var(--line);border-radius:22px;background:var(--card)}.scene .scene-no{color:var(--mint);font:700 11px var(--mono);margin-bottom:35px}.scene h3{font-size:22px}.scene p{color:var(--muted);font-size:14px}.scene .old,.scene .new{display:block;padding-top:12px;margin-top:12px;border-top:1px solid var(--line);font-size:12px}.scene .old{color:var(--dim)}.scene .new{color:var(--mint)}
+.plain-definition{margin:44px 0 0;padding:clamp(28px,4vw,48px);border:1px solid rgba(114,242,189,.3);border-radius:24px;background:linear-gradient(140deg,rgba(114,242,189,.11),rgba(14,29,25,.8))}.plain-definition .word{color:var(--mint);font:700 11px var(--mono);letter-spacing:.12em;margin-bottom:18px}.plain-definition p{font-size:clamp(22px,2.7vw,35px);line-height:1.4;margin:0}.plain-definition small{display:block;color:var(--muted);font-size:14px;margin-top:18px}
+.bridge-sides{display:grid;grid-template-columns:1fr 80px 1fr;align-items:stretch;margin-top:44px}.side{padding:32px;border:1px solid var(--line);border-radius:22px;background:var(--card)}.side .who{font:700 11px var(--mono);color:var(--mint);margin-bottom:34px}.side h3{font-size:26px}.side p{color:var(--muted)}.same-lock{display:grid;place-items:center;color:var(--mint);font-size:31px}.market-line{margin-top:18px;text-align:center;color:var(--amber);font-weight:700;font-size:15px}
+.metaphor{display:grid;grid-template-columns:.9fr 1.1fr;gap:18px;align-items:stretch;margin-top:42px}.metaphor-visual{display:grid;place-items:center;min-height:330px;border:1px solid var(--line);border-radius:24px;background:radial-gradient(circle,rgba(114,242,189,.14),transparent 55%),var(--card);text-align:center}.metaphor-visual .stamp{width:170px;height:170px;border:2px solid var(--mint);border-radius:50%;display:grid;place-items:center;transform:rotate(-7deg);color:var(--mint);font:800 17px/1.5 var(--mono);letter-spacing:.08em}.metaphor-copy{padding:34px;border:1px solid var(--line);border-radius:24px;background:var(--card)}.metaphor-copy .say{font-size:clamp(25px,3vw,38px);font-weight:760;line-height:1.3;margin-bottom:23px}.metaphor-copy p{color:var(--muted)}
 .close{text-align:center;min-height:100vh;background:radial-gradient(circle at center,rgba(47,211,155,.16),transparent 45%)}.close h2{margin-left:auto;margin-right:auto;font-size:clamp(45px,7vw,94px)}.close .lead{margin:0 auto}.cta{display:inline-flex;margin-top:38px;padding:14px 22px;border-radius:999px;background:var(--mint);color:#062118;text-decoration:none;font-weight:780}.closing-line{margin-top:80px;color:var(--dim);font:11px var(--mono);letter-spacing:.12em}
-@media(max-width:900px){.navlinks{display:none}.grid3,.usecases,.road{grid-template-columns:1fr}.reasons{grid-template-columns:1fr 1fr}.flow{grid-template-columns:1fr}.arrow{height:45px;transform:rotate(90deg)}.checks{grid-template-columns:1fr 1fr}.report,.assets{grid-template-columns:1fr}.position{grid-template-columns:1fr}.position .layer,.position .layer:first-child,.position .layer:last-child{border-radius:18px;margin-top:10px;min-height:auto}.position .core{transform:none}.hero-art{right:-28vw;width:90vw;opacity:.43}.verdict{grid-template-columns:1fr}}
-@media(max-width:560px){section{padding-left:20px;padding-right:20px}.reasons,.checks{grid-template-columns:1fr}.false-eq{gap:8px}.trace-mini{width:120px}.demo-body{padding:13px}.chart{height:210px}.paper{padding:20px}.watch-question{font-size:12px}.hero-art{bottom:-2vh}}
+@media(max-width:900px){.navlinks{display:none}.grid3,.usecases,.road,.scene-grid{grid-template-columns:1fr}.wearable-strip{grid-template-columns:1fr 1fr}.reasons{grid-template-columns:1fr 1fr}.flow{grid-template-columns:1fr}.arrow{height:45px;transform:rotate(90deg)}.checks{grid-template-columns:1fr 1fr}.report,.assets,.metaphor{grid-template-columns:1fr}.bridge-sides{grid-template-columns:1fr}.same-lock{height:60px;transform:rotate(90deg)}.position{grid-template-columns:1fr}.position .layer,.position .layer:first-child,.position .layer:last-child{border-radius:18px;margin-top:10px;min-height:auto}.position .core{transform:none}.hero-art{right:-28vw;width:90vw;opacity:.43}.verdict{grid-template-columns:1fr}}
+@media(max-width:560px){section{padding-left:20px;padding-right:20px}.reasons,.checks,.wearable-strip{grid-template-columns:1fr}.false-eq{gap:8px}.trace-mini{width:120px}.demo-body{padding:13px}.chart{height:210px}.paper{padding:20px}.watch-question{font-size:12px}.hero-art{bottom:-2vh}.solo-answer{align-items:flex-start;flex-direction:column}.wearable{min-height:auto}.metaphor-visual{min-height:260px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.wave-a,.wave-b{animation:none!important}}
 </style>
 </head>
@@ -50,14 +55,14 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(47px,7vw,96px);line-height:1.02;lette
     <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M5 31c7 0 7-15 14-15s7 15 14 15 7-15 10-15" fill="none" stroke="#72f2bd" stroke-width="3" stroke-linecap="round"/><path d="M5 17c7 0 7 14 14 14s7-14 14-14 7 14 10 14" fill="none" stroke="#83b8ff" stroke-width="3" stroke-linecap="round"/></svg>
     SYNC<b>PIPE</b>
   </div>
-  <div class="navlinks"><a href="#gap">机会</a><a href="#product">产品</a><a href="#position">定位</a><a href="#today">今天</a><a href="#next">下一步</a></div>
+  <div class="navlinks"><a href="#wearables">背景</a><a href="#gap">为什么</a><a href="#market">机会</a><a href="#product">产品</a><a href="#today">今天</a><a href="#next">下一步</a></div>
 </nav>
 
 <section class="hero" id="top">
   <div class="wrap hero-copy reveal">
     <div class="watch-question"><i></i>你今天戴智能手表了吗？</div>
     <h1>手表越来越懂你。<br><span class="gradient">但谁来理解两个人？</span></h1>
-    <p class="lead">心率、睡眠、压力与运动，正在让“量化自己”成为日常。SyncPipe 把视角从<strong>一个人</strong>转向<strong>两个人之间</strong>：用可检验的方法，探索关系发生时身体如何共同变化。</p>
+    <p class="lead">它知道你昨晚睡了多久、今天是否恢复、此刻心率是否异常。过去十年，科技把<strong>一个人的身体</strong>变成了清晰的数据。下一步，也许是看见健康中长期被忽略的另一半：<strong>我们如何彼此影响。</strong></p>
     <div class="scroll-cue">向下，进入两个人的世界</div>
   </div>
   <div class="hero-art" aria-hidden="true">
@@ -69,24 +74,45 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(47px,7vw,96px);line-height:1.02;lette
   </div>
 </section>
 
+<section id="wearables">
+  <div class="wrap reveal">
+    <div class="eyebrow">01 <span>/ 可穿戴已经完成了故事的上半场</span></div>
+    <h2>从记录步数，到解释身体。<br>“量化自己”已经成为<span class="gradient">成熟的产品语言。</span></h2>
+    <p class="lead">智能穿戴不再只是传感器。它把复杂生理信号翻译成每个人都能使用的健康提示，也证明了一件事：<strong>只要测量足够可靠，科研指标可以走出实验室。</strong></p>
+    <div class="wearable-strip">
+      <article class="wearable"><div class="name">APPLE WATCH</div><h3>心脏与安全</h3><p>心电、心律提示、跌倒检测，让手腕设备成为个人健康入口。</p></article>
+      <article class="wearable"><div class="name">OURA / WHOOP</div><h3>睡眠与恢复</h3><p>把心率变异、睡眠和活动组合成用户每天看得懂的恢复反馈。</p></article>
+      <article class="wearable"><div class="name">GARMIN / FITBIT</div><h3>运动与压力</h3><p>从训练负荷到日常压力，连续数据开始参与生活决策。</p></article>
+      <article class="wearable"><div class="name">THE NEXT LAYER</div><h3>情境与关系</h3><p>当“我”的指标越来越丰富，决定这些指标为何变化的人际情境仍几乎不可见。</p></article>
+    </div>
+    <div class="solo-answer"><b>今天的手表擅长回答：“我的身体发生了什么？”</b><span>但它通常不知道：为什么，以及和谁有关。</span></div>
+  </div>
+</section>
+
 <section id="gap">
   <div class="wrap reveal">
-    <div class="eyebrow">01 <span>/ 从个体健康到关系健康</span></div>
-    <h2>健康不只发生在身体里，<br>也发生在<span class="gradient">人与人之间。</span></h2>
-    <p class="lead">一次安静的陪伴、一场激烈的讨论、共同完成一项任务——关系会改变注意、情绪和生理状态。可穿戴设备已经能连续记录这些变化，却仍主要把每个人分开解释。</p>
-    <div class="grid3">
-      <article class="card"><div class="icon">01</div><div class="big">设备已经在手腕上</div><p>心率、皮肤电、呼吸与动作等连续信号，让互动过程第一次有机会被低成本、长时间地观察。</p></article>
-      <article class="card"><div class="icon">02</div><div class="big">关系影响真实生活</div><p>伴侣、家庭、治疗与团队中的互动质量，会影响压力调节、协作体验与日常健康行为。</p></article>
-      <article class="card"><div class="icon">03</div><div class="big">中间缺一把尺子</div><p>有数据，不等于有可靠解释。研究者仍需要一种统一方式，判断两个人是否真的出现了值得关注的共同变化。</p></article>
+    <div class="eyebrow">02 <span>/ 被个人仪表盘遗漏的生活</span></div>
+    <h2>人不是独立运行的设备。<br>我们每天都在<span class="gradient">彼此调节。</span></h2>
+    <p class="lead">同样一次心率上升，可能来自运动，也可能来自争执、被理解、共同兴奋或紧张。只看一个人，设备看到的是结果；把两个人和互动放回同一时间轴，研究才有机会看见情境。</p>
+    <div class="solo-answer"><b>关系不是健康的旁白，而是压力、支持与日常行为发生的环境。</b><span>社会连接已成为公共健康议题，消费级测量却仍停留在个人。</span></div>
+    <div class="scene-grid">
+      <article class="scene"><div class="scene-no">伴侣 / 家庭</div><h3>争执之后，谁先平静下来？</h3><p>关系不是一张年度问卷，而是一连串发生在日常中的调节过程。</p><span class="old">单人设备：你的压力升高了</span><span class="new">双人视角：两个人如何进入、维持和离开紧张</span></article>
+      <article class="scene"><div class="scene-no">心理治疗 / 照护</div><h3>陪伴何时真正起作用？</h3><p>治疗师、照护者和被照护者之间的节奏，可能提供过程研究的新线索。</p><span class="old">单人设备：这段时间心率变化</span><span class="new">双人视角：变化是否与互动过程同时发生</span></article>
+      <article class="scene"><div class="scene-no">团队 / 共同任务</div><h3>协作何时进入同一节奏？</h3><p>训练、表演与高压任务中，个人表现之外还有协调如何形成的问题。</p><span class="old">单人设备：每个人各自的负荷</span><span class="new">双人视角：共同节奏在何时出现、何时消失</span></article>
     </div>
-    <div class="bridge"><strong>SyncPipe 选择的独特位置：</strong>不再只问“这个人怎么样”，而是开始严谨地问“这两个人在一起时，发生了什么”。</div>
+    <div class="plain-definition">
+      <div class="word">这里才需要介绍一个概念</div>
+      <p>当两个人互动时，心率、呼吸或唤醒水平有时会出现相互对应的变化。研究者把这种现象称为<strong>“人际生理同步”</strong>。</p>
+      <small>它不是玄学意义的“心有灵犀”，也不自动代表关系更好。它是一条可能帮助我们研究互动过程的生理线索。</small>
+    </div>
+    <div class="bridge"><strong>所以，为什么要关心同步？</strong>不是因为两条曲线本身有趣，而是因为它可能补上可穿戴长期缺少的“关系情境层”——让设备从记录一个人的状态，走向研究人与人如何共同变化。</div>
   </div>
 </section>
 
 <section class="question-stage" id="problem">
   <div class="narrow reveal">
-    <div class="eyebrow">02 <span>/ 一个简单但关键的陷阱</span></div>
-    <h2>两条曲线一起动，<br><span class="gradient">就代表两个人同频吗？</span></h2>
+    <div class="eyebrow">03 <span>/ 从有趣现象到可信测量</span></div>
+    <h2>但两条曲线一起动，<br><span class="gradient">就代表两个人同频吗？</span></h2>
     <div class="false-eq">
       <svg class="trace-mini" viewBox="0 0 180 68"><path d="M3 42 C25 8 40 60 61 24 S95 57 116 20 S147 49 177 14" fill="none" stroke="#72f2bd" stroke-width="3"/></svg>
       <span class="not-equal">≠</span>
@@ -99,20 +125,39 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(47px,7vw,96px);line-height:1.02;lette
       <div class="reason"><b>时间巧合</b><span>慢趋势或有利的时间窗口造成表面一致。</span></div>
       <div class="reason"><b>分析选择</b><span>不同算法和排除规则，可能给出不同答案。</span></div>
     </div>
+    <div class="bridge" style="text-align:left"><strong>这不是只属于学界的技术争论。</strong>如果基础测量分不清互动、巧合和共同环境，任何面向伴侣、治疗或团队的“关系洞察”，都会把不确定性包装成产品功能。</div>
+  </div>
+</section>
+
+<section id="market">
+  <div class="wrap reveal">
+    <div class="eyebrow">04 <span>/ 学界与市场，其实卡在同一道门前</span></div>
+    <h2>研究者怕得出错误结论。<br>产品团队怕把错误结论<span class="gradient">交到用户手里。</span></h2>
+    <p class="lead">两边语言不同，真正需要解决的却是同一个问题：<strong>怎样证明一个“双人信号”值得相信？</strong></p>
+    <div class="bridge-sides">
+      <article class="side"><div class="who">科研团队在问</div><h3>“这个发现是真的吗？”</h3><p>不同实验室各自写脚本、选指标、定排除规则。同一个现象可能被算出不同答案，也难以知道结果究竟来自互动还是其他原因。</p></article>
+      <div class="same-lock">⇄</div>
+      <article class="side"><div class="who">穿戴与健康团队在问</div><h3>“这个信号能进产品吗？”</h3><p>在把双人数据做成反馈、算法或服务之前，需要知道它能否重复、解释是否稳定、在哪些情境会失效，以及怎样避免误导用户。</p></article>
+    </div>
+    <div class="market-line">共同缺口：双人数据已经可以被采集，但还缺少一套把它变成可信证据的标准流程。</div>
+    <div class="bridge"><strong>这就是 SyncPipe 的 niche。</strong>它不与智能手表竞争，也不直接裁判一段关系；它位于传感器与应用之间，先为“双人关系能否被可靠测量”建立方法基础。</div>
   </div>
 </section>
 
 <section id="product">
   <div class="wrap reveal">
-    <div class="eyebrow">03 <span>/ SyncPipe 做什么</span></div>
-    <h2>它不是制造一个漂亮分数。<br>它负责<span class="gradient">追问这个分数凭什么成立。</span></h2>
-    <p class="lead">输入两个人已经对齐的连续信号，SyncPipe 先找到共同变化，再主动测试常见的其他解释，最后用普通人能读懂的报告交付结果。</p>
+    <div class="eyebrow">05 <span>/ 用一句外行也能复述的话解释产品</span></div>
+    <h2>SyncPipe 是双人健康算法进入现实之前的<br><span class="gradient">“质检线”。</span></h2>
+    <div class="metaphor">
+      <div class="metaphor-visual"><div class="stamp">TESTED<br>TOGETHER</div></div>
+      <div class="metaphor-copy"><div class="say">把两块手表记录的数据送进来，SyncPipe 检查它们是否真的一起变化，还是只是被同一件事同时影响。</div><p>就像新药上市前要做对照试验、汽车上路前要经过碰撞测试：双人健康算法在解释关系之前，也需要先接受反例、巧合和数据质量的挑战。</p><p><strong style="color:var(--text)">最终交付的不是“你们有多默契”，而是一份检测报告：</strong>看见了什么、排除了什么、还不能说明什么。</p></div>
+    </div>
     <div class="flow">
-      <div class="flow-card"><div class="num">STEP 01</div><h3>两个人的数据进入</h3><p>读取心率间期、皮肤电、呼吸或动作等已处理、已对齐的连续信号，并检查时间、缺失与质量。</p></div>
+      <div class="flow-card"><div class="num">STEP 01</div><h3>对齐两个人的时间线</h3><p>把两个人在同一段经历中的身体记录放在一起，先确认时间、缺失数据和设备读数是否可靠。</p></div>
       <div class="arrow">→</div>
-      <div class="flow-card"><div class="num">STEP 02</div><h3>让结果接受挑战</h3><p>它会比较随机信号、错误搭档和错开的时间，避免把显眼的共同波动直接解释成两个人的联系。</p></div>
+      <div class="flow-card"><div class="num">STEP 02</div><h3>故意把结果“拆穿”</h3><p>换一个搭档、打乱时间、模拟巧合：如果结果轻易消失，就不该被包装成两个人的联系。</p></div>
       <div class="arrow">→</div>
-      <div class="flow-card"><div class="num">STEP 03</div><h3>给出可解释报告</h3><p>清楚写出数据支持什么、还有什么没有排除，以及不同情境下结果是否发生变化。</p></div>
+      <div class="flow-card"><div class="num">STEP 03</div><h3>把边界一起交付</h3><p>报告不只说“发现了什么”，也写清“还有什么可能”以及“哪些话现在还不能说”。</p></div>
     </div>
     <div class="checks">
       <div class="check"><b>数据可靠吗？</b>时间、缺失、平直信号</div><div class="check"><b>超过巧合吗？</b>与随机比较</div><div class="check"><b>真是这两人吗？</b>与错误搭档比较</div><div class="check"><b>依赖原时间吗？</b>错开后再比较</div><div class="check"><b>情境有差别吗？</b>预先选定条件比较</div>
@@ -137,8 +182,8 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(47px,7vw,96px);line-height:1.02;lette
 
 <section id="report">
   <div class="wrap reveal">
-    <div class="eyebrow">04 <span>/ 复杂留给软件，清楚留给用户</span></div>
-    <h2>研究者不该先学一套黑话，<br>才能知道<span class="gradient">结果意味着什么。</span></h2>
+    <div class="eyebrow">06 <span>/ 复杂留给软件，清楚留给用户</span></div>
+    <h2>任何人都不该先学一套黑话，<br>才能知道<span class="gradient">结果意味着什么。</span></h2>
     <div class="report">
       <div class="paper" aria-label="报告示意">
         <div class="phead">SYNCPIPE / REPORT.md</div><h3>结论摘要</h3>
@@ -158,9 +203,9 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(47px,7vw,96px);line-height:1.02;lette
 
 <section id="position">
   <div class="wrap reveal">
-    <div class="eyebrow">05 <span>/ 独特定位</span></div>
-    <h2>站在可穿戴数据与关系应用之间，<br>先把<span class="gradient">测量基础</span>做好。</h2>
-    <p class="lead">SyncPipe 当前首先是一套学术研究软件。它的长期价值，是为双人算法提供一层独立、透明、可验证的基础，而不是过早把“同步”包装成消费级关系评分。</p>
+    <div class="eyebrow">07 <span>/ 独特定位</span></div>
+    <h2>站在可穿戴数据与关系应用之间，<br>成为可信的<span class="gradient">双人测量层。</span></h2>
+    <p class="lead">SyncPipe 以科研软件切入，因为关系产品最稀缺的不是又一个界面，而是可信的测量基础。先让研究者验证它、复现它，再让经过验证的能力支持穿戴与关系健康创新。</p>
     <div class="position">
       <div class="layer"><div class="tag">上游 / 已经成熟</div><h3>可穿戴设备</h3><p>持续产生个人的心率、皮肤电、呼吸、动作与睡眠数据。</p></div>
       <div class="layer core"><div class="tag">中间层 / SYNCPIPE</div><h3>双人测量与验证</h3><p>统一数据检查、共同变化计算、替代解释测试与结论报告。</p></div>
@@ -176,7 +221,7 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(47px,7vw,96px);line-height:1.02;lette
 
 <section id="today">
   <div class="wrap reveal">
-    <div class="eyebrow">06 <span>/ 已经做成什么</span></div>
+    <div class="eyebrow">08 <span>/ 已经做成什么</span></div>
     <h2>故事从未来开始，<br>但产品<span class="gradient">已经可以运行。</span></h2>
     <p class="lead">SyncPipe 已从个人研究代码推进为一套可安装、可复跑、可审计的方法引擎。核心不是展示更多指标，而是把容易出错的步骤固定成同一套可靠流程。</p>
     <div class="assets">
@@ -189,7 +234,7 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(47px,7vw,96px);line-height:1.02;lette
 
 <section id="next">
   <div class="wrap reveal">
-    <div class="eyebrow">07 <span>/ 从方法引擎到领域入口</span></div>
+    <div class="eyebrow">09 <span>/ 从方法引擎到领域入口</span></div>
     <h2>先成为研究者信任的工具，<br>再成为产业需要的<span class="gradient">双人测量层。</span></h2>
     <div class="road">
       <article class="step"><div class="time">现在 → 6 个月</div><h3>建立学术可信度</h3><p>完成方法论文，与首批研究伙伴在他们自己的数据上复跑、比较和修正工作流。</p><div class="out">关键产出：论文 · 独立复现 · 设计伙伴</div></article>
