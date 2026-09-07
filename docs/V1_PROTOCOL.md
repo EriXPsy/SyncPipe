@@ -1,6 +1,6 @@
 # SyncPipe v1.0 — Frozen Scientific Protocol
 
-> **Software note:** package 2.0.0 implements this locked v1 scientific protocol
+> **Software note:** package 1.0.0 implements this locked v1 scientific protocol
 > under a breaking typed manifest/config architecture. Protocol version and
 > software API version are intentionally independent.
 

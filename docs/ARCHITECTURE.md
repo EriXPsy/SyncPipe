@@ -67,9 +67,10 @@ preserve the existing public API and CLI/API byte parity.
 
 ## Milestone E — versioning and migration (implemented)
 
-The breaking canonical contract is released as package/config/manifest v2.0.0;
-viewer analysis JSON remains independently versioned at 0.3.0, preprocessing
-provenance at 1.0.0, and typed evidence at 1.0.0. `syncpipe migrate` and the
+Package releases are versioned as 1.0.0; the breaking canonical contract ships
+as config/manifest schema v2.0.0 (schema versions track the data-contract
+shape, not the release). Viewer analysis JSON remains independently versioned
+at 0.3.0, preprocessing provenance at 1.0.0, and typed evidence at 1.1.0. `syncpipe migrate` and the
 programmatic migration API convert legacy manifest/config inputs only when the
 user explicitly supplies signal identity, unit, preprocessing provenance,
 endpoint, and primary modality assumptions. Every migration writes source and
