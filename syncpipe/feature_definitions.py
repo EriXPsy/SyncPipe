@@ -503,12 +503,14 @@ bootstrap, deferred to v2) is not yet validated.
 # cleared its own, separately-dated validation gate. Collapsing the two
 # into one mechanical derivation is exactly the "promote first, validate
 # after" failure mode this module's governance is meant to prevent.
-# The primary group-condition FDR family is exactly
-# {peak_amplitude, dwell_time, switching_rate}; mean_synchrony is a
-# reported reference and bimodality_coefficient an exploratory descriptor,
-# both kept as L0 features only for the synchrony-existence audit (see
-# _NULL_MODEL_L0 in dynamic_features.py), a separate axis from confirmatory
-# multiplicity correction.
+# The PRIMARY group-condition FDR family is exactly {peak_amplitude}
+# (FDR_FAMILIES["L0"]); dwell_time / switching_rate form the SECONDARY family
+# (FDR_FAMILIES["L1"]) — BH-corrected within their own small family and
+# reported in parallel, but excluded from the primary claim's denominator.
+# mean_synchrony is a reported reference and bimodality_coefficient an
+# exploratory descriptor, both kept as L0 features only for the
+# synchrony-existence audit (see _NULL_MODEL_L0 in dynamic_features.py), a
+# separate axis from confirmatory multiplicity correction.
 #
 # Defensive consistency check: verify every FDR entry has a FEATURE_TIER.
 for _name in FDR_FEATURES:
