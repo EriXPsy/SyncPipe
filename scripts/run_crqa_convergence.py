@@ -79,28 +79,29 @@ def syncpipe_descriptors(x: np.ndarray, y: np.ndarray) -> dict:
 def pyrqa_measures(wcc: np.ndarray) -> dict:
     """RQA on the WCC trace (auto-recurrence of the synchrony trace).
 
-    Settings are fixed a priori: embedding dimension 1 (the trace is already
-    a scalar index series), delay 1, fixed-radius neighbourhood at 10% of
-    the trace's value range, Theiler window 1.
+    PyRQA 8.1 API: embedding lives on ``TimeSeries``; min line lengths
+    default to 2 inside the RQA result settings.  Settings fixed a priori:
+    embedding dimension 1 (the trace is already a scalar index series),
+    delay 1, fixed-radius neighbourhood at 10% of the trace's value range,
+    Theiler window 1.
     """
     from pyrqa.computation import RQAComputation
     from pyrqa.metric import EuclideanMetric
     from pyrqa.neighbourhood import FixedRadius
     from pyrqa.settings import Settings
+    from pyrqa.time_series import TimeSeries
 
     trace = np.asarray(wcc, dtype=float)
     trace = trace[np.isfinite(trace)]
     radius = 0.1 * float(trace.max() - trace.min())
+    ts = TimeSeries(
+        trace.astype(np.float32), embedding_dimension=1, time_delay=1
+    )
     settings = Settings(
-        trace,
-        embedding_dimension=1,
-        time_delay=1,
-        neighbourhood=FixedRadius(radius),
+        ts,
         similarity_measure=EuclideanMetric,
+        neighbourhood=FixedRadius(radius),
         theiler_corrector=1,
-        min_diagonal_line_length=2,
-        min_vertical_line_length=2,
-        min_white_vertical_line_length=2,
     )
     result = RQAComputation.create(settings, verbose=False).run()
     return {
@@ -133,11 +134,19 @@ def main() -> int:
         )
 
     rows = []
+    rqa_failures = 0
     for label, x, y in _synthetic_dyads(args.n_dyads):
         row = {"dyad": label, **syncpipe_descriptors(x, y)}
         if have_pyrqa:
-            wcc = sliding_window_wcc(x, y, window_size=WINDOW_SIZE, hz=HZ)
-            row.update(pyrqa_measures(wcc))
+            try:
+                wcc = sliding_window_wcc(x, y, window_size=WINDOW_SIZE, hz=HZ)
+                row.update(pyrqa_measures(wcc))
+            except Exception as exc:  # noqa: BLE001 - degrade, don't crash
+                rqa_failures += 1
+                if rqa_failures == 1:
+                    print(f"[warn] PyRQA computation failed ({exc}); "
+                          "continuing with SyncPipe-side descriptors only. "
+                          "A missing/broken OpenCL runtime is the usual cause.")
         rows.append(row)
 
     df = pd.DataFrame(rows)
@@ -148,10 +157,12 @@ def main() -> int:
         "n_dyads": int(len(df)),
         "window_size": WINDOW_SIZE,
         "pyrqa_used": bool(have_pyrqa),
+        "rqa_failures": int(rqa_failures),
         "table": str(table_path),
     }
 
-    if have_pyrqa:
+    rqa_cols = [c for c in df.columns if c.startswith("rqa_")]
+    if rqa_cols:
         corr = df.drop(columns=["dyad"]).corr(method="spearman")
         corr_path = out_dir / "spearman_matrix.csv"
         corr.to_csv(corr_path)
