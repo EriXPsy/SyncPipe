@@ -38,9 +38,10 @@ artifacts/ci_demo/
 scripts/_probe_loaders.py
 scripts/_timing_probe.py
 
-# Transient audit logs / test captures (kept out of version control)
-artifacts/reviewer_audit/pytest_*.txt
-artifacts/reviewer_audit/run_log.txt
+# Internal working/audit documents (S-5, maintainer red line: internal
+# review/audit documents never ship in the public repo)
+docs/V1_CLEANUP_PLAN.md
+artifacts/reviewer_audit/
 
 # --- Phase-0 cleanup: generated repo/run artifacts (not version controlled) ---
 # Graphify tool outputs (repo root + package dir)
