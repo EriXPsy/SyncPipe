@@ -994,6 +994,21 @@ def _wcc_level_surrogate_test(
 
     if null_model not in ("iaaft", "block_permutation", "state_shuffle"):
         raise ValueError(f"null_model must be 'iaaft', 'block_permutation' or 'state_shuffle', got {null_model!r}")
+    if null_model == "state_shuffle":
+        # BUG-4 degeneracy warning (2026-09-08): state_shuffle re-orders
+        # whole elevated/baseline segments, so dwell_time and switching_rate
+        # — the two L1 statistics this test reports — are INVARIANT under
+        # it by construction (observed == null, p == 1.0 on every input).
+        # Keep it available only for order-sensitive custom diagnostics.
+        warnings.warn(
+            "null_model='state_shuffle' preserves the multiset of "
+            "elevated/baseline segments, so dwell_time and switching_rate "
+            "are invariant under it and their p-values degenerate to 1.0. "
+            "For L1 hypothesis testing use null_model='iaaft' (the "
+            "protocol null, V1_PROTOCOL §10).",
+            UserWarning,
+            stacklevel=2,
+        )
 
     obs_feats = extract_features(wcc_valid, hz=hz, wcc_window_sec=wcc_window_sec, threshold=threshold)
     rng = np.random.default_rng(seed)

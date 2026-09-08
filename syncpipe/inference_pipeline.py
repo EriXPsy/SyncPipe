@@ -139,6 +139,32 @@ def _apply_global_modality_fdr(results: Dict[str, Any], alpha: float) -> Dict[st
     return results
 
 
+def _pair_seed(seed: int, label: str) -> int:
+    """Derive a reproducible per-pair seed from the master seed and label.
+
+    BUG-3 (2026-09-08): every pair previously received the *same* master
+    seed, so the per-pair ``default_rng(seed)`` built an identical random
+    stream per pair.  Surrogate draws therefore correlated across dyads
+    (measured null-peak correlation r ≈ +0.33 between heterogeneous dyads,
+    vs ≈ 0 with independent seeds), inflating the second-order group-null
+    standard deviation by ~1.46x — a systematic conservative bias in the
+    existence gate that grows with cohort size (the draw-wise mean across
+    dyads no longer benefits from 1/D variance reduction).
+
+    ``SeedSequence(entropy=seed, spawn_key=(crc32(label),))`` is stable
+    across runs, platforms, and pair ordering, so results stay
+    reproducible: the same master seed and label set always yield the same
+    per-pair streams.
+    """
+    import zlib
+
+    seq = np.random.SeedSequence(
+        entropy=int(seed) & 0xFFFFFFFF,
+        spawn_key=(zlib.crc32(str(label).encode("utf-8")) & 0xFFFFFFFF,),
+    )
+    return int(seq.generate_state(1, dtype=np.uint32)[0])
+
+
 def _existence_audit_one(task: Tuple[Any, ...]) -> Tuple[str, Dict[str, Any]]:
     """Run one pair's existence audit. Module-level so it is picklable.
 
@@ -353,11 +379,20 @@ class InferencePipeline:
         -----
         With ``n_workers > 1`` the *pairs* are distributed across processes.
         This is bit-exact rather than merely reproducible: every pair calls
-        ``synchrony_existence_audit(..., seed=self.seed)``, which builds its own
-        ``default_rng(seed)`` inside ``_signal_level_surrogate_test``, so no RNG
-        state is carried from one pair to the next and completion order cannot
-        enter any number. Results are reassembled in ``selected`` order, so the
-        returned dict has the same key order as the serial path too.
+        ``synchrony_existence_audit(..., seed=_pair_seed(self.seed, label))``,
+        which builds its own ``default_rng`` inside
+        ``_signal_level_surrogate_test``, so no RNG state is carried from one
+        pair to the next and completion order cannot enter any number.
+        Results are reassembled in ``selected`` order, so the returned dict
+        has the same key order as the serial path too.
+
+        Seeds are derived per pair (BUG-3 fix, 2026-09-08): a shared seed
+        made every pair consume an identical random stream, correlating
+        surrogate draws across dyads (r ≈ +0.33 on null peaks) and
+        inflating the second-order group-null spread ~1.46x — a systematic
+        conservative bias.  ``_pair_seed`` mixes the master seed with a
+        stable hash of the label, keeping runs bit-reproducible while
+        restoring draw independence across dyads.
 
         The pair is the right parallel granularity: surrogate generation is
         argsort-bound and does not release the GIL (threads capped at 1.39x and
@@ -378,7 +413,7 @@ class InferencePipeline:
             )
             tasks.append((
                 label, sig_a, sig_b, self.hz, wcc_window_size,
-                self.surrogate_n, self.seed, window_type, dm,
+                self.surrogate_n, _pair_seed(self.seed, label), window_type, dm,
             ))
 
         if self.n_workers > 1 and len(tasks) > 1:
@@ -822,7 +857,7 @@ class InferencePipeline:
         self,
         wcc: np.ndarray,
         label: str = "",
-        null_model: str = "state_shuffle",
+        null_model: str = "iaaft",
         threshold: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Run L1 WCC-level surrogate test.
@@ -830,9 +865,22 @@ class InferencePipeline:
         H0: The WCC series has no temporal structure beyond its local
         autocorrelation and amplitude distribution.
 
-        Defaults to 'state_shuffle' in v1.0 (revised from 'iaaft')
-        to better preserve the exact dwell-time distribution while
-        testing temporal organization.
+        Defaults to ``'iaaft'`` per V1_PROTOCOL §10 ("L1 WCC-level:
+        IAAFT on WCC trace") and the SSoT null-design table in
+        ``dynamic_features.py`` (L1 features -> WCC-level IAAFT).
+
+        BUG-4 (2026-09-08): a v1.0 revision switched this default to
+        ``'state_shuffle'`` on the rationale that preserving the dwell-time
+        distribution "better tests temporal organization".  Empirically the
+        opposite holds: state_shuffle re-orders whole elevated/baseline
+        segments, so BOTH L1 statistics (dwell_time, switching_rate) are
+        invariant under it by construction — observed and null coincide and
+        p_dwell_time / p_switching_rate degenerate to 1.0 on every input.
+        The protocol null (WCC-level IAAFT) preserves L0 moments and
+        destroys run-length structure, which is exactly the contrast the
+        L1 features measure.  ``state_shuffle`` remains selectable for
+        order-sensitive diagnostics but emits a degeneracy warning.
+
 
         Parameters
         ----------

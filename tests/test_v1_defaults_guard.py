@@ -22,15 +22,25 @@ from syncpipe.feature_definitions import (
 from syncpipe.inference_pipeline import InferencePipeline
 
 
-def test_l1_default_null_model_is_state_shuffle():
-    """v1.0 revised the L1 WCC-level null from IAAFT to state_shuffle.
+def test_l1_default_null_model_is_iaaft():
+    """V1_PROTOCOL §10 locks the L1 WCC-level null to IAAFT on the WCC
+    trace, and the SSoT null-design table (dynamic_features.py) maps the
+    L1 features (dwell_time, switching_rate) to WCC-level IAAFT.
 
-    state_shuffle preserves the exact dwell-time distribution while testing
-    temporal organization (see InferencePipeline.test_l1_structure docstring).
-    Reverting this default is a protocol change, not a refactor.
+    BUG-4 regression guard: a v1.0 revision switched the pipeline default
+    to 'state_shuffle' on the rationale that it "preserves the dwell-time
+    distribution" — but state_shuffle re-orders whole elevated/baseline
+    segments, making BOTH L1 statistics invariant by construction
+    (p == 1.0 on every input).  The default was restored to the protocol
+    null on 2026-09-08.
     """
     sig = inspect.signature(InferencePipeline.test_l1_structure)
-    assert sig.parameters["null_model"].default == "state_shuffle"
+    assert sig.parameters["null_model"].default == "iaaft"
+    # state_shuffle remains selectable (with a degeneracy warning) for
+    # order-sensitive diagnostics, but must never be the default again.
+    accepted = {"state_shuffle", "block_permutation", "iaaft"}
+    assert sig.parameters["null_model"].default in accepted
+    assert FDR_FAMILIES["L1"] == ("dwell_time", "switching_rate")
 
 
 def test_l0_existence_null_is_signal_level_iaaft():
@@ -41,11 +51,18 @@ def test_l0_existence_null_is_signal_level_iaaft():
     boundary (docs/CONSTRUCT_VALIDITY.md §7), not a bug to fix by swapping
     the null silently.
     """
-    sig = inspect.signature(InferencePipeline.test_l1_structure)
-    # state_shuffle must remain one of the accepted L1 null choices.
-    accepted = {"state_shuffle", "block_permutation", "iaaft"}
-    assert sig.parameters["null_model"].default in accepted
     assert FDR_FAMILIES["L0"] == ("peak_amplitude",)
+    # BUG-3 regression guard: the existence audit must derive per-pair
+    # seeds (label + master seed), never reuse one master stream across
+    # dyads — a shared stream correlated surrogate draws across dyads
+    # (r ≈ +0.33) and inflated the group-null spread ~1.46x.
+    from syncpipe.inference_pipeline import _pair_seed
+
+    s1 = _pair_seed(42, "dyad_001__ECG")
+    s2 = _pair_seed(42, "dyad_002__ECG")
+    assert s1 != s2
+    assert _pair_seed(42, "dyad_001__ECG") == s1  # deterministic
+    assert _pair_seed(7, "dyad_001__ECG") != s1   # master seed matters
 
 
 def test_fdr_family_partition_is_frozen():
