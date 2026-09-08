@@ -454,7 +454,14 @@ def _preprocess_ecg(
     Note: this departs from Bizzego 2020 by omitting the 0.04 Hz
     lowpass on the IBI series (DECISION-locked at project level).
     """
-    import neurokit2 as nk
+    try:
+        import neurokit2 as nk
+    except ImportError as exc:  # pragma: no cover - environment-dependent
+        raise ImportError(
+            "Raw-ECG preprocessing requires the optional 'ecg' backend "
+            "(neurokit2). Install it with:  pip install syncpipe[ecg]  "
+            "The WCC measurement/inference core does not need it."
+        ) from exc
 
     filtered = _bandpass_filter(raw, raw_fs, _ECG_BAND_HZ)
     # neurokit2 expects 1-D float; sampling_rate must be int

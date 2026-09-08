@@ -504,10 +504,15 @@ def _sliding_window_wcc_stride(
 
     # Global demean means (over finite values) keep the weighted covariance
     # formula consistent with the cumsum path.
+    # NaN hygiene (BUG-2, 2026-09-08): invalid positions must be zeroed
+    # BEFORE windowing.  ``0 * NaN = NaN`` would otherwise poison every
+    # window sum that overlaps a single NaN, degrading the whole trace to
+    # NaN and silently defeating the pairwise-deletion contract above.
+    # Zeroing is algebraically exact here: those positions carry w_eff = 0.
     mx = float(np.nanmean(x))
     my = float(np.nanmean(y))
-    xg = x - mx
-    yg = y - my
+    xg = np.where(np.isfinite(x), x - mx, 0.0)
+    yg = np.where(np.isfinite(y), y - my, 0.0)
     xw = sliding_window_view(xg, window_size)
     yw = sliding_window_view(yg, window_size)
 

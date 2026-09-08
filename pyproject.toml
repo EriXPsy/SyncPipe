@@ -14,15 +14,26 @@ dependencies = [
     "scipy>=1.10",
     "pandas>=2.0",
     "scikit-learn>=1.2",
-    "neurokit2>=0.2.7",
     "tomli>=2.0; python_version<'3.11'",
 ]
 
 [project.optional-dependencies]
+# ECG/IBI preprocessing (R-peak detection) is a pluggable backend, not a
+# core dependency: the WCC measurement/inference core runs on numpy/scipy
+# alone.  Install with `pip install syncpipe[ecg]` when processing raw ECG
+# via the lerique_2024 loader.  (MIT-licensed; preprocessing backend
+# contract documented in docs/LIMITATIONS.md §3.)
+ecg = ["neurokit2>=0.2.7"]
+# Optional RQA convergence channel (Apache-2.0); pulls in PyOpenCL.
+# See scripts/run_crqa_convergence.py.  GPL-licensed toolboxes (pyspi,
+# pyphysio, crqa) are deliberately NOT offered as extras: GPL is contagious
+# for this MIT package — invoke them as external processes only.
+rqa = ["PyRQA>=0.1.0"]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "build>=1.0",
+    "neurokit2>=0.2.7",
 ]
 
 [project.scripts]

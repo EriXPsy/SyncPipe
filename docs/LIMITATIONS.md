@@ -68,8 +68,13 @@ SyncPipe is multimodal only in the narrow sense defined in `README.md`
 The package's "modality independence" assumes every input has already been
 flattened into the same statistical object (an aligned low-rate trace). Whether
 that flattening is equally fidelity-preserving across all modalities is **not
-independently verified** — it is an assumption of the input contract, not a
-tested guarantee.
+independently verified** — it is an **explicit input contract**, not a tested
+guarantee. As of 2026-09-08 the contract is also reflected in packaging:
+neurokit2 (the ECG/IBI R-peak backend) is an **optional** dependency
+(`pip install syncpipe[ecg]`), because the WCC measurement/inference core runs
+on numpy/scipy alone. Swapping in a different preprocessing backend is
+permitted under the same contract — the modality-independence assumption then
+transfers to whatever backend produced the envelopes.
 
 ---
 
