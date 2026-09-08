@@ -91,6 +91,19 @@ recorded in the result manifest:
 - **`window_size` is a free parameter, not a claim of optimality.** Its choice
   must be pre-specified and is subject to sensitivity analysis (Gate 4). Reports
   must state the value used.
+- **WCC smoothing is part of the estimand (locked):** descriptors that consume
+  the peak (above all `peak_amplitude`) operate on the **3-point boxcar-smoothed
+  WCC trace**, not the raw trace. The identical smoothing path is applied to
+  observed and surrogate traces (obs/null smoothing mismatch is a hard error),
+  so the smoothing is a fixed component of the measurement procedure — not an
+  optional post-processing step. Manuscripts must report it alongside
+  `window_size` and `step`.
+- **Peak definition (locked):** the peak is the **smoothed-trace argmax**
+  (`compute_peak_amplitude`), never a raw `np.max`, to prevent single-sample
+  noise spikes from deciding the endpoint. `peak_abs_amplitude` additionally
+  records the absolute intensity of that same peak (the max-|CC| zero-lag
+  special case), as a conditional L0 descriptor — it does not replace the
+  signed primary endpoint.
 - **Observation opportunity** (`n_wcc_points`, `n_valid_wcc_points`,
   `valid_wcc_fraction`, `wcc_observation_sec`) is recorded per dyad-condition and
   governs comparability (see §7).

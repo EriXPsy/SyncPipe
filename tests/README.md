@@ -185,3 +185,29 @@ lives under `tests/`, so such a run would re-invoke itself and recurse.
 If a test legitimately references a path that does not exist yet (an output
 written during the run), add it to `_ALLOWED_MISSING_PATHS` with a reason so the
 exemption is explicit and reviewable.
+
+## Two-layer workflow (2026-09-07)
+
+The full suite takes ~24 minutes because heavy validation lives behind the
+`slow` marker (68 tests as of the 530-collection baseline). Use the split:
+
+```bash
+# Fast PR-gate layer (fast feedback, ~everything except heavy validation):
+python -m pytest -q -m "not slow"
+
+# Full / nightly layer (includes validation batteries and Monte Carlo checks):
+python -m pytest -q
+```
+
+Rules:
+
+- Anything running Monte Carlo replicates, long surrogate loops, or real-data
+  end-to-end batteries MUST be marked `@pytest.mark.slow`.
+- The suite-health guard freezes the collection count and the slow / not-slow
+  split; adding or removing tests requires updating
+  `_EXPECTED_COLLECTED` / `_EXPECTED_SLOW` / `_EXPECTED_NOT_SLOW` **with a
+  reason in the comment**, so drift is always an intentional act.
+- CI should default to the fast layer; the full layer runs nightly or before
+  releases and before any push that touches `syncpipe/` inference or
+  measurement code (local-verification convention: no push without a green
+  full run).
