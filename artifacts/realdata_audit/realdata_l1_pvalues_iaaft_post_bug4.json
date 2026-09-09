@@ -1,0 +1,10 @@
+{
+  "source_traces": "C:\\Users\\\u9648\u601d\u4e1e\\WorkBuddy\\20260413150513\\syncpipe\\artifacts\\wcc_traces\\lerique_wcc_traces.csv",
+  "n_traces": 176,
+  "surrogate_n": 499,
+  "master_seed": 42,
+  "null_model": "iaaft",
+  "reason": "BUG-4 remediation: pre-fix L1 p-values used state_shuffle, under which dwell_time/switching_rate are invariant and p == 1.0 by construction.  Regenerated with the protocol null (WCC-level IAAFT, V1_PROTOCOL \u00a710) on 2026-09-08.",
+  "table": "C:\\Users\\\u9648\u601d\u4e1e\\WorkBuddy\\20260413150513\\syncpipe\\artifacts\\realdata_audit\\realdata_l1_pvalues_iaaft_post_bug4.csv",
+  "runtime_sec": 793.6
+}

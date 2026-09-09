@@ -586,3 +586,35 @@ Avoid:
 - "L1/L2 features are confirmatory";
 - "onset/rise/recovery are general synchrony features";
 - "more synchrony is always better".
+
+## 10. Post-freeze statistical-kernel remediation (2026-09-08)
+
+Three defects were found by adversarial kernel review and fixed in 1.0.1
+(see CHANGELOG).  This entry records their methodological consequences.
+
+**BUG-2 (NaN stride backend).**  Any NaN input returned an all-NaN WCC
+trace.  Impact: design-control and canonical paths on gappy data were
+silently powerless.  Point estimates on NaN-free data are bit-identical
+(verified: morphology re-run byte-identical).  Gappy paths now follow the
+documented pairwise-deletion contract.
+
+**BUG-3 (shared surrogate seed).**  All dyads consumed one RNG stream,
+correlating surrogate draws across dyads (null-peak r ≈ +0.33) and
+inflating the second-order group-null spread ~1.46×.  Direction: strictly
+conservative — the gate never over-claimed, but lost power with cohort
+size.  Per-pair derived seeds restore draw independence; all
+existence-audit p-values computed before this fix are MC realizations of
+the same estimand and should be regenerated at the next full validation
+cycle (raw-signal re-download required for real datasets).
+
+**BUG-4 (L1 null self-invariance).**  The v1.0 pipeline default
+`state_shuffle` makes dwell_time and switching_rate invariant by
+construction (p ≡ 1.0).  Every L1 p-value produced under it is void.
+L1 p-values have been regenerated for the stored LERIQUE WCC traces with
+the protocol null (WCC-level IAAFT, 499 draws):
+`artifacts/realdata_audit/realdata_l1_pvalues_iaaft_post_bug4.csv`.
+Any L1 p-value quoted from pre-fix runs must be replaced.
+
+The kernel itself (BH step-up, Phipson-Smyth denominators, exact/MC
+permutation split) was re-verified against textbook references and is
+unchanged.
