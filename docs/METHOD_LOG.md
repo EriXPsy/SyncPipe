@@ -618,3 +618,56 @@ Any L1 p-value quoted from pre-fix runs must be replaced.
 The kernel itself (BH step-up, Phipson-Smyth denominators, exact/MC
 permutation split) was re-verified against textbook references and is
 unchanged.
+
+## 11. L0 existence recompute on real data, post-BUG-3 (2026-09-09)
+
+Resolves the deferred item in §10 ("raw-signal re-download required"): the
+OSF datasets are available locally at `E:/OSF`, so the L0
+synchrony-existence audit was recomputed from raw signals — no download.
+Tool: `scripts/rerun_l0_existence.py` (new, tracked), which mirrors the
+prior real-data configuration exactly (loaders/hz/window/seed from
+`realdata_full_new_pipeline.py`, whose `multisync.*` imports were also
+repaired to `syncpipe.*` — the script had been unrunnable since the v2.0.0
+rename) and routes through the canonical
+`InferencePipeline.run_synchrony_existence_audit` (per-pair derived seeds).
+Package state: 1.0.1 (post BUG-2/3/4).
+
+**Results** (`artifacts/realdata_audit/realdata_l0_existence_post_bug3*.json`,
+per-pair CSVs alongside):
+
+- **Lerique (flagship)**: 176/176 pairs audited OK. Second-order group gate
+  PASSES; all three modalities (ECG n=54, EDA n=60, RESP n=62) reach
+  p_group = 0.0198 — the two-tailed Phipson-Smyth floor at 100 draws
+  (2/(100+1)); per-modality modality-level p cannot resolve below that at
+  the package default surrogate count.
+- **Gordon (motion)**, **Andersen (hr)**: audited fully (183 / 78 pairs);
+  gate not evaluable as primary because their modality labels are not in
+  the pre-registered primary set {ECG, EDA} — by protocol, not by failure.
+  Gordon's group observed mean WCC peak ≈ 0.999 flags the known
+  saturation of the motion-intensity signal channel (see
+  REALDATA_COMPARISON §3); treat its existence numbers as descriptive.
+- **Bizzego**: first run carried lowercase modality labels (`ecg`/`eda`)
+  from the loader, which the case-sensitive primary-modality registry could
+  not match; the loader now emits uppercase labels and the dataset was
+  re-audited (`realdata_l0_existence_post_bug3_bizzego_relabel.json`).
+- **Han**: requires `xlrd` for the raw `.xls` files (now installed in the
+  project venv); re-audited separately and merged.
+
+**Prior-vs-post comparison (Lerique)**: the legacy per-pair pass-rate table
+(`E:/OSF/Lerique-47n3p/multisync_results/lerique_surrogate_summary.csv`)
+comes from the pre-v2.0.0 multisync package. Post-fix rates are markedly
+higher in ECG/EDA (e.g. EDA rest1 peak_amplitude 20%→100%,
+trials_concat peak 33%→82%). Deltas conflate three causes and must not be
+read as a single-cause effect: (1) BUG-3 seed decorrelation (the documented
+conservative bias), (2) BUG-2 NaN handling (pairs that previously returned
+no usable audit now compute), and (3) a larger usable-pair count
+(27–31 → 54–62 per modality). The new tables are the authoritative L0
+baseline; the legacy CSV is retained on the OSF volume as provenance only.
+
+**Calibration guard**: endpoint-level H0 size checks were added
+(`tests/test_h0_calibration_endpoints.py`): L0 per-feature FPR ≈ α on
+independent AR partners, L1 dwell/switching FPR ≈ α under the protocol IAAFT
+null (BUG-4 regression guard at calibration level), L2 BH-FDR rejection ≈ α
+on no-effect datasets, and a slow-tier KS uniformity check. The BUG-3
+conservative-bias mechanism itself remains covered by
+`test_derived_seeds_remove_cross_dyad_null_correlation`.

@@ -211,3 +211,21 @@ Rules:
   releases and before any push that touches `syncpipe/` inference or
   measurement code (local-verification convention: no push without a green
   full run).
+
+## H0 calibration endpoint family (2026-09-09, P1-3)
+
+`tests/test_h0_calibration_endpoints.py` institutionalizes the null-size
+contract per statistical endpoint — each pipeline stage must reject at ~
+nominal alpha (0.05) under its own H0:
+
+| Endpoint | File-level check | H0 construction | Tier |
+|---|---|---|---|
+| L0 per-pair existence audit (`synchrony_existence_audit`) | per-feature FPR ≈ α (peak_amplitude / mean_synchrony / bimodality_coefficient) | two independent AR(1) partners | fast |
+| L1 WCC-level IAAFT surrogate (`wcc_surrogate_test`) | dwell_time / switching_rate FPR ≈ α | WCC of independent signals | fast |
+| L2 dyad-paired permutation (`run_group_condition_inference`) | BH-FDR rejection ≈ α | within-dyad deltas = pure noise | fast |
+| L0 p-value uniformity | KS against U(0,1) | pooled independent-signal p's | slow |
+
+Rationale: unit tests alone froze an invalid default once (BUG-4); calibration
+tests catch size regressions (anti-conservative FPR, degenerate p-masses)
+directly. When adding a new statistical endpoint, add a matching H0 row here
+and to the endpoint family file — the suite-health guard freezes the count.

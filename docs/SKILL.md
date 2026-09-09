@@ -1,117 +1,157 @@
-# SKILL: SyncPipe v1.0
+---
+name: syncpipe
+description: >
+  Auditable dyadic synchrony measurement with SyncPipe. Use when a user has
+  two-party time series (physiological, behavioral, or neural) and wants
+  rigorous synchrony quantification: WCC descriptors, an existence audit
+  against randomized independent-signal nulls, design-control audits
+  (pseudo-pair, time-shift, shared stimulus), and dyad-paired condition
+  inference with pre-registered FDR families. Also use when the user asks to
+  run, interpret, troubleshoot, or report a SyncPipe analysis.
+version: 1.0.1
+license: MIT
+---
 
-Agent-oriented capability sheet. Human docs: `docs/USER_MANUAL.md`.
+# SyncPipe — agent skill
 
-## What this skill does
-Turn a pre-computed or raw dyadic synchrony signal into **auditable descriptors**
-and run a **three-step audited evidence chain** (existence audit → design-control
-audit → group inference). It is measurement infrastructure for **same-modality dyadic synchrony across
-multiple modality families**, built on a windowed cross-correlation (WCC) substrate.
+Human documentation: [`docs/USER_MANUAL.md`](USER_MANUAL.md) · generated API
+mirror: [`docs/API_REFERENCE.md`](API_REFERENCE.md).
+
+## What this does
+
+Turn aligned two-person time series into **auditable descriptors** and run the
+**three-step audited evidence chain** (existence audit → design-control audit →
+group inference) on a sliding-window cross-correlation (WCC) substrate.
+Measurement infrastructure for same-modality dyadic synchrony across modality
+families (EDA, ECG-derived IBI, respiration, motion energy — the core is
+modality-agnostic).
 
 ## When to use
-- User has dyadic / two-party time series (behavioral, physiological, neural) and
-  wants to **quantify synchrony** rigorously rather than with a single ad-hoc score.
-- User needs to **test whether observed synchrony exceeds chance** (existence),
-  **rule out confounds** (shared stimulus, misalignment, partner identity), or
-  **compare conditions/groups** with multiplicity control.
-- User wants ground-truth-validated descriptors with explicit risk notes.
 
-## When NOT to use / guardrails
-- Not for triads or groups (v1.0 is dyadic only).
-- Do NOT report exploratory descriptors (`bimodality_coefficient`,
-  `synchrony_entropy`, `fraction_above_threshold`, `first_peak_time`,
-  `inter_peak_cv`) as confirmatory; they are not in the FDR family and the timing
-  descriptors lack a validated existence null (deferred to v2).
-- A significant existence audit is **necessary but not sufficient** for coupling —
-  always run the design-control audit before claiming interpersonal synchrony.
-- Never describe `mean_synchrony` as confirmatory; it is a reference comparator.
+- Dyadic / two-party continuous time series that must be quantified rigorously
+  rather than with a single ad-hoc score.
+- Testing whether observed synchrony exceeds chance, ruling out confounds
+  (shared stimulus, misalignment, partner identity), or comparing conditions
+  with multiplicity control.
+- Interpreting or troubleshooting an existing SyncPipe run.
 
-## Environment
-- Python ≥ 3.10. Install: `python -m pip install -e .` from the repository root.
-- Version check: `syncpipe --version` → `syncpipe 1.0.1`.
+## When NOT to use (guardrails)
+
+- Not for triads or groups (dyadic only in v1.x).
+- Not for raw ECG/EEG/fNIRS waveforms or event-style data — feed a continuous,
+  preprocessed, low-frequency trace (for raw ECG use the `[ecg]` extra's
+  IBI path first).
+- Never report exploratory descriptors (`bimodality_coefficient`,
+  `synchrony_entropy`, timing descriptors) as confirmatory — they are outside
+  the pre-registered FDR families; the report itself folds them under a
+  labelled `<details>` section. Preserve that folding in any summary you write.
+- A passed existence audit is **necessary but not sufficient** for coupling.
+  Never claim partner-specific coupling, causality, relationship quality, or
+  clinical meaning from SyncPipe output.
+
+## Setup
+
+```bash
+python -m pip install -e .            # core
+python -m pip install -e ".[ecg]"     # raw-ECG -> IBI preprocessing (neurokit2)
+python -m pip install -e ".[rqa]"     # RQA convergence channel
+python -m pip install -e ".[xls]"     # legacy .xls OSF workbooks
+syncpipe --version                    # sanity check
+```
+
+## Agent workflow for a user request
+
+1. **Clarify the data shape**: two people? same signal type? aligned,
+   constant-rate, continuous? If any answer is no, stop and say so — do not
+   force the tool onto event data or group designs.
+2. **Choose the path**:
+   - quick single-pair description → `syncpipe describe ...` (exploratory only);
+   - study with multiple dyads / condition contrast → `syncpipe analyze` with
+     manifest + config (the confirmatory path);
+   - a hands-on tour → `syncpipe external-kit -o example`, then
+     `syncpipe demo -o demo_results`.
+3. **Prepare inputs** exactly per USER_MANUAL §5 (signal CSVs, manifest,
+   settings, processing record). Manifest signal type and unit must match the
+   processing record.
+4. **Run** and read outputs in this order: `REPORT.md` →
+   `evidence_graph.json` → `qc_report.json` → `exclusion_report.csv` →
+   `features.csv`. Surface the strongest-supported-claim sentence verbatim;
+   keep confirmatory results ahead of exploratory ones in anything you write.
+5. **Report honestly**: include definedness rates, exclusion reasons, and the
+   "still not ruled out" line from `REPORT.md`. Use the plain-language phrasing
+   patterns in USER_MANUAL §8.
 
 ## CLI entry points
+
 ```bash
-# Methods demo + all audit reports on a synthetic ground-truth dyad
+syncpipe analyze -m manifest.csv -c config.toml -o results/   # confirmatory
+syncpipe describe -i dyad.csv -n eda --hz 1 --window-size 10 -o out.json
 syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifacts/demo
-
-# Analyze user data (confirmatory path: manifest + config)
-syncpipe analyze -m manifest.csv -c config.toml -o results/
-
-# Exploratory descriptor path on ad-hoc CSVs
-syncpipe describe -i dyad.csv -n eda --hz 1 --window-size 10 --surrogates 500 -o out.json
-
-# Self-contained reproduction smoke check
-python -m pytest
-python -m syncpipe demo --surrogates 100 --audit-surrogates 100 --demo-dyads 4 -o artifacts/demo_v1
-python scripts/build_feature_table.py
+syncpipe external-kit -o example
 ```
 
-## Python API (import syncpipe as sp)
+## Python API (canonical study path)
+
 ```python
-import syncpipe as sp
+from syncpipe.pipeline_bridge import records_to_inference_inputs
+from syncpipe.inference_pipeline import InferencePipeline
 
-# Build a dyad and run dynamic analysis
-dyad = sp.Dyad(...)                       # see core.py
-analyzer = sp.DynamicAnalyzer(...)
-
-# Pipelines
-pipe  = sp.ComputationPipeline(hz=4.0, window_size=40)
-infer = sp.InferencePipeline(features_df, hz=4.0, wcc_window_sec=10.0)
-
-# Three-step evidence chain
-sp.synchrony_existence_audit(sig_a, sig_b, hz=4.0, window_size=40)   # step 1
-sp.design_control_audit(signal_pairs, hz=4.0, window_size=40)        # step 2
-# step 3 = InferencePipeline (dyad-paired permutation + BH-FDR)
-
-# Surrogate thresholds
-sp.compute_session_pooled_thresholds_by_modality(...)  # CANONICAL default: per-modality IAAFT
-sp.compute_session_pooled_threshold(...)        # optional coarser global pool
-sp.compute_condition_pooled_thresholds(...)    # optional per-condition pool
-
-# Feature surface
-sp.FDR_FEATURES        # ('peak_amplitude','dwell_time','switching_rate')
-sp.REFERENCE_FEATURE   # ('mean_synchrony',)
-sp.feature_status_table()   # rows with source level / paradigm / risk
-sp.explain_feature("dwell_time")
+inputs = records_to_inference_inputs(
+    records, hz=1.0, window_size=20, onset_threshold="session_pooled",
+    design_condition="task",
+)
+pipe = InferencePipeline(
+    inputs.features_df, hz=1.0, surrogate_n=100, seed=42, n_workers=4,
+)
+chain = pipe.run_audited_evidence_chain(
+    raw_signals=inputs.raw_signals, wcc_window_size=20,
+    design_signal_pairs=inputs.design_pairs,
+    condition_col="condition", dyad_col="dyad_id",
+)
+chain["legacy_fields"]["permitted_claim"]   # strongest supported claim
 ```
 
-## Key constants
-- `sp.ONSET_THRESHOLD` = 0.5 — **fallback / sensitivity constant only** (forwarded unchanged for sensitivity sweeps & paper reproduction; also the fallback when a modality's pooled null is degenerate). The scientific canonical default onset threshold is **per-modality pooled** (`compute_session_pooled_thresholds_by_modality`): one IAAFT-derived cut-off per modality, so EDA and ECG get different, calibrated thresholds while every dyad of a modality still shares one. Surrogate-derived thresholds are hard-capped at `SURROGATE_THRESHOLD_MAX = 0.9` (periodicity / strong-autocorrelation protection).
-- `SURROGATE_THRESHOLD_PERCENTILE` = 95 (per-dyad surrogate cut-off).
-- `sp.PRIMARY_FDR_FAMILY` = `('peak_amplitude',)` — the PRIMARY confirmatory
-  claim rests on **one** pre-registered endpoint, so the primary BH denominator
-  is **m = 1**. A single endpoint is what makes the existence gate and the group
-  claim consistent; an OR across a family would reintroduce a hidden multiple
-  comparison.
-- `sp.SECONDARY_FDR_FAMILY` = `('dwell_time', 'switching_rate')` — reported in
-  parallel, BH-corrected **within its own family** (m = 2). It does not enter the
-  primary denominator.
-- `sp.FDR_FEATURES` = primary + secondary (3 names). It is the descriptive export
-  surface, **not** the primary multiplicity denominator.
+Bridge rules (fail-loud): all records share one `hz`; observation labels are
+`<dyad>__<modality>__<condition>` and a dyad id containing `__` is rejected;
+duplicate `(dyad, modality, condition)` keys are rejected. Modality tokens may
+embed `__` (cross-modal pairing convention, e.g. `neural__behavior`).
 
-## Mandatory workflow (do not reorder)
-1. **QC gate**: `sp.run_quality_check(dataset)` → handle WARN/FAIL. A FAIL
-   raises `DataQualityError`. Watch the temporal-alignment stage: misaligned
-   start times create a false CCF lag.
-2. **Existence audit** (signal-level IAAFT). Necessary, not sufficient.
-3. **Design-control audit** (pseudo-pair + time-shift + across-stimulus).
-4. **Group inference** (dyad-paired permutation + BH-FDR). The primary claim is
-   BH over `PRIMARY_FDR_FAMILY` (m = 1); `SECONDARY_FDR_FAMILY` is corrected in
-   parallel within its own family (m = 2); `mean_synchrony` is reported as
-   reference only and is never corrected.
-5. **Report** via the feature status table; include definedness rates for
-   exploratory descriptors.
+Lower-level steps (rarely needed directly):
+`syncpipe.synchrony_existence_audit(sig_a, sig_b, hz, window_size)` →
+`syncpipe.design_control_audit(...)` → `InferencePipeline.run_group_condition_inference`.
 
-## Outputs to surface to the user
-- `DEMO_REPORT.md` / `viewer_results.json` (demo).
-- `docs/FEATURE_TABLE.{csv,md}` (authoritative descriptor table).
-- `artifacts/incremental_auc/` (incremental AUC per modality) and
-  `artifacts/prediction/` (prediction gap check).
-- The status table row for any descriptor before reporting it.
+## Key contracts
+
+- `PRIMARY_FDR_FAMILY = ('peak_amplitude',)` — the pre-registered primary
+  endpoint (BH denominator m = 1).
+- `SECONDARY_FDR_FAMILY = ('dwell_time', 'switching_rate')` — corrected within
+  its own family (m = 2); `mean_synchrony` is a reference comparator, never
+  confirmatory.
+- The existence gate reports `primary_pass` plus an explicit `gate_status`
+  (`pass` / `fail` / `not_evaluable`). `not_evaluable` = the signal type is not
+  among the pre-registered primary modalities — a scope statement, **not** a
+  negative finding; the typed evidence chain maps it to INCONCLUSIVE.
+- Onset thresholds default to per-modality session-pooled IAAFT cut-offs
+  (`session_pooled`), hard-capped at 0.9; the bare 0.5 constant is a fallback /
+  sensitivity value only.
+- Statistical defaults are frozen by `tests/test_v1_defaults_guard.py` and
+  calibrated by `tests/test_h0_calibration_endpoints.py` (each endpoint must
+  reject at ~alpha under its own H0).
+
+## Interpreting results (say this, not more)
+
+- Report each check's verdict separately (supported / not supported /
+  not enough information / could not test). "Not enough information" is not a
+  negative finding.
+- A condition-comparison p-value refers to the selected trace summary only —
+  never to "synchrony" as a general construct.
+- If the existence gate is `not_evaluable` for the user's modality, explain the
+  pre-registration logic instead of implying failure.
 
 ## Pointers
-- Decisions & lineage: `docs/METHOD_LOG.md` (esp. §3 evidence chain, §7d lineage).
-- Script → trunk-result mapping: `docs/SCRIPT_MAP.md`.
-- Visual overview: `SYNCPIPE_FAMILY_TREE.html` (repo root).
-- v2 staging (do not treat as v1 API): `experimental/`.
+
+- Release history: `CHANGELOG.md` · decisions: `docs/METHOD_LOG.md` and
+  `docs/DECISION_LOG.md` · script map: `docs/SCRIPT_MAP.md`.
+- Descriptor status table: `docs/FEATURE_TABLE.{csv,md}` — check a descriptor's
+  row before reporting it.
+- Contributing / verification rules: `CONTRIBUTING.md`.

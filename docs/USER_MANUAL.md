@@ -1,7 +1,9 @@
-# SyncPipe 2.0 — User Manual
+# SyncPipe — User Manual
 
 This manual explains the normal user path. Technical method notes are linked at
 the end rather than mixed into every instruction.
+Package version: see `syncpipe --version` (release notes in
+[`CHANGELOG.md`](../CHANGELOG.md)).
 
 ## 1. What question does SyncPipe answer?
 
@@ -50,6 +52,14 @@ python -m pip install -e .
 syncpipe --version
 ```
 
+Optional extras — install only what your data needs:
+
+```bash
+python -m pip install -e ".[ecg]"   # raw ECG -> IBI preprocessing (neurokit2)
+python -m pip install -e ".[rqa]"   # recurrence-quantification convergence channel
+python -m pip install -e ".[xls]"   # legacy .xls OSF workbooks (e.g. Han-bzkdy)
+```
+
 Create a safe example project:
 
 ```bash
@@ -94,6 +104,39 @@ syncpipe analyze \
 ```
 
 This is the recommended path for research reporting.
+
+### C. Call SyncPipe from Python (notebooks and scripts)
+
+The CLI is a thin wrapper. The study-level canonical entry from Python is the
+audited evidence chain:
+
+```python
+from syncpipe.pipeline_bridge import records_to_inference_inputs
+from syncpipe.inference_pipeline import InferencePipeline
+
+# records: objects exposing dyad_label, modality, condition,
+#          person_a / person_b (DataFrame or 1-D array), target_hz
+inputs = records_to_inference_inputs(
+    records, hz=1.0, window_size=20, onset_threshold="session_pooled",
+)
+pipe = InferencePipeline(
+    inputs.features_df, hz=1.0, surrogate_n=100, seed=42, n_workers=4,
+)
+chain = pipe.run_audited_evidence_chain(
+    raw_signals=inputs.raw_signals,
+    wcc_window_size=20,
+    condition_col="condition", dyad_col="dyad_id",
+)
+print(chain["legacy_fields"]["permitted_claim"])  # strongest supported claim
+```
+
+Rules the API enforces (also visible in error messages):
+
+- observation labels are built as `<dyad>__<modality>__<condition>`;
+  a dyad id containing `__` is rejected (it would corrupt label parsing);
+- all records of one analysis share one sampling rate — resample first;
+- every public class and function is listed in
+  [`API_REFERENCE.md`](API_REFERENCE.md).
 
 ## 5. Prepare the three input files
 
@@ -240,14 +283,24 @@ expected by chance. It reports:
 
 ### 1. `REPORT.md`
 
-Short plain-language summary:
+Short plain-language summary, layered so that confirmatory results lead:
 
 - strongest supported conclusion;
-- condition comparison;
+- condition comparison (pre-registered primary measure);
+- pre-specified secondary measures (multiplicity-corrected within their family);
+- reference and exploratory measures, folded at the bottom of the report —
+  visible for transparency, not confirmatory;
 - checks that passed, failed, or lacked information;
 - explanations still possible;
 - excluded data;
 - important limits.
+
+In `evidence_graph.json`, the existence stage status is one of `supported`,
+`not_supported`, or `inconclusive`; the raw existence gate additionally
+carries `gate_status` (`pass` / `fail` / `not_evaluable`) — `not_evaluable`
+means the signal type was not among the pre-registered primary modalities,
+i.e. the gate did not adjudicate. That is a scope statement, not a negative
+finding.
 
 ### 2. `evidence_graph.json`
 
@@ -300,6 +353,29 @@ A result may be unavailable because:
 These cases are reported as insufficient information, not silently converted to
 zero or “no effect.”
 
+## 9b. Troubleshooting and FAQ
+
+| Symptom | Most likely cause | What to do |
+|---|---|---|
+| `ValueError: dyad_label ... contains '__'` | A dyad id embeds the label separator (e.g. `p1__p2`) | Rename the dyad with a different separator (`p1-p2`) |
+| `ModuleNotFoundError: neurokit2` | Raw-ECG loading without the `[ecg]` extra | `pip install ".[ecg]"` |
+| `Missing optional dependency 'xlrd'` | Legacy `.xls` workbooks without the `[xls]` extra | `pip install ".[xls]"` |
+| `target_hz ... does not match bridge hz` | Records mixed sampling rates | Resample all records to one rate before pooling |
+| `No usable records after quality gates` | High NaN share, flat signals, or traces shorter than the window | Check `exclusion_report.csv`; lower `window_size` only if justified |
+| Existence gate `not_evaluable` | Signal type not among the pre-registered primary modalities | Scope statement, not a failure; see §7 |
+| p-values never below the reported minimum | Randomization count too low for the attainable p floor (two-sided floor ≈ 2/(n+1)) | Increase `surrogate_n` / `n_permutations` for publication runs |
+| Results differ from a pre-1.0.1 run | Known statistical-kernel fixes in 1.0.1 (see `CHANGELOG.md`) | Regenerate p-values from the current package; old p-values are void |
+
+**Can I use behavioral (non-physiological) data?** Yes — the pipeline is
+modality-agnostic (it has been fully audited on 10 Hz motion-energy data).
+What is fixed is the list of *pre-registered primary modalities* that
+adjudicate the existence gate; other signal types still get the complete
+per-pair audits and condition comparison.
+
+**Where do I get a runnable example?** `syncpipe external-kit -o example`
+creates a self-contained project; `syncpipe demo -o demo_results` runs the
+synthetic single-dyad demo.
+
 ## 10. Old project migration
 
 ```bash
@@ -334,12 +410,15 @@ not be described as a universal measure of interpersonal synchrony.
 
 | Topic | Document |
 |---|---|
+| every public class and function | [`API_REFERENCE.md`](API_REFERENCE.md) |
 | limitations | [`LIMITATIONS.md`](LIMITATIONS.md) |
 | construct and rival explanations | [`CONSTRUCT_VALIDITY.md`](CONSTRUCT_VALIDITY.md) |
 | external validation | [`EXTERNAL_VALIDATION.md`](EXTERNAL_VALIDATION.md) |
 | architecture | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | feature definitions | [`FEATURE_TABLE.md`](FEATURE_TABLE.md) |
 | historical decisions | [`METHOD_LOG.md`](METHOD_LOG.md) |
+| contributing | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) |
+| agent-facing skill sheet | [`SKILL.md`](SKILL.md) |
 
 ## Technical terms
 

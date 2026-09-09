@@ -77,12 +77,16 @@ syncpipe --version
 
 ## Try it without your own data
 
-Create a small self-contained example:
+Two ways to see SyncPipe work:
 
 ```bash
+# 1. A full self-contained example project (manifest -> report):
 syncpipe external-kit -o example
 cd example
 syncpipe analyze -m manifest.csv -c config.toml -o results
+
+# 2. A synthetic single-dyad demo with audits and a viewer file:
+syncpipe demo -o demo_results
 ```
 
 Start with:
@@ -266,6 +270,19 @@ can rely on `REPORT.md`.
 | claim ceiling | strongest conclusion supported after considering failed or missing checks |
 | provenance | record of how input data were processed |
 | FDR | correction for testing several measures |
+
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [`docs/USER_MANUAL.md`](docs/USER_MANUAL.md) | End-to-end walkthrough: preparing signals, manifest, settings, reading the report |
+| [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Generated reference for every public class and function |
+| [`docs/DESIGN_PRINCIPLES.md`](docs/DESIGN_PRINCIPLES.md) | Why the pipeline is shaped the way it is |
+| [`docs/V1_PROTOCOL.md`](docs/V1_PROTOCOL.md) | Locked statistical protocol (windows, nulls, gates, FDR families) |
+| [`docs/V1_CLAIM_CEILING.md`](docs/V1_CLAIM_CEILING.md) | What conclusions the current evidence supports — and what it does not |
+| [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | Known limitations and boundary conditions |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to contribute: test layers, verification rules, conventions |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release history |
 
 ## Development
 

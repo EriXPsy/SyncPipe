@@ -709,3 +709,88 @@ remaining gaps left by P1.
 
 **Source of truth.** `syncpipe/inference_pipeline.py`, `experimental/prediction.py`, `syncpipe/feature_definitions.py`; guarded by `tests/contracts/test_release_contracts.py` (§ "source: test_p2_release_hygiene.py").
 
+
+---
+
+## 2026-09-09 — P2/P3 dispositions: declarative feature registry (v2 direction) and the three timing descriptors
+
+**Context.** The post-benchmark improvement list (round-3 self-review, chat)
+flagged two governance items: (a) a pyspi-style *declarative feature
+registry* as the split direction for `feature_definitions.py`, and (b) an
+explicit v2 disposition for the three peak-timing descriptors
+(onset_latency, rise_time, recovery_time).
+
+**Decision (a) — registry.** The SSoT remains `feature_definitions.py`
+(in-code tuples + validation). The declarative *view* already exists and is
+generated: `scripts/build_feature_table.py` → `docs/FEATURE_TABLE.csv/.md`
+(per-feature tier, FDR family, null model, paradigm, interpretation).
+v2 direction (recorded, not executed): flip the source of truth to a
+machine-readable registry file (YAML/JSON) consumed by a thin
+`feature_definitions` loader, keeping the defensive consistency checks as a
+validation pass over the file. Prerequisites before flipping: (1) all
+consumers read through the loader, not module constants; (2) contract tests
+pin the registry schema version. Doing the flip incrementally now was
+rejected — a partial split would create two half-registries, the exact
+"local increment vs global optimum" failure mode this project guards
+against.
+
+**Decision (b) — timing descriptors.** The three peak-timing descriptors
+stay *computed and exported* in v1.x (API compatibility; non-breaking) and
+remain excluded from every confirmatory FDR family (unchanged since the
+L2-timing freeze). Their v2 gate is validation of the cyclic
+block-bootstrap existence null; if v2 validates it, they become promotable
+to a pre-registered secondary timing family (new family, own FDR step);
+if not, they are demoted to exploratory-only in the registry with a
+documented removal window. No runtime DeprecationWarning is emitted in
+v1.x — the registry status (`docs/FEATURE_TABLE.csv`) is the single
+surface that carries their restricted status.
+
+**Verification.** Report layering shipped in this window
+(`syncpipe/export/report.py`): confirmatory (bottom line → primary endpoint
+→ pre-specified secondary family) leads; reference + exploratory measures
+are folded in a labelled `<details>` section. H0-calibration endpoint family
+added (`tests/test_h0_calibration_endpoints.py`). Suite-health baseline
+updated (552/71/481).
+
+---
+
+## 2026-09-09 — Round-4 adversarial hardening: label hygiene, gate status semantics, xls extra
+
+**Scope question that triggered this round.** Whether the {ECG, EDA} primary
+modality registry means behavioral-synchrony data (Gordon motion, Han
+affect-composite) cannot be analyzed. Answer recorded here because it drove
+two real defects: the core is modality-agnostic and Gordon (behavioral,
+10 Hz motion energy) was fully audited in the L0 recompute (183/183 pairs);
+the registry only decides which modalities adjudicate the pre-registered
+existence gate. But two implementation gaps made that boundary look like a
+capability limit:
+
+1. **Label-separator hygiene (bridge, fail-loud).** The observation-label
+   convention reserves `__` as the field separator
+   (`<dyad>__<modality>__<condition>`). The Han loader encoded dyads as
+   `<p1>__<p2>`, silently mis-parsing modality tokens downstream. The bridge
+   now raises ValueError when the **dyad token** contains `__` — the dyad is
+   the first label token, so an embedded separator shifts the parts[1]
+   boundary. Modality tokens MAY embed `__` (the cross-modal pairing
+   convention, e.g. `neural__behavior` used by
+   `scripts/reproduce_lerique_paper.py`) and are left free; the first
+   narrow-everything version of this check was corrected after the full
+   suite caught the cross-modal regression. The Han loader label is fixed to
+   `<p1>-<p2>`. Tests: dyad separator rejected / cross-modal modality
+   accepted / clean labels accepted.
+
+2. **Gate three-way status (additive).** The raw gate dict previously
+   returned `primary_pass=False` both for "registered primaries were tested
+   and did not pass" and for "no registered primary present — the gate did
+   not adjudicate". It now carries `gate_status: pass | fail |
+   not_evaluable`. The typed evidence chain already mapped the latter to
+   INCONCLUSIVE; the field makes the raw dict self-describing. Test added.
+
+3. **`[xls]` extra.** Han's raw `.xls` workbooks require `xlrd`; the
+   dependency is now declared as `pip install syncpipe[xls]` instead of a
+   surprise at load time.
+
+**Not fixed (deliberate):** modality labels are still case-sensitive against
+the registry (loader responsibility; Bizzego fixed upstream in its loader).
+A registry-level case-normalization would move loader semantics into the
+gate — rejected as a local increment against the global design.
