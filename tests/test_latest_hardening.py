@@ -267,3 +267,49 @@ def test_bridge_skips_high_nan_signal():
     with pytest.warns(UserWarning, match="NaN rate"):
         with pytest.raises(ValueError, match="No usable records"):
             records_to_inference_inputs([rec], hz=1.0, window_size=30)
+
+
+def test_bridge_rejects_label_tokens_containing_separator():
+    """Round-4 hardening: a dyad token containing "__" shifts the parts[1]
+    boundary of the observation label and silently corrupts downstream
+    modality parsing (seen in the wild: a loader encoding pairs as
+    "<p1>__<p2>"). The bridge must fail loud on the dyad token.
+    """
+    n = 200
+    sig = np.sin(np.linspace(0, 10, n))
+    rec = SimpleNamespace(
+        dyad_label="p1__p2", modality="eda", condition="A",
+        person_a=sig, person_b=sig, target_hz=1.0,
+        incomplete=False, discontinuity_mask=None,
+    )
+    with pytest.raises(ValueError, match="dyad_label.*contains"):
+        records_to_inference_inputs([rec], hz=1.0, window_size=30)
+
+
+def test_bridge_allows_cross_modal_modality_convention():
+    """Modality tokens may embed "__" — the cross-modal pairing convention
+    (e.g. "neural__behavior", used by scripts/reproduce_lerique_paper.py).
+    Only the dyad token is restricted (it is the first label token, so an
+    embedded separator shifts the parts[1] boundary)."""
+    n = 200
+    sig = np.sin(np.linspace(0, 10, n))
+    rec = SimpleNamespace(
+        dyad_label="toy00", modality="neural__behavior", condition="trials",
+        person_a=sig, person_b=sig, target_hz=1.0,
+        incomplete=False, discontinuity_mask=None,
+    )
+    inputs = records_to_inference_inputs([rec], hz=1.0, window_size=30)
+    assert list(inputs.raw_signals) == ["toy00__neural__behavior__trials"]
+
+
+def test_bridge_accepts_clean_labels():
+    """The separator check must not reject well-formed labels."""
+    n = 200
+    sig = np.sin(np.linspace(0, 10, n))
+    rec = SimpleNamespace(
+        dyad_label="p1-p2", modality="eda", condition="A",
+        person_a=sig, person_b=sig, target_hz=1.0,
+        incomplete=False, discontinuity_mask=None,
+    )
+    inputs = records_to_inference_inputs([rec], hz=1.0, window_size=30)
+    assert list(inputs.raw_signals) == ["p1-p2__eda__A"]

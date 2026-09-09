@@ -29,6 +29,9 @@ ecg = ["neurokit2>=0.2.7"]
 # pyphysio, crqa) are deliberately NOT offered as extras: GPL is contagious
 # for this MIT package — invoke them as external processes only.
 rqa = ["PyRQA>=0.1.0"]
+# Legacy .xls Excel reading (pandas/xlrd) for raw OSF workbooks, e.g. the
+# Han-bzkdy SCL/affect sheets. Permissively licensed.
+xls = ["xlrd>=2.0.1"]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",

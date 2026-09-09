@@ -104,3 +104,27 @@ def test_gate_is_conservative_when_one_dyad_has_few_draws():
     assert mod["n_null_draws"] == 5
     assert mod["min_attainable_two_sided_p"] == pytest.approx(2 / 6)
     assert gate["primary_pass"] is False
+
+
+def test_gate_reports_explicit_three_way_status():
+    """Round-4: the raw gate dict must distinguish fail vs not-evaluable.
+
+    - A gate whose modalities are all outside the registered primary set
+      did NOT adjudicate: gate_status="not_evaluable" (the typed evidence
+      chain maps this to INCONCLUSIVE, not NOT_SUPPORTED).
+    - A gate with a registered, testable primary that did not pass is a
+      genuine "fail".
+    """
+    rng = np.random.default_rng(7)
+    results = _make_results(rng, modality="motion")
+    gate = _existence_gate_by_modality(
+        results, primary_modalities=("ECG", "EDA"), alpha=ALPHA
+    )
+    assert gate["primary_pass"] is False
+    assert gate["gate_status"] == "not_evaluable"
+
+    results_ecg = _make_results(rng, modality="ECG", nan_rate=0.0, ragged=False)
+    gate2 = _existence_gate_by_modality(
+        results_ecg, primary_modalities=("ECG",), alpha=ALPHA
+    )
+    assert gate2["gate_status"] == ("pass" if gate2["primary_pass"] else "fail")

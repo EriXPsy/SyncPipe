@@ -283,7 +283,7 @@ def load_han():
             sb = pdata[pb].get(cond)
             if sa is None or sb is None:
                 continue
-            out.append(RawRecord(dyad_label=f"{pa}__{pb}", modality="affect",
+            out.append(RawRecord(dyad_label=f"{pa}-{pb}", modality="affect",
                                  condition=f"Stim_{cond}", person_a=sa,
                                  person_b=sb, target_hz=1.0))
     cfg = dict(hz=1.0, window=20, design_condition="Stim_A",

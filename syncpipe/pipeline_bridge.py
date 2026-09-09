@@ -173,6 +173,23 @@ def records_to_inference_inputs(
         dyad = str(rec.dyad_label)
         mod = str(rec.modality)
         cond = str(rec.condition)
+        # Fail-loud label hygiene: "__" is the reserved field separator of
+        # observation labels ("<dyad>__<modality>__<condition>"), and the
+        # dyad is the FIRST token — a dyad containing "__" shifts the
+        # parts[1] boundary and silently corrupts downstream modality
+        # parsing (label-derived grouping, the existence gate, evidence
+        # aggregation). Seen in the wild: a dataset loader encoding pairs
+        # as "<p1>__<p2>". Modality tokens may legitimately embed "__"
+        # (the cross-modal pairing convention, e.g. "neural__behavior");
+        # those are left free — only the dyad token is restricted.
+        if "__" in dyad:
+            raise ValueError(
+                f"Record {rec.dyad_label!r}: dyad_label={dyad!r} contains "
+                "'__', which is reserved as the observation-label field "
+                "separator ('<dyad>__<modality>__<condition>'). The dyad is "
+                "the first label token, so an embedded separator corrupts "
+                "downstream modality parsing. Rename the dyad (e.g. use '-')."
+            )
         key = f"{dyad}__{mod}__{cond}"
         if any(e["key"] == key for e in entries):
             raise ValueError(f"Duplicate record key {key!r}; expected one record per dyad/modality/condition.")

@@ -293,8 +293,21 @@ def _existence_gate_by_modality(
             per_modality[m]["supports"] = bool(p_adj < alpha)
         primary_pass = any(per_modality[m]["supports"] for m in prim_mods)
 
+    # Explicit three-way status so callers can distinguish "tested and did
+    # not pass" from "no registered primary modality (or no resolvable
+    # p-value) — the gate did not adjudicate". The typed evidence chain
+    # already maps the latter to INCONCLUSIVE; this field makes the raw
+    # gate dict self-describing for direct consumers.
+    if primary_pass:
+        gate_status = "pass"
+    elif prim_mods:
+        gate_status = "fail"
+    else:
+        gate_status = "not_evaluable"
+
     return {
         "primary_pass": primary_pass,
+        "gate_status": gate_status,
         "per_modality": per_modality,
         "primary_modalities": list(primary_modalities),
         "alpha": float(alpha),
