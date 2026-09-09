@@ -1,5 +1,21 @@
-"""Render the short report most users should read first."""
+"""Render the short report most users should read first.
+
+Report layering (P2, 2026-09-09): confirmatory results lead the document
+(bottom line, primary endpoint, pre-specified secondary family); exploratory
+and reference measures are folded into a clearly-labelled section at the end
+so they are visible for transparency but cannot be mistaken for the
+confirmatory conclusion.
+"""
 from __future__ import annotations
+
+from ..feature_definitions import (
+    REFERENCE_FEATURE,
+    SECONDARY_FDR_FAMILY,
+)
+
+# Exploratory descriptors: implemented and reported for transparency, with
+# no validated confirmatory null of their own (see docs/FEATURE_TABLE).
+EXPLORATORY_FEATURES: tuple[str, ...] = ("bimodality_coefficient",)
 
 
 def _plain_status(value: str) -> str:
@@ -124,6 +140,66 @@ def build_report_markdown(
             )
     if not found:
         lines.append("- No usable result was produced for the main measure.")
+
+    # ---- Layered reporting: secondary family, then folded exploratory. ----
+    secondary = [f for f in SECONDARY_FDR_FAMILY if f != endpoint.name]
+    exploratory = [f for f in (*REFERENCE_FEATURE, *EXPLORATORY_FEATURES)
+                   if f != endpoint.name]
+    reference_names = tuple(REFERENCE_FEATURE)
+    rows_by_feature: dict[str, list] = {}
+    for modality, payload in sorted(group.items(), key=lambda x: str(x[0])):
+        if not isinstance(payload, dict):
+            continue
+        for result in payload.get("per_feature", ()):
+            feat = getattr(result, "feature", None)
+            if feat is not None:
+                rows_by_feature.setdefault(feat, []).append(
+                    (modality, result)
+                )
+
+    if secondary and rows_by_feature:
+        lines += [
+            "",
+            "## Secondary measures",
+            "",
+            "Pre-specified secondary family (reported in parallel with the "
+            "main measure; multiple-testing corrected within this family):",
+            "",
+        ]
+        for feat in secondary:
+            for modality, result in rows_by_feature.get(feat, ()):
+                lines.append(
+                    f"- **{feat}** ({modality}): median difference "
+                    f"{result.observed_diff:.3g}; adjusted p={result.p_fdr:.4g}; "
+                    f"usable pairs={result.n_dyads}; "
+                    f"reportable={'yes' if result.claimable else 'no'}"
+                )
+
+    if exploratory and rows_by_feature:
+        lines += [
+            "",
+            "<details>",
+            f"<summary>Exploratory and reference measures "
+            f"({', '.join(exploratory)}) — folded; not confirmatory</summary>",
+            "",
+            "These are reported for transparency. They are not part of the "
+            "pre-specified confirmatory families above, are not covered by "
+            "the same multiplicity control, and cannot support claims on "
+            "their own.",
+            "",
+        ]
+        for feat in exploratory:
+            label = (
+                "reference measure" if feat in reference_names
+                else "exploratory measure"
+            )
+            for modality, result in rows_by_feature.get(feat, ()):
+                lines.append(
+                    f"- **{feat}** ({modality}, {label}): median difference "
+                    f"{result.observed_diff:.3g}; adjusted "
+                    f"p={result.p_fdr:.4g}; usable pairs={result.n_dyads}"
+                )
+        lines += ["", "</details>", ""]
 
     lines += [
         "",

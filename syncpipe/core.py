@@ -42,7 +42,7 @@ from .__about__ import ANALYSIS_SCHEMA_VERSION
 from .qc import DataQualityError, run_quality_check
 
 # ---------------------------------------------------------------------------
-# A4 ROUTING DECISION (confirmed by maintainer)
+# Routing note
 # ---------------------------------------------------------------------------
 # CANONICAL_PATH : the CLI default DESCRIPTOR route (descriptor-layer
 #                  canonical) through SyncPipe.  Reached by the CLI
@@ -234,22 +234,24 @@ class AnalysisResults:
 
 class DynamicAnalyzer:
     """
-   ======================================================================
-    DEFAULT CLI / DESCRIPTOR PATH (A4 routing decision, confirmed). The scientific canonical is InferencePipeline + pipeline_bridge (the evidence chain used by the README SOP and reproduce_lerique_paper.py).
-   ----------------------------------------------------------------------
+    Default CLI / descriptor route through SyncPipe. For the study-level
+    evidence chain (existence audit, design controls, condition inference),
+    use ``InferencePipeline`` with ``pipeline_bridge`` instead — that is the
+    scientific-canonical path documented in the README and used by
+    ``scripts/reproduce_lerique_paper.py``.
+
     This class is the default / descriptor route through SyncPipe.  The CLI
     entry points (`python -m syncpipe analyze`, `python -m syncpipe demo`)
     call ``fit_transform`` by default.
 
-    Two-layer routing note (honest): ``DynamicAnalyzer`` and
-    ``InferencePipeline`` belong to DIFFERENT abstraction layers.  The former
-    is the DESCRIPTOR / default CLI path (it computes feature vectors per dyad,
-    reached by the CLI).  The latter is the SCIENTIFIC canonical — the audited
-    evidence chain (pipeline_bridge + InferencePipeline.run_audited_evidence_chain)
-    that produces the defensible manuscript conclusion.  Both are supported;
-    there is NO retirement, NO reversal, and they do not compete.
-   ======================================================================
-   The full analysis pipeline.
+    Routing note (honest): ``DynamicAnalyzer`` and ``InferencePipeline``
+    belong to different abstraction layers. ``DynamicAnalyzer`` is the
+    default CLI path (it computes feature vectors per dyad);
+    ``InferencePipeline`` is the scientific-canonical audited evidence chain
+    (pipeline_bridge + InferencePipeline.run_audited_evidence_chain) that
+    produces the defensible manuscript conclusion. Both are supported; they
+    do not compete.
+    The full analysis pipeline.
 
     Parameters
     ----------

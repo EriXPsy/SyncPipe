@@ -28,7 +28,8 @@ from .__about__ import __version__
 from .batch import _bh_fdr_correction  # verified-equivalent BH-FDR helper (no 4th impl)
 from .core import Dyad, DynamicAnalyzer
 from .dataset import SynchronyDataset
-from .design_controls import design_control_audit, synchrony_existence_audit
+from .design_controls import design_control_audit
+from .inference_pipeline import InferencePipeline
 from .qc import format_qc_report, run_quality_check
 from .feature_status import feature_status_latex, feature_status_table
 from .io import load_csv
@@ -343,14 +344,32 @@ def cmd_demo(args: argparse.Namespace) -> None:
     feature_status_latex(str(feature_status_tex_path))
 
     behavior = ds.modalities["behavior"]
-    existence = synchrony_existence_audit(
-        behavior["person_a"].to_numpy(dtype=float),
-        behavior["person_b"].to_numpy(dtype=float),
+    # Canonical existence audit (P1 unification): route the demo through
+    # InferencePipeline.run_synchrony_existence_audit — the same public
+    # evidence-chain entry real studies use — instead of the low-level
+    # per-pair helper. This keeps one code path for the audit (per-pair
+    # derived seeds per the BUG-3 policy, identical task construction and
+    # result schema). A single labeled pair ("demo__behavior") means no
+    # cross-dyad aggregation is possible, so the second-order group gate is
+    # not run here; the feature_table DataFrame is inert for this step and
+    # only satisfies the constructor contract.
+    demo_signals = {
+        "demo__behavior": (
+            behavior["person_a"].to_numpy(dtype=float),
+            behavior["person_b"].to_numpy(dtype=float),
+        )
+    }
+    _demo_inference = InferencePipeline(
+        feature_table,
         hz=1.0,
-        window_size=10,
+        wcc_window_sec=10.0,
         surrogate_n=getattr(args, "audit_surrogates", 99),
         seed=42,
+        n_workers=1,
     )
+    existence = _demo_inference.run_synchrony_existence_audit(
+        demo_signals, wcc_window_size=10,
+    )["results"]["demo__behavior"]
     existence_path = demo_dir / "synchrony_existence_audit.json"
     _write_json(existence_path, existence)
 
