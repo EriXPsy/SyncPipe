@@ -14,14 +14,15 @@ that scope, so it was moved here out of the package.
 
 One-off diagnostics, superseded validation runners, falsified experiments, and
 dataset-local analyses from the v0.x development history. Most were archived to
-`../archive/experimental_scripts/` on 2026-08-17; only the negative-evidence
-scripts below remain here.
+`../archive/experimental_scripts/` on 2026-08-17; the negative-evidence
+scripts below are kept locally for the audit trail but are not redistributed
+in the public repository.
 
 ### Negative-evidence scripts — KEPT TEMPORARILY, DEPRECATION WATCH
 
-The following scripts are referenced by `docs/METHOD_LOG.md` /
-`docs/SCRIPT_MAP.md` as the record of *negative* or *retired* results. They are
-kept so those citations stay resolvable, but they are **candidates for removal
+The following scripts are referenced by `docs/METHOD_LOG.md` as the record
+of *negative* or *retired* results. They are
+kept (locally) so those citations stay resolvable, but they are **candidates for removal
 once the referenced method sections are rewritten** — do not rely on them as
 maintained code:
 
@@ -33,5 +34,5 @@ maintained code:
 - `run_lerique_shuffle.py` — Lerique-local shuffle/robustness analysis.
 
 > **Deprecation watch:** if any of the above is deleted, first update the
-> METHOD_LOG / SCRIPT_MAP citations to either drop the reference or relocate the
+> METHOD_LOG citations to either drop the reference or relocate the
 > evidence into `docs/`.

@@ -151,7 +151,7 @@ Lower-level steps (rarely needed directly):
 ## Pointers
 
 - Release history: `CHANGELOG.md` · decisions: `docs/METHOD_LOG.md` and
-  `docs/DECISION_LOG.md` · script map: `docs/SCRIPT_MAP.md`.
+  `docs/DECISION_LOG.md`.
 - Descriptor status table: `docs/FEATURE_TABLE.{csv,md}` — check a descriptor's
   row before reporting it.
 - Contributing / verification rules: `CONTRIBUTING.md`.

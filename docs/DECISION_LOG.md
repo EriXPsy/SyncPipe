@@ -850,3 +850,16 @@ ignored).
    prominence-peak definition and records the two-tailed-notation
    equivalence; LIMITATIONS gained §7 (null/functional compatibility +
    conservative engineering choices) and §8 (construct validity roadmap).
+
+## 2026-09-10 — Round-5b: public-repository surface cleanup (user-approved)
+
+The public repository was carrying internal working material: `archive/`
+(73 files — superseded scripts, figures, CSV artifacts), six one-off
+diagnostic scripts under `experimental/scripts/`, and two internal process
+notes (`docs/V1_CLEANUP_PLAN.md`, `docs/SCRIPT_MAP.md`; the latter tracked,
+the former already local-only). All are now untracked and gitignored —
+kept locally for the audit trail, no longer redistributed. Dangling
+citations in METHOD_LOG, SKILL.md, EVIDENCE_QUALITY_OF_SYNCHRONY, and
+experimental/README were reworded to state local-only status instead of
+pointing at repository paths. No measurement, inference, or test code
+changed; the tracked surface drops from 281 to ~205 files.

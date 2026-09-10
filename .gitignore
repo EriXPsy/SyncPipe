@@ -66,3 +66,11 @@ artifacts/timing_validation/
 artifacts/timing_feature_audit.csv
 artifacts/autocorr_robustness.json
 artifacts/bizzego_convergence.json
+
+# Local-only working materials, not redistributed in the public repo
+# (round-5b cleanup, DECISION_LOG 2026-09-10): historical diagnostic
+# scripts, archived figures/artifacts, and internal process notes.
+archive/
+experimental/scripts/
+docs/V1_CLEANUP_PLAN.md
+docs/SCRIPT_MAP.md

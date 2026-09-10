@@ -344,9 +344,9 @@ trace's amplitude distribution and autocorrelation, which largely
 *determine* first-peak and inter-peak statistics, so the null is close to
 trivially satisfied (sustained quasi-null rejected at 0.08-0.12, i.e.
 above alpha, while true-peak conditions rejected at ~0.00). It is NOT a
-valid existence test and was retired. The script is archived for
-reproducibility under
-`experimental/scripts/circular_shift_timing_null_FALSIFIED.py`.
+valid existence test and was retired. The script is archived locally for
+reproducibility and is not redistributed in the public repository
+(round-5b cleanup; see DECISION_LOG 2026-09-10).
 
 *Round-4 attempt (current): cyclic block-bootstrap null.* The trace is cut
 into equal-length blocks (5 s = 25 samples at 5 Hz on EGT; `round(5 s × hz)`
@@ -442,7 +442,7 @@ writes `timing_validation_summary.json`, `block_permute_null_egt.csv`, and
 directory is on-disk only — `.gitignore` does not list it, but the generated
 files are absent from the repo and reproducible from the script, so they are
 not in-repo evidence and should not be cited as such). The FALSIFIED
-circular-shift script (`experimental/scripts/circular_shift_timing_null_FALSIFIED.py`)
+circular-shift script (archived locally, not redistributed)
 writes `timing_validation_summary.json` and `l2_circular_shift_null.csv` to the
 same directory.
 
@@ -510,11 +510,11 @@ Resolved this round:
   retained as an L0 existence-audit descriptor. Its tier remains CONDITIONAL,
   which matches `FEATURE_TIER` (verified).
 - **Script trunk separation.** `scripts/` now holds only main-trunk result
-  generators (see `docs/SCRIPT_MAP.md`, which maps each script to the BRM trunk
-  result it supports). Three one-off diagnostic/"fixed" scripts
+  generators (a script-to-trunk map is kept as a local working note and is
+  not redistributed). Three one-off diagnostic/"fixed" scripts
   (`analyze_pgt2_fixed.py`, `diagnose_pgt2_drift.py`,
   `diagnose_h2_switching_entropy.py`) and the falsified circular-shift null were
-  moved to `experimental/scripts/` (v2 staging).
+  moved out of the public repository (kept locally for the audit trail).
 
 ## 7e. 2026-08-17 update: target analysis rate (TARGET_FS_HZ) — configurable, justified, not hard-coded
 
