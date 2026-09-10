@@ -57,6 +57,32 @@ Not currently supported as a validated path:
 - cross-signal-type fusion such as EDA from one person versus ECG from another;
 - causal or directional coupling.
 
+## How SyncPipe relates to other tools
+
+Several open-source packages cover parts of this space, and SyncPipe is
+designed to complement rather than replace them:
+
+- **multiSyncPy** (Hudson, Wiltshire & Atzmueller, 2023, *Behavior Research
+  Methods*) offers a broad collection of multivariate, group-level
+  coordination measures with two surrogation techniques.
+- **SUSY / mv-SUSY** (Tschacher & Meier) provides lightweight surrogate-based
+  synchrony estimates for physiological and behavioral recordings; the
+  research community has documented which kinds of shared signal structure
+  this family of methods can and cannot detect (see Upham's `susy_limits`
+  repository).
+- **pyspi** compiles a large library of pairwise interaction measures.
+
+SyncPipe's contribution is not more measures — it is a **governed inference
+standard for dyadic continuous synchrony**: one pre-specified estimator
+(zero-lag sliding-window correlation), a three-tier null ladder
+(signal-level existence → structure-level → dyad-paired condition
+comparison), design controls for shared-stimulus and partner-mismatch
+explanations, empirically calibrated false-positive rates shipped as CI
+tests, and a descriptor-status table that states, for every measure, exactly
+which conclusions the evidence supports. If you need group-level
+multivariate measures, use multiSyncPy; if you need auditable two-person
+inference with stated claim limits, that is SyncPipe's niche.
+
 ## Install
 
 ```bash
@@ -159,9 +185,9 @@ Plain meaning:
 - `surrogate_n`: randomized comparisons for the independent-signal check;
 - `n_permutations`: label swaps for the condition comparison.
 
-Version 2 currently supports `peak_amplitude` as the only main measure with a
-complete signal-level check. Other measures are reported as secondary or
-exploratory results.
+The locked v1.0 protocol currently supports `peak_amplitude` as the only main
+measure with a complete signal-level check. Other measures are reported as
+secondary or exploratory results.
 
 ### 4. Processing record
 

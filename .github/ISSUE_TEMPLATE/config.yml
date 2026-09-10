@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: User Manual
+    url: https://github.com/EriXPsy/SyncPipe/blob/main/docs/USER_MANUAL.md
+    about: Setup, canonical API, report reading, troubleshooting before filing an issue.
+  - name: Protocol & limitations
+    url: https://github.com/EriXPsy/SyncPipe/blob/main/docs/V1_PROTOCOL.md
+    about: What each tier of the inference ladder can and cannot support.

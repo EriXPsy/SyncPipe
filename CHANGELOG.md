@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.1.0 — 2026-09-10
+
+### Added
+
+- `compute_synchrony_entropy(..., fixed_range=True)`: cross-dyad-comparable
+  entropy variant histogrammed over the theoretical `[-1, 1]` range. The
+  default adaptive-range behavior is unchanged; its cross-dyad caveat is
+  now documented in the docstring and `docs/LIMITATIONS.md` §5.
+- Community infrastructure: `CODE_OF_CONDUCT.md` (Contributor Covenant
+  2.1), issue templates (bug / feature / usage question), a PR template
+  encoding the two-layer test rule and governance checks, `[project.urls]`
+  + classifiers + keywords in `pyproject.toml`, and a "How SyncPipe relates
+  to other tools" positioning section in the README.
+
+### Changed
+
+- Design-control sign-flip p-values now salt each feature's seed with a
+  stable CRC32 of the feature label. Marginal p-values remain valid and
+  reproducible; on audits with >12 dyads, p-values differ from v1.0.x
+  output (≤12 dyads use exhaustive enumeration and are unchanged).
+- `CITATION.cff` re-stamped (version 1.1.0, date-released 2026-09-10);
+  reference-paper PDFs are no longer redistributed (copyright) — source
+  links live in `docs/REALDATA_PAPER_ALIGNMENT.md`.
+- Methodology narrative: `V1_PROTOCOL.md` §3 peak-definition scope note and
+  two-tailed equivalence note; `LIMITATIONS.md` §7 (null/functional
+  compatibility, conservative engineering choices) and §8 (construct
+  validity roadmap).
+
 ## 1.0.1 — 2026-09-08
 
 ### Fixed

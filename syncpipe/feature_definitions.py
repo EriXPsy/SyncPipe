@@ -1390,7 +1390,9 @@ def compute_fraction_above_threshold(
     return float(np.sum((wcc >= threshold) & finite) / n_finite)
 
 
-def compute_synchrony_entropy(wcc: np.ndarray, n_bins: int = 20) -> float:
+def compute_synchrony_entropy(
+    wcc: np.ndarray, n_bins: int = 20, *, fixed_range: bool = False
+) -> float:
     """Conditional: Shannon entropy of WCC amplitude distribution.
 
     Tier: CONDITIONAL. NOT a member of the confirmatory group-condition FDR
@@ -1407,11 +1409,23 @@ def compute_synchrony_entropy(wcc: np.ndarray, n_bins: int = 20) -> float:
     bins are informative — with physiological WCC typically spanning
     [-0.2, 0.9], a fixed [-1, 1] range leaves >50% of bins empty and
     depresses sensitivity.
+
+    **Comparability caveat:** the adaptive range gives each trace its own
+    bin width, so entropy values are **not directly comparable across
+    dyads** — use them for within-dyad condition contrasts or as per-dyad
+    descriptive summaries only (see also docs/LIMITATIONS.md §5).  Pass
+    ``fixed_range=True`` for the cross-dyad-comparable variant histogrammed
+    over the theoretical ``[-1, 1]``: bin widths are then identical for
+    every trace, at the cost of empty bins and reduced sensitivity for
+    traces concentrated on a narrow range.
     """
     finite = wcc[np.isfinite(wcc)]
     if finite.size < 10:
         return float("nan")
-    lo, hi = float(finite.min()), float(finite.max())
+    if fixed_range:
+        lo, hi = -1.0, 1.0
+    else:
+        lo, hi = float(finite.min()), float(finite.max())
     if hi - lo < 1e-12:
         return float("nan")
     counts, _ = np.histogram(finite, bins=n_bins, range=(lo, hi))

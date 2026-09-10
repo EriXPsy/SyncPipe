@@ -2,8 +2,10 @@
 
 > Purpose: answer the author's core worry — "is SyncPipe a wishful-thinking
 > reimplementation, or does its method and conclusion direction align with the
-> field?" This document extracts, **verbatim from the five PDFs in the repo
-> root** (`Andersen.pdf`, `Bizzego.pdf`, `Gordon.pdf`, `Han.pdf`, `Lerique.pdf`),
+> field?" This document extracts, **verbatim from the five published papers**
+> (the Lerique, Gordon, Andersen, Bizzego, and Han studies — each fetchable
+> from its publisher DOI page or the paper's OSF archive; this repository
+> does not redistribute the PDFs),
 > each paper's signal, analysis rate, synchrony estimator, null model, and
 > headline conclusion, then maps each onto SyncPipe and states whether the
 > direction agrees.

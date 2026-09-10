@@ -2,7 +2,7 @@
 
 > 中文要点：用 SyncPipe 在 Lerique / Gordon / Andersen / Han / Bizzego 五个真实数据集上复核结果。结论：(1) 各特征确实承载**不同**的信息（峰值/驻留/切换/熵/双峰性在不同数据集"轮流胜出"），足以支撑多特征呈现；(2) 与原文方向大体一致——Lerique(EDA 8/8 瀑布)、Andersen(亲密→dwell/mean 显著)、Han(情绪→switching/entropy 显著) 强吻合；Gordon 的 peak 出现"反向显著"、Bizzego 组间不显著，均为**可解释的方法论/数据差异**，非工具缺陷；(3) Lerique morphology 显示去掉强度轴后仍有稳定 k=3 形态结构（ARI=0.918），证明 WCC 携带超出幅度的形态信息。Gordon 仅 12/345 轨迹越过 0.5 阈值，独立验证了"短 WCC"已知限制。
 
-Source artifacts: `E:/OSF/<Dataset>/multisync_results/*`. Power: L2 at
+Source artifacts: `<OSF dataset root>/multisync_results/*` (fetched from each paper's OSF archive). Power: L2 at
 `n_permutations=10000`; existence at `surrogate_n≥100`; design-control
 `n_pseudo_per_dyad≥10` (now package defaults). The new 3-pipeline bridge path
 reproduces the Lerique FDR-family L2 this session (`realdata_l2_audit.py`).

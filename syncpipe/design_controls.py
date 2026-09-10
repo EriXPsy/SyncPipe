@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, Union
 
+import zlib
+
 import numpy as np
 
 from .dynamic_features import (
@@ -462,8 +464,18 @@ def design_control_audit(
             "time_shift_median": float(np.nanmedian(shift_median)) if np.isfinite(shift_median).any() else float("nan"),
             "real_minus_pseudo_mean": float(np.nanmean(pseudo_delta)) if np.isfinite(pseudo_delta).any() else float("nan"),
             "real_minus_time_shift_mean": float(np.nanmean(shift_delta)) if np.isfinite(shift_delta).any() else float("nan"),
-            "p_real_gt_pseudo": _paired_signflip_p_upper(pseudo_delta, seed=seed),
-            "p_real_gt_time_shift": _paired_signflip_p_upper(shift_delta, seed=seed + 1),
+            # Salt the per-feature seed with a stable label hash so features
+            # do not reuse one sign-flip mask sequence (marginal p-values
+            # were already valid; this only de-correlates MC noise across
+            # features).  Bit-reproducible for a given seed.
+            "p_real_gt_pseudo": _paired_signflip_p_upper(
+                pseudo_delta,
+                seed=seed + zlib.crc32(f.encode("utf-8")) % 100000,
+            ),
+            "p_real_gt_time_shift": _paired_signflip_p_upper(
+                shift_delta,
+                seed=seed + 1 + zlib.crc32(f.encode("utf-8")) % 100000,
+            ),
             "n_real": int(np.isfinite(real_arr).sum()),
             "n_pseudo_dyads": int(np.isfinite(pseudo_median).sum()),
             "n_time_shift_dyads": int(np.isfinite(shift_median).sum()),

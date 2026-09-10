@@ -16,6 +16,10 @@ venv/
 .idea/
 *.swp
 
+# Published papers are not redistributed in this repository (copyright).
+# Fetch them from the publishers' DOI pages or the papers' OSF archives.
+*.pdf
+
 # Generated demo/analysis outputs (reproducible via syncpipe demo)
 DEMO_REPORT.md
 demo_results.json

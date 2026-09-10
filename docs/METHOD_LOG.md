@@ -622,7 +622,7 @@ unchanged.
 ## 11. L0 existence recompute on real data, post-BUG-3 (2026-09-09)
 
 Resolves the deferred item in §10 ("raw-signal re-download required"): the
-OSF datasets are available locally at `E:/OSF`, so the L0
+OSF datasets are fetched from the papers' public OSF archives, so the L0
 synchrony-existence audit was recomputed from raw signals — no download.
 Tool: `scripts/rerun_l0_existence.py` (new, tracked), which mirrors the
 prior real-data configuration exactly (loaders/hz/window/seed from
@@ -654,7 +654,7 @@ per-pair CSVs alongside):
   project venv); re-audited separately and merged.
 
 **Prior-vs-post comparison (Lerique)**: the legacy per-pair pass-rate table
-(`E:/OSF/Lerique-47n3p/multisync_results/lerique_surrogate_summary.csv`)
+(the Lerique surrogate summary under its OSF archive)
 comes from the pre-v2.0.0 multisync package. Post-fix rates are markedly
 higher in ECG/EDA (e.g. EDA rest1 peak_amplitude 20%→100%,
 trials_concat peak 33%→82%). Deltas conflate three causes and must not be

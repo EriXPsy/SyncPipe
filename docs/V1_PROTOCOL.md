@@ -104,6 +104,21 @@ recorded in the result manifest:
   records the absolute intensity of that same peak (the max-|CC| zero-lag
   special case), as a conditional L0 descriptor — it does not replace the
   signed primary endpoint.
+- **Two distinct uses of the word "peak" (scope note).** The confirmatory
+  "peak" above (smoothed-trace argmax, `compute_peak_amplitude`) is the only
+  peak definition that enters the confirmatory family. The exploratory
+  morphology descriptors (`first_peak_time`, `baseline_fraction`,
+  `inter_peak_cv`) use a separate, raw-trace prominence definition
+  (`_find_prominent_peaks`: local maxima above threshold whose prominence
+  over a `prominence_window_sec` neighborhood exceeds `min_prominence`).
+  These descriptors are exploratory-only, deliberately do not consume the
+  global smoothed argmax, and must not be conflated with the confirmatory
+  peak in reports or manuscripts.
+- **Two-tailed p-value notation (equivalence note).** L0 and L1 report
+  two-tailed p as `2 * min(tail, 1 - tail)`; the L2 path uses the
+  absolute-value statistic on the paired mean difference. Under the
+  symmetric nulls used at each tier the two forms are equivalent; the
+  difference is implementation path, not convention.
 - **Observation opportunity** (`n_wcc_points`, `n_valid_wcc_points`,
   `valid_wcc_fraction`, `wcc_observation_sec`) is recorded per dyad-condition and
   governs comparability (see §7).

@@ -5,6 +5,9 @@ infrastructure for dyadic synchrony studies: every public number must be
 auditable and reproducible, so contributions are held to a few explicit
 rules rather than taste.
 
+By participating in this project you agree to abide by the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Setup
 
 ```bash

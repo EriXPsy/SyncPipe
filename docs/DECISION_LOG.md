@@ -794,3 +794,59 @@ capability limit:
 the registry (loader responsibility; Bizzego fixed upstream in its loader).
 A registry-level case-normalization would move loader semantics into the
 gate — rejected as a local increment against the global design.
+
+## 2026-09-10 — Round-5: BRM-readiness hardening, community infrastructure, entropy comparability, seed salting
+
+Input: a third adversarial audit against Behavior Research Methods
+publication standards (math kernel / statistical inference chain /
+docs-and-community readiness), all findings verified against real source
+before acceptance; two audit findings were themselves rejected on
+verification (RUNBOOK.md is an external-kit artifact, not a dead link;
+`onset_k` emits an explicit deprecation warning rather than being silently
+ignored).
+
+1. **Copyright hygiene.** The five reference-paper PDFs (Lerique, Gordon,
+   Andersen, Bizzego, Han) were untracked from the repository — they are
+   paywalled publications and are not ours to redistribute. The papers'
+   method-alignment document now points to publisher/OSF sources instead;
+   `*.pdf` is gitignored. No analysis content changed.
+
+2. **Community infrastructure.** Added CODE_OF_CONDUCT.md (Contributor
+   Covenant 2.1), issue templates (bug / feature / usage question) with
+   template config, a PR template that encodes the two-layer test rule and
+   the governance checks (suite-health counts, H0-calibration rows,
+   DECISION_LOG entry for locked behavior), `[project.urls]`, trove
+   classifiers, and keywords in `pyproject.toml`. `CITATION.cff` was
+   re-stamped (version 1.1.0, release date 2026-09-10) after the audit
+   caught a version/date mismatch.
+
+3. **`synchrony_entropy` fixed-range variant (additive, default
+   unchanged).** The adaptive histogram range gives each trace its own bin
+   width, so adaptive entropy values are not comparable across dyads. The
+   descriptor stays CONDITIONAL/exploratory, so no confirmatory result is
+   affected; the fix is documentation plus an opt-in
+   `fixed_range=True` variant histogrammed over [-1, 1] for sensitivity
+   comparisons. The default path is bit-identical to v1.0.x.
+
+4. **Per-feature salted sign-flip seeds in design controls.** Each
+   feature's sign-flip p-value previously reused one seed, correlating
+   Monte-Carlo noise across features (marginal p-values were already
+   valid; no validity threat). Seeds are now salted with a stable CRC32 of
+   the feature label, staying bit-reproducible for a given master seed.
+   Note: p-values on >12-dyad audits will differ from v1.0.x output; <=12
+   dyads remain exhaustive enumeration and are unchanged.
+
+5. **Positioning statement.** README gained a "How SyncPipe relates to
+   other tools" section: multiSyncPy (BRM 2023) owns breadth of
+   group-level multivariate measures; SUSY/mv-SUSY owns lightweight
+   surrogate synchrony (with its community-documented detection limits);
+   pyspi owns pairwise measure breadth. SyncPipe's niche is an auditable
+   dyadic inference standard: one pre-specified estimator, a three-tier
+   null ladder, design controls, calibrated error rates, and a
+   descriptor-status table governing claims.
+
+6. **Methodology narrative closed gaps.** V1_PROTOCOL §3 now scopes the
+   confirmatory peak definition against the exploratory
+   prominence-peak definition and records the two-tailed-notation
+   equivalence; LIMITATIONS gained §7 (null/functional compatibility +
+   conservative engineering choices) and §8 (construct validity roadmap).
