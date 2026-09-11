@@ -35,6 +35,18 @@ Pull requests that touch `syncpipe/` inference or measurement code require a
 green full-suite run locally before pushing — CI is a backstop, not a
 trial-and-error target.
 
+The fastest way to run the same checks CI performs:
+
+```
+python scripts/prepush_check.py          # editable install + fast test layer
+python scripts/prepush_check.py --full   # editable install + full suite
+```
+
+The install step matters: CI builds the package from scratch on every push,
+so packaging metadata errors (invalid `pyproject.toml` fields, license
+classifier conflicts) only surface there — a green test suite alone does not
+cover it.
+
 ## Protocol and documentation conventions
 
 - Public files stay launch-level: no internal review jargon, no
