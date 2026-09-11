@@ -47,6 +47,13 @@ so packaging metadata errors (invalid `pyproject.toml` fields, license
 classifier conflicts) only surface there — a green test suite alone does not
 cover it.
 
+Untracking files matters too: CI checks out only tracked files, so a test
+that references an untracked path fails on CI with `FileNotFoundError` even
+while passing locally (where the file still exists on disk). Before
+untracking anything, grep `tests/` for references to it — and if a test
+legitimately targets an untracked path, guard it with `skipif` and add the
+path to `_ALLOWED_MISSING_PATHS` in `tests/test_suite_health.py`.
+
 ## Protocol and documentation conventions
 
 - Public files stay launch-level: no internal review jargon, no

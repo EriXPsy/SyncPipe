@@ -8,9 +8,24 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-pytestmark = [pytest.mark.slow]
-
 from syncpipe.feature_definitions import FDR_FEATURES
+
+# The sensitivity-sweep script lives in experimental/, which is deliberately
+# not part of the published repository. These smoke tests only apply to
+# checkouts that include it.
+SWEEP_SCRIPT = (
+    Path(__file__).resolve().parents[2]
+    / "experimental" / "scripts" / "run_sensitivity_sweep.py"
+)
+
+pytestmark = [
+    pytest.mark.slow,
+    pytest.mark.skipif(
+        not SWEEP_SCRIPT.exists(),
+        reason="run_sensitivity_sweep.py is not part of the published "
+               "repository (experimental/ is untracked)",
+    ),
+]
 
 
 def _load_module(name: str, path: Path):

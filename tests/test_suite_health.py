@@ -77,7 +77,12 @@ _EXPECTED_NOT_SLOW = 490  # r5: +3 round-5 tests +1 module-resolution param inst
 # Module-level Path constants that are legitimately allowed not to exist
 # (e.g. output paths written during a test run). Keyed by "module:attribute"
 # so each exemption is explicit and reviewable.
-_ALLOWED_MISSING_PATHS: dict[str, str] = {}
+_ALLOWED_MISSING_PATHS: dict[str, str] = {
+    # experimental/ is deliberately untracked in the published repository;
+    # the sweep smoke tests skip themselves when the script is absent.
+    "tests.validation.test_sensitivity_sweep:SWEEP_SCRIPT":
+        "run_sensitivity_sweep.py is intentionally untracked (experimental/)",
+}
 
 
 def _test_modules() -> list[str]:
