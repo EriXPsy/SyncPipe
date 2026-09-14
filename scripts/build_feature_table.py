@@ -45,6 +45,12 @@ from syncpipe.feature_definitions import (
 # ---------------------------------------------------------------------------
 NULL_MODEL = {
     "L0": "Signal-level IAAFT (shuffle raw signals, recompute WCC)",
+    # Audit M3 (2026-09-13): permutation-invariant descriptors used only
+    # descriptively; declared in MATHEMATICAL_TIER but no existence null is
+    # defined or consumed for them in v1.
+    "L0 (declared, not audited)": (
+        "None in v1 (descriptive only; not covered by the signal-level audit)"
+    ),
     "L1": "WCC-level IAAFT (shuffle WCC; preserves L0 moments)",
     "L2": "Exploratory in v1; validated timing/morphology existence null deferred to v2",
 }

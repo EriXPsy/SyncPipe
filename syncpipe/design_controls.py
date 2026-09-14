@@ -323,7 +323,7 @@ def design_control_audit(
     def _mask_for(pair_id: str):
         return discontinuity_masks.get(pair_id) if discontinuity_masks is not None else None
 
-    def _align_pseudo_pair(sig_a, sig_b, mask_a, mask_b):
+    def _align_pseudo_pair(sig_a, sig_b, mask_a, mask_b, pair_desc_a="", pair_desc_b=""):
         """Jointly align a cross-dyad pseudo-pair and build a combined mask.
 
         A pseudo-pair combines dyad X's person A with dyad Y's person B. The
@@ -345,14 +345,27 @@ def design_control_audit(
         a = a[:n]
         b = b[:n]
 
-        def _crop(m):
+        def _crop(m, pair_desc: str):
+            # Audit M2 (2026-09-13): a mask SHORTER than the cropped signal
+            # was silently dropped (-> None), which disabled seam gating for
+            # that pseudo-pair / time-shift arm while the real arm kept its
+            # full mask — an obs/null asymmetry that can bias
+            # real_minus_pseudo by seam-straddling windows.  Fail loud instead:
+            # a caller-supplied mask must cover the signal it describes.
             if m is None:
                 return None
             m = np.asarray(m, dtype=bool)
-            return m[:n] if m.size >= n else None
+            if m.size < n:
+                raise ValueError(
+                    f"discontinuity mask for {pair_desc} has {m.size} "
+                    f"samples but the (cropped) signal has {n}; a mask must "
+                    f"cover the full signal it describes. Refusing to "
+                    f"silently drop the mask (design-control arm symmetry)."
+                )
+            return m[:n]
 
-        ma = _crop(mask_a)
-        mb = _crop(mask_b)
+        ma = _crop(mask_a, f"pseudo-pair A ({pair_desc_a})")
+        mb = _crop(mask_b, f"pseudo-pair B ({pair_desc_b})")
 
         finite = np.isfinite(a) & np.isfinite(b)
         combined = None
@@ -385,7 +398,9 @@ def design_control_audit(
                 partner_id = str(partner_id)
                 _, b_partner = signal_pairs[partner_id]
                 a_al, b_al, mask_al, n_kept = _align_pseudo_pair(
-                    a, b_partner, _mask_for(dyad_id), _mask_for(partner_id)
+                    a, b_partner, _mask_for(dyad_id), _mask_for(partner_id),
+                    pair_desc_a=f"dyad {dyad_id!r} A-signal",
+                    pair_desc_b=f"dyad {partner_id!r} B-signal",
                 )
                 pseudo_lengths.append(n_kept)
                 feats = extract_pair_features(
@@ -415,7 +430,16 @@ def design_control_audit(
         mask_full = _mask_for(dyad_id)
         if mask_full is not None:
             mask_full = np.asarray(mask_full, dtype=bool)
-            mask_full = mask_full[:n] if mask_full.size >= n else None
+            # Audit M2 (2026-09-13): same fail-loud rule as the pseudo-pair
+            # arm — never silently drop a short mask (asymmetry vs the real
+            # arm); raise so the caller fixes the mask length.
+            if mask_full.size < n:
+                raise ValueError(
+                    f"discontinuity mask for dyad {dyad_id!r} has "
+                    f"{mask_full.size} samples but the (cropped) signal has "
+                    f"{n}; a mask must cover the full signal it describes."
+                )
+            mask_full = mask_full[:n]
         for lag_sec in shift_lags_sec:
             k = int(round(lag_sec * hz))
             if k == 0 or abs(k) >= n - window_size:

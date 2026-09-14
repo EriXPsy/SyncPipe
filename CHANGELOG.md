@@ -1,5 +1,44 @@
 # Changelog
 
+## 1.2.0 — 2026-09-13
+
+### Changed (audit round-6: adversarial-review fixes)
+
+- **Peak smoothing is now edge-exact and NaN-aware** (`smoothed_wcc`
+  masked-convolution revision). Interior values are unchanged
+  (bit-identical); edge peaks are no longer attenuated by zero-padding and
+  a NaN seam no longer removes neighbouring positions from the peak
+  search. `peak_amplitude` values on traces whose dominant episode touches
+  an edge, or that carry NaN seams adjacent to the peak, may differ from
+  v1.1.x output.
+- `smoothed_wcc` accepts `window_sec` + `hz` for sampling-rate-constant
+  smoothing bandwidth (recommended for cross-dataset work); the v1 default
+  (`PEAK_SMOOTHING_WINDOW=3` samples) is retained and documented as
+  hz-dependent.
+- L0 existence audit now also tests `synchrony_entropy` (was declared but
+  never tested). Result dicts gain `p_/null_/obs_/n_valid_synchrony_entropy`
+  keys; `per_feature_significant` gains the `synchrony_entropy` entry.
+- L1 test (`wcc_surrogate_test` / `test_l1_structure`) forwards
+  `gap_policy`; observed dwell/switching honour the caller's convention
+  (default unchanged = `merge_valid` semantics).
+- `between_condition_fdr` gains `max_feature_aggregation` ({"mean","max"});
+  mean-aggregating duplicate extremum-feature rows now warns about the
+  estimand.
+- `run_design_control_audit` warns when structure features use the fixed
+  0.5 fallback threshold instead of the canonical pooled surrogate
+  threshold.
+- Design-control internals: a discontinuity mask shorter than its signal
+  now raises instead of being silently dropped (public API behaviour
+  unchanged for well-formed inputs).
+- Terminology: "pre-registered" endpoint/modality language downgraded to
+  "frozen a priori in the development log"; cascade narratives rephrased
+  from per-dyad certainty claims to cohort-level audit descriptions.
+
+### Added
+
+- `tests/test_audit_round6_fixes.py`: 24 regression tests covering all of
+  the above (suite now 586 collected / 515 fast / 71 slow).
+
 ## 1.1.0 — 2026-09-10
 
 ### Added

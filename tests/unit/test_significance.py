@@ -736,7 +736,7 @@ def test_dispatcher_shape_contract_l0_l1_and_short():
 
 
 # ---- L0 path -------------------------------------------------------------
-def test_l0_emits_per_feature_significant_for_three_features():
+def test_l0_emits_per_feature_significant_for_audited_set():
     rng = np.random.default_rng(0)
     n = 600
     shared = np.cumsum(rng.normal(0, 1, n))
@@ -747,7 +747,10 @@ def test_l0_emits_per_feature_significant_for_three_features():
                              raw_signals=(a, b), wcc_window_size=30)
     assert res["null_model"] == "signal_level_iaaft"
     pfs = res["per_feature_significant"]
-    assert set(pfs) == {"mean_synchrony", "peak_amplitude", "bimodality_coefficient"}
+    # Audit M3 (2026-09-13): synchrony_entropy joined the audited L0 set
+    # (declared in _NULL_MODEL_L0 all along, now actually tested).
+    assert set(pfs) == {"mean_synchrony", "peak_amplitude",
+                        "bimodality_coefficient", "synchrony_entropy"}
     assert "surrogate_is_significant" not in res  # no OR aggregate flag
 
 

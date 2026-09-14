@@ -290,6 +290,7 @@ def between_condition_fdr(
     min_defined_fraction: float = 0.50,
     eligibility_policy: str = "warn",
     n_min_dyads: int = 10,
+    max_feature_aggregation: str = "mean",
 ) -> Dict[str, Union[List[L2Result], L2Result]]:
     """L2 between-condition permutation test with BH-FDR correction.
 
@@ -319,6 +320,16 @@ def between_condition_fdr(
     condition_values : tuple (str, str), optional
         Which two conditions to compare, e.g. ("rest1", "trials_concat").
         If None, uses the first two unique values in ``condition_col``.
+    max_feature_aggregation : {"mean", "max"}, default "mean"
+        Audit M6 (2026-09-13): how multi-trial duplicate rows of EXTREMUM
+        features are aggregated to one scalar per dyad-condition.  "mean"
+        (legacy, default) averages per-trial peaks — the estimand becomes
+        "mean over trials of the strongest event", which systematically
+        differs from "strongest event of the concatenated signal" and
+        depends on trial count.  "max" takes the per-dyad maximum, matching
+        the extremum estimand of the single-observation case.  A warning is
+        emitted whenever duplicates of an extremum feature are aggregated
+        with the default, so the estimand choice is never silent.
 
     Returns
     -------
@@ -549,8 +560,44 @@ def between_condition_fdr(
     # operates at the correct unit of analysis (dyad = observation).
     has_duplicates = df_a.index.has_duplicates or df_b.index.has_duplicates
     if has_duplicates:
-        df_a = df_a.groupby(df_a.index).mean()
-        df_b = df_b.groupby(df_b.index).mean()
+        if max_feature_aggregation not in ("mean", "max"):
+            raise ValueError(
+                "max_feature_aggregation must be 'mean' or 'max', got "
+                f"{max_feature_aggregation!r}"
+            )
+        # Audit M6 (2026-09-13): mean-of-extremums != extremum-of-pooled.
+        # Flag every extremum-typed feature whose trial values are being
+        # averaged so the estimand is explicit, never silent.
+        _EXTREMUM_FEATURES = ("peak_amplitude", "peak_abs_amplitude")
+        dup_any = (
+            set(df_a.columns) | set(df_b.columns)
+        )
+        extremum_dupes = [f for f in _EXTREMUM_FEATURES if f in dup_any]
+        if extremum_dupes and max_feature_aggregation == "mean":
+            warnings.warn(
+                f"L2 aggregation: duplicate (dyad, condition) rows of "
+                f"extremum feature(s) {extremum_dupes} are aggregated by "
+                f"MEAN over trials. The estimand is then 'mean over trials "
+                f"of the strongest event', NOT 'strongest event overall', "
+                f"and depends on trial count. Pass "
+                f"max_feature_aggregation='max' for the extremum estimand.",
+                UserWarning,
+                stacklevel=2,
+            )
+        agg = "max" if max_feature_aggregation == "max" else "mean"
+        # Per-column aggregation: extremum features get `agg`, everything
+        # else keeps the legacy mean (non-extremum means remain the natural
+        # per-dyad scalar for averaged descriptors).
+        def _aggregate(frame: pd.DataFrame) -> pd.DataFrame:
+            grouper = frame.groupby(frame.index)
+            out = grouper.mean()
+            for f in extremum_dupes:
+                if f in frame.columns and agg == "max":
+                    out[f] = grouper[f].max()
+            return out
+
+        df_a = _aggregate(df_a)
+        df_b = _aggregate(df_b)
         # Re-intersect after aggregation
         common_dyads = df_a.index.intersection(df_b.index)
         df_a = df_a.loc[common_dyads]
@@ -772,6 +819,7 @@ def between_condition_fdr(
         "eligibility_status": eligibility_status,
         "n_min_dyads": n_min_dyads,
         "undefined_policy": undefined_policy,
+        "max_feature_aggregation": max_feature_aggregation,
     }
 
 

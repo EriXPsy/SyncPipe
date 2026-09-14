@@ -863,3 +863,58 @@ citations in METHOD_LOG, SKILL.md, EVIDENCE_QUALITY_OF_SYNCHRONY, and
 experimental/README were reworded to state local-only status instead of
 pointing at repository paths. No measurement, inference, or test code
 changed; the tracked surface drops from 281 to ~205 files.
+
+## 2026-09-13 — Round-6: adversarial-review fixes (BRM-simulation audit)
+
+Eight findings from a code-block-level adversarial review (editor +
+reviewer simulation) were fixed. Each fix keeps v1 frozen artifacts
+reproducible where possible and changes defaults only with explicit
+warning.
+
+1. **M1 — masked-convolution smoothing (SSoT).** `smoothed_wcc` replaced
+   `np.convolve(..., mode="same")` (zero-padding edge bias + NaN
+   poisoning of the peak search) with a finite-sample-normalised
+   truncated-window boxcar. Interior positions remain bit-identical;
+   edge peaks are no longer attenuated; NaN neighbours are no longer
+   poisoned. Primary endpoint `peak_amplitude` now searches an unbiased
+   smoothed series.
+2. **M8 — sampling-rate unit for smoothing.** Added
+   `smoothed_wcc(..., window_sec=..., hz=...)` so the physical smoothing
+   bandwidth is constant across sampling rates; the sample-count default
+   (`PEAK_SMOOTHING_WINDOW=3`) is retained for frozen-artifact
+   compatibility and documented as hz-dependent (0.3 s at 10 Hz, 3 s at
+   1 Hz).
+3. **M2 — design-control mask symmetry.** A discontinuity mask shorter
+   than its signal no longer silently disables seam gating for the
+   pseudo-pair / time-shift arm (internal `_crop` now raises); the public
+   API already validated mask lengths up front, so behaviour is
+   unchanged for well-formed inputs.
+4. **M3 — L0 audit coverage.** `synchrony_entropy` joined the audited
+   signal-level set (it was declared in `_NULL_MODEL_L0` but never
+   tested). IAAFT preserves the marginal amplitude distribution exactly,
+   making the surrogate WCC entropy a valid null draw.
+   `fraction_above_threshold` / `peak_abs_amplitude` are now explicitly
+   labelled `"L0 (declared, not audited)"` in `MATHEMATICAL_TIER`.
+5. **M5 — L1 gap-policy passthrough.** `_wcc_level_surrogate_test` /
+   `wcc_surrogate_test` / `InferencePipeline.test_l1_structure` forward
+   `gap_policy`; the observed dwell/switching now honours the caller's
+   convention (matching the canonical feature-table path) instead of
+   silently forcing `merge_valid` semantics via NaN compression.
+6. **M6 — L2 multi-trial estimand.** `between_condition_fdr` gains
+   `max_feature_aggregation={"mean","max"}`; aggregating duplicate rows
+   of extremum features with the legacy mean now emits an estimand
+   warning ("mean over trials of the strongest event" != "strongest
+   event overall").
+7. **M7 — design-control threshold governance.**
+   `run_design_control_audit` warns when structure features are audited
+   with the fixed 0.5 fallback while the canonical v1 default is the
+   per-modality pooled surrogate threshold.
+8. **M4 — terminology and narrative.** "Pre-registered" downgraded to
+   "frozen a priori in the development log" (no external timestamp
+   carrier); cascade/summary narratives rephrased from per-dyad certainty
+   claims ("dyads show above-chance synchrony") to cohort-level
+   descriptions of per-dyad audit outcomes, consistent with the
+   second-order group gate design note.
+
+Test suite: 586 collected / 515 fast / 71 slow (+25 fast regression
+tests in `tests/test_audit_round6_fixes.py`).

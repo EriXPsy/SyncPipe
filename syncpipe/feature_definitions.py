@@ -189,7 +189,18 @@ rather than silently using a contaminated cut-off.
 """
 
 PEAK_SMOOTHING_WINDOW: int = 3
-"""DECISION-04: 3-point boxcar smoothing for peak detection (Boucsein 2012)."""
+"""DECISION-04: 3-point boxcar smoothing for peak detection (Boucsein 2012).
+
+Audit M8 (2026-09-13): this constant is in **samples**, calibrated on 10 Hz
+EDA conventions (Boucsein 2012).  On WCC series sampled at different rates the
+physical smoothing bandwidth therefore scales with 1/hz (a 3-sample window is
+3 s at 1 Hz but 0.3 s at 10 Hz).  The v1 locked protocol retains this default
+for artifact compatibility; cross-sampling-rate work should pass
+``smoothed_wcc(..., window_sec=0.3, hz=hz)`` (or an explicitly justified
+duration) so the bandwidth is constant in physical time.  A documented
+sensitivity check across both parameterisations belongs in any manuscript
+reporting peak_amplitude across datasets.
+"""
 
 RISE_LOW_FRAC: float = 0.25
 RISE_HIGH_FRAC: float = 0.75
@@ -397,8 +408,15 @@ MATHEMATICAL_TIER: Dict[str, str] = {
     "peak_amplitude":          "L0",
     "synchrony_entropy":       "L0",
     "bimodality_coefficient":  "L0",
-    "fraction_above_threshold": "L0",
-    "peak_abs_amplitude":      "L0",
+    # fraction_above_threshold / peak_abs_amplitude are declared L0 (their
+    # values are permutation-invariant) but are NOT audited by the
+    # signal-level existence test (_signal_level_surrogate_test tests
+    # mean/peak/BC/entropy only; audit M3 note, 2026-09-13). They are used
+    # descriptively and never enter a confirmatory gate, so no null is
+    # currently defined for them. Promoting either to an audited role
+    # requires extending _signal_level_surrogate_test first.
+    "fraction_above_threshold": "L0 (declared, not audited)",
+    "peak_abs_amplitude":      "L0 (declared, not audited)",
     # L1 — local temporal structure (WCC-level null)
     "dwell_time":              "L1",
     "switching_rate":          "L1",
@@ -543,7 +561,15 @@ as of 2026-06-17."""
 
 
 PRIMARY_EXISTENCE_ENDPOINT: str = "peak_amplitude"
-"""Pre-registered PRIMARY endpoint for the L0 synchrony-existence gate.
+"""Frozen a-priori PRIMARY endpoint for the L0 synchrony-existence gate.
+
+Audit M4 (2026-09-13) — terminology: earlier revisions called this
+"pre-registered". The freezing carrier is the in-repo DECISION_LOG, which
+carries no externally verifiable timestamp, so "pre-registered" (in the
+OSF/registry sense) is not an accurate claim. The defensible wording is
+"frozen a priori in the development log (docs/DECISION_LOG.md)"; an external
+registration should be added before any manuscript repeats the stronger
+term.
 
 The existence audit tests several signal-level features (mean_synchrony,
 peak_amplitude, bimodality_coefficient), but only ONE frozen
@@ -614,7 +640,10 @@ if PRIMARY_EXISTENCE_ENDPOINT not in PRIMARY_FDR_FAMILY:
 # channel compositions must define their own primary set via config; the
 # default below is the Lerique physiological primary set.
 PRIMARY_EXISTENCE_MODALITIES: Tuple[str, ...] = ("ECG", "EDA")
-"""Pre-registered primary modalities for the existence gate (Lerique).
+"""Frozen a-priori primary modalities for the existence gate (Lerique).
+
+See the PRIMARY_EXISTENCE_ENDPOINT note (audit M4, 2026-09-13): "frozen a
+priori in the development log", not externally pre-registered.
 
 Each primary modality is tested independently with a second-order group
 surrogate test on PRIMARY_EXISTENCE_ENDPOINT; the gate is satisfied if at
@@ -917,13 +946,91 @@ class DynamicFeatures:
 
 
 # ---------------------------------------------------------------------------
-# Smoothed peak (DECISION-04)
+# Smoothed peak (DECISION-04; masked-convolution revision, audit M1 2026-09-13)
 # ---------------------------------------------------------------------------
 
-def smoothed_wcc(wcc: np.ndarray, window: int = PEAK_SMOOTHING_WINDOW) -> np.ndarray:
-    """3-point boxcar smoothing with same-mode boundary (DECISION-04)."""
-    kernel = np.ones(window) / window
-    return np.convolve(wcc, kernel, mode="same")
+def smoothed_wcc(
+    wcc: np.ndarray,
+    window: int = PEAK_SMOOTHING_WINDOW,
+    window_sec: Optional[float] = None,
+    hz: float = 1.0,
+) -> np.ndarray:
+    """``window``-point boxcar smoothing, NaN-aware, edge-exact.
+
+    Revision history (audit M1/M8, 2026-09-13): the legacy implementation was
+    ``np.convolve(wcc, np.ones(window)/window, mode="same")``.  Two defects:
+
+    1. **Zero-padding boundary bias (M1).**  ``mode="same"`` zero-pads the
+       signal edges, so smoothed values within ``(window-1)/2`` samples of
+       either edge are pulled toward 0 and a genuine peak at the trace edge
+       is systematically attenuated.  Because ``peak_amplitude`` — the frozen
+       PRIMARY endpoint — is the argmax of this smoothed series, the bias
+       entered the primary result whenever the dominant episode touched an
+       edge.
+    2. **NaN poisoning (M1).**  ``np.convolve`` propagates NaN: a single
+       non-finite sample (e.g. a discontinuity-masked seam) poisoned its
+       whole smoothing neighbourhood, silently removing those positions from
+       the ``nanargmax`` candidate set.
+
+    This revision computes, per output position ``i``, the boxcar mean over
+    the *finite* samples of the truncated window only, dividing by the
+    number of finite samples in that window (edge-exact, no zero-padding;
+    NaN-excluded, no poisoning).  A window with zero finite samples yields
+    NaN.  For an all-finite interior position the value is bit-identical to
+    the legacy formula.
+
+    Parameters
+    ----------
+    wcc : np.ndarray
+        WCC series; NaN positions are excluded from their own smoothing
+        windows (never propagated to neighbours).
+    window : int
+        Boxcar length in **samples** (legacy default
+        ``PEAK_SMOOTHING_WINDOW`` = 3).  Only exact when ``hz`` matches the
+        rate the constant was calibrated on — prefer ``window_sec`` for
+        cross-sampling-rate comparability (audit M8).
+    window_sec : float or None
+        Physical smoothing duration in seconds.  When given, ``window`` is
+        overridden by ``max(1, round(window_sec * hz))`` so the smoothing
+        bandwidth is constant in physical time across datasets sampled at
+        different rates (audit M8: the sample-count constant implies a
+        10x bandwidth difference between 1 Hz and 10 Hz WCC series).
+    hz : float
+        Sampling rate of the WCC series, used only with ``window_sec``.
+
+    Notes
+    -----
+    The v1 locked protocol keeps the sample-count default (``window=3``) for
+    backward compatibility with all frozen artifacts; ``window_sec`` is the
+    recommended path for new cross-dataset work and sensitivity analysis.
+    """
+    wcc = np.asarray(wcc, dtype=float)
+    if window_sec is not None:
+        window = max(1, int(round(float(window_sec) * float(hz))))
+    window = int(window)
+    if window <= 1 or wcc.size == 0:
+        return wcc.copy()
+    n = wcc.size
+    finite = np.isfinite(wcc)
+    x = np.where(finite, wcc, 0.0)
+    # Valid-sample count per truncated window via the same cumsum trick
+    # used by the WCC engine: prefix sums of the 0/1 finite mask.
+    csum_x = np.concatenate(([0.0], np.cumsum(x)))
+    csum_m = np.concatenate(([0.0], np.cumsum(finite.astype(float))))
+    out = np.full(n, np.nan)
+    # Symmetric truncated support: centre the window on each position FIRST,
+    # then clip both ends to [0, n).  Clamping the left edge before computing
+    # the right edge would keep the full window width at the left but a
+    # truncated one at the right — an asymmetric kernel.
+    lo0 = np.arange(n) - (window - 1) // 2
+    hi0 = lo0 + window
+    lo = np.maximum(0, lo0)
+    hi = np.minimum(n, hi0)
+    m = csum_m[hi] - csum_m[lo]
+    s = csum_x[hi] - csum_x[lo]
+    ok = m > 0
+    out[ok] = s[ok] / m[ok]
+    return out
 
 
 def find_dominant_peak(wcc_smoothed: np.ndarray) -> Optional[int]:

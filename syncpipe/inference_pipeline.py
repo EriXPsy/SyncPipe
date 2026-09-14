@@ -473,6 +473,31 @@ class InferencePipeline:
         For publication, keep ``n_pseudo_per_dyad`` at >= 10 for stable
         null distributions; the default is 10. Reduce to 3 for quick demos only.
         """
+        # Audit M7 (2026-09-13): the canonical v1 onset-threshold default is
+        # the per-modality POOLED surrogate threshold (ONSET_THRESHOLD=0.5
+        # is the fallback/sensitivity value only).  A caller that leaves the
+        # audit on the fixed 0.5 default mixes threshold conventions with
+        # the main feature table whenever that table was produced under a
+        # pooled threshold — the exact risk class the A11 warning covers.
+        # Warn (do not fail) so exploratory use stays possible.
+        import logging as _logging
+        _structure_requested = any(
+            f in set(feature_names) for f in ("dwell_time", "switching_rate")
+        )
+        if (
+            _structure_requested
+            and isinstance(threshold, (int, float))
+            and float(threshold) == 0.5
+        ):
+            _logging.getLogger(__name__).warning(
+                "run_design_control_audit: threshold is the fixed 0.5 "
+                "fallback while the canonical v1 default is the per-modality "
+                "pooled surrogate threshold. dwell_time / switching_rate "
+                "computed here may not be comparable with a feature table "
+                "produced under pooled thresholds; pass the pooled threshold "
+                "explicitly for confirmatory design-control reporting."
+            )
+
         result = design_control_audit(
             signal_pairs,
             hz=self.hz,
@@ -872,6 +897,7 @@ class InferencePipeline:
         label: str = "",
         null_model: str = "iaaft",
         threshold: Optional[float] = None,
+        gap_policy: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Run L1 WCC-level surrogate test.
 
@@ -919,6 +945,7 @@ class InferencePipeline:
             wcc_window_sec=self.wcc_window_sec,
             null_model=null_model,
             threshold=threshold if threshold is not None else ONSET_THRESHOLD,
+            gap_policy=gap_policy,
         )
         result["label"] = label
         self._l1_results[label] = result
@@ -1432,36 +1459,49 @@ def _build_cascade_summary(
 
     parts = []
 
+    # Audit M4 (2026-09-13): a per-dyad p<0.05 is not a valid unit-level
+    # proposition (see the existence-gate design note in
+    # feature_definitions). These fractions are COHORT-LEVEL descriptions of
+    # per-dyad audit outcomes, not per-dyad certainty claims; the
+    # confirmatory existence verdict is the second-order group gate
+    # (run_audited_evidence_chain), never this summary.
     if l0_rate >= 0.5:
         parts.append(
-            f"L0: {l0_pass}/{l0_total} ({l0_rate:.0%}) dyads show above-chance synchrony. "
-            "This supports synchrony-like evidence above the signal-level null, "
-            "but does not by itself prove dyad-specific coupling."
+            f"L0: the per-dyad signal-level audit was positive for "
+            f"{l0_pass}/{l0_total} ({l0_rate:.0%}) of audited dyads. "
+            "This is a cohort-level observation supporting synchrony-like "
+            "evidence above the signal-level null; it does not by itself "
+            "prove dyad-specific coupling. The confirmatory verdict is the "
+            "second-order group existence gate."
         )
     elif l0_rate > 0:
         parts.append(
-            f"L0: {l0_pass}/{l0_total} ({l0_rate:.0%}) dyads show above-chance synchrony. "
-            "Coupling evidence is present but limited."
+            f"L0: the per-dyad signal-level audit was positive for "
+            f"{l0_pass}/{l0_total} ({l0_rate:.0%}) of audited dyads. "
+            "Cohort-level coupling evidence is present but limited."
         )
     else:
         parts.append(
-            "L0: No dyads exceeded the signal-level null. "
+            "L0: no dyad's signal-level audit was positive. "
             "The dataset may lack sufficient coupling signal."
         )
 
     if l1_rate >= 0.3:
         parts.append(
-            f"L1: {l1_pass}/{l1_total} ({l1_rate:.0%}) dyads show structured temporal patterns. "
-            "Synchrony episodes have non-random dwell/ switching organization."
+            f"L1: the per-dyad WCC-level audit was positive for "
+            f"{l1_pass}/{l1_total} ({l1_rate:.0%}) of applicable dyads. "
+            "Synchrony episodes have non-random dwell/switching organization "
+            "at the cohort level."
         )
     elif l1_rate > 0:
         parts.append(
-            f"L1: {l1_pass}/{l1_total} ({l1_rate:.0%}) dyads show structured patterns. "
-            "Temporal structure evidence is preliminary."
+            f"L1: the per-dyad WCC-level audit was positive for "
+            f"{l1_pass}/{l1_total} ({l1_rate:.0%}) of applicable dyads. "
+            "Cohort-level temporal-structure evidence is preliminary."
         )
     else:
         parts.append(
-            "L1: No dyads showed significant temporal structure. "
+            "L1: no dyad's WCC-level audit was positive. "
             "This may reflect short WCC series or weak episode patterning."
         )
 

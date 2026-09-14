@@ -14,8 +14,8 @@
 |---|---|---|---|---|---|---|---|---|---|
 | `mean_synchrony` | reference | intensity | Reference only (reported, NOT in FDR) | no | — | L0 | Signal-level IAAFT (shuffle raw signals, recompute WCC) | All paradigms; most robust, least specific | Average moment-to-moment coupling magnitude. |
 | `peak_amplitude` | core | intensity | PRIMARY (intensity) | yes | L0 | L0 | Signal-level IAAFT (shuffle raw signals, recompute WCC) | All paradigms; cross-paradigm robust | Strongest sustained coupling reached during interaction. |
-| `peak_abs_amplitude` | conditional | intensity | Exploratory (intensity; absolute; NOT in FDR) | no | — | L0 | Signal-level IAAFT (shuffle raw signals, recompute WCC) | All paradigms; sign-agnostic | Strongest coupling regardless of sign (Bizzego zero-lag max-|CC|). |
-| `fraction_above_threshold` | conditional | structure | Exploratory (occupancy; NOT in FDR) | no | — | L0 | Signal-level IAAFT (shuffle raw signals, recompute WCC) | All paradigms with threshold justification; report threshold metadata | Fraction of finite WCC samples above the synchrony threshold (coverage). |
+| `peak_abs_amplitude` | conditional | intensity | Exploratory (intensity; absolute; NOT in FDR) | no | — | L0 (declared, not audited) | None in v1 (descriptive only; not covered by the signal-level audit) | All paradigms; sign-agnostic | Strongest coupling regardless of sign (Bizzego zero-lag max-|CC|). |
+| `fraction_above_threshold` | conditional | structure | Exploratory (occupancy; NOT in FDR) | no | — | L0 (declared, not audited) | None in v1 (descriptive only; not covered by the signal-level audit) | All paradigms with threshold justification; report threshold metadata | Fraction of finite WCC samples above the synchrony threshold (coverage). |
 | `dwell_time` | core | structure | Conditional secondary (structure; definedness-gated) | yes | L1 | L1 | WCC-level IAAFT (shuffle WCC; preserves L0 moments) | Continuous & event paradigms; needs sufficient trace length | Mean duration of high-synchrony episodes (persistence). |
 | `switching_rate` | core | structure | Conditional secondary (structure; definedness-gated) | yes | L1 | L1 | WCC-level IAAFT (shuffle WCC; preserves L0 moments) | Continuous & event paradigms; sensitive to window size | How often synchrony crosses in/out of high-coupling state. |
 | `synchrony_entropy` | conditional | structure | Exploratory (distributional; NOT in FDR) | no | — | L0 | Signal-level IAAFT (shuffle raw signals, recompute WCC) | All paradigms; distribution shape, not temporal order | Dispersion/unpredictability of the synchrony distribution. |
@@ -29,5 +29,6 @@
 ## Null-model legend
 
 - **L0** — Signal-level IAAFT (shuffle raw signals, recompute WCC)
+- **L0 (declared, not audited)** — None in v1 (descriptive only; not covered by the signal-level audit)
 - **L1** — WCC-level IAAFT (shuffle WCC; preserves L0 moments)
 - **L2** — Exploratory in v1; validated timing/morphology existence null deferred to v2

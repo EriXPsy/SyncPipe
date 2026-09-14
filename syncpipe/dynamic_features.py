@@ -699,14 +699,25 @@ def _signal_level_surrogate_test(
     from .feature_definitions import (
         compute_bimodality_coefficient,
         compute_peak_amplitude,
+        compute_synchrony_entropy,
         smoothed_wcc,
     )
 
-    # Active guard, not decorative: this function ONLY ever tests
-    # {mean_synchrony, peak_amplitude, bimodality_coefficient}. Assert
-    # that set is consistent with _NULL_MODEL_L0 so the constant cannot
-    # silently drift out of sync with what this function actually does.
-    _tested = frozenset(("mean_synchrony", "peak_amplitude", "bimodality_coefficient"))
+    # Active guard, not decorative: this function tests exactly the audited
+    # L0 set below. Audit M3 (2026-09-13): synchrony_entropy was declared in
+    # _NULL_MODEL_L0 but never tested anywhere in the chain — coverage gap
+    # between the Axis-D governance table and the implementation. It is now
+    # audited here: IAAFT preserves the marginal amplitude distribution of
+    # each input signal EXACTLY (rank-adjusted output), so the surrogate WCC
+    # value distribution — and hence its entropy — is a valid null draw for
+    # the entropy of the observed WCC. fraction_above_threshold and
+    # peak_abs_amplitude remain declared-L0-but-not-audited (see the SSoT
+    # note in feature_definitions.MATHEMATICAL_TIER); they are threshold-
+    # dependent / sign-convention descriptors used descriptively only.
+    _tested = frozenset((
+        "mean_synchrony", "peak_amplitude",
+        "bimodality_coefficient", "synchrony_entropy",
+    ))
     assert _tested <= _NULL_MODEL_L0, (
         f"_signal_level_surrogate_test tests {_tested}, which is not a "
         f"subset of _NULL_MODEL_L0 ({_NULL_MODEL_L0}). Update one or the "
@@ -769,6 +780,7 @@ def _signal_level_surrogate_test(
         # Fallback if smoothing path is fully non-finite (should be rare given n_valid gate)
         obs_peak = float(np.max(wcc_valid)) if wcc_valid.size else float("nan")
     obs_bc = compute_bimodality_coefficient(wcc_valid)
+    obs_entropy = compute_synchrony_entropy(wcc_valid)
 
     rng = np.random.default_rng(seed)
 
@@ -780,6 +792,7 @@ def _signal_level_surrogate_test(
     null_mean = np.full(surrogate_n, np.nan)
     null_peak = np.full(surrogate_n, np.nan)
     null_bc = np.full(surrogate_n, np.nan)
+    null_entropy = np.full(surrogate_n, np.nan)
 
     for i in range(surrogate_n):
         # Generate A/B IAAFT independently INSIDE each eligible contiguous
@@ -803,6 +816,7 @@ def _signal_level_surrogate_test(
         _npk, _ = compute_peak_amplitude(smoothed_wcc(wcc_s))
         null_peak[i] = _npk if np.isfinite(_npk) else float(np.max(wcc_s_valid))
         null_bc[i] = compute_bimodality_coefficient(wcc_s_valid)
+        null_entropy[i] = compute_synchrony_entropy(wcc_s_valid)
 
     # Each feature gets its OWN finite mask, count, and slice — a
     # degenerate bimodality_coefficient draw must not borrow
@@ -831,6 +845,7 @@ def _signal_level_surrogate_test(
     p_mean, null_mean_valid, n_mean, q_mean = _phipson_smyth_p(null_mean, obs_mean)
     p_peak, null_peak_valid, n_peak, q_peak = _phipson_smyth_p(null_peak, obs_peak)
     p_bc, null_bc_valid, n_bc, q_bc = _phipson_smyth_p(null_bc, obs_bc)
+    p_ent, null_ent_valid, n_ent, q_ent = _phipson_smyth_p(null_entropy, obs_entropy)
 
     def _mc_precision(n: int, tail_probability: float) -> Dict[str, float]:
         if n <= 0 or not np.isfinite(tail_probability):
@@ -853,6 +868,7 @@ def _signal_level_surrogate_test(
         "mean_synchrony": _mc_precision(n_mean, q_mean),
         "peak_amplitude": _mc_precision(n_peak, q_peak),
         "bimodality_coefficient": _mc_precision(n_bc, q_bc),
+        "synchrony_entropy": _mc_precision(n_ent, q_ent),
     }
 
     # Per-feature significance — callers (e.g. InferencePipeline.run_full_cascade)
@@ -862,22 +878,27 @@ def _signal_level_surrogate_test(
         "mean_synchrony": bool(np.isfinite(p_mean) and p_mean < alpha),
         "peak_amplitude": bool(np.isfinite(p_peak) and p_peak < alpha),
         "bimodality_coefficient": bool(np.isfinite(p_bc) and p_bc < alpha),
+        "synchrony_entropy": bool(np.isfinite(p_ent) and p_ent < alpha),
     }
 
     return {
         "p_mean_synchrony": p_mean,
         "p_peak_amplitude": p_peak,
         "p_bimodality_coefficient": p_bc,
+        "p_synchrony_entropy": p_ent,
         "null_mean_synchrony": null_mean_valid,
         "null_peak_amplitude": null_peak_valid,
         "null_bimodality_coefficient": null_bc_valid,
+        "null_synchrony_entropy": null_ent_valid,
         "obs_mean_synchrony": obs_mean,
         "obs_peak_amplitude": obs_peak,
         "obs_bimodality_coefficient": obs_bc,
+        "obs_synchrony_entropy": obs_entropy,
         "n_surrogates": surrogate_n,
         "n_valid_mean_synchrony": n_mean,
         "n_valid_peak_amplitude": n_peak,
         "n_valid_bimodality_coefficient": n_bc,
+        "n_valid_synchrony_entropy": n_ent,
         "null_model": "signal_level_iaaft",
         "per_feature_significant": per_feature_significant,
         "alpha": alpha,
@@ -899,6 +920,7 @@ def _wcc_level_surrogate_test(
     null_model: str = "iaaft",
     block_size: Optional[int] = None,
     threshold: float = ONSET_THRESHOLD,
+    gap_policy: Optional[str] = None,
 ) -> Dict[str, Any]:
     """WCC-level null for L1 features (dwell_time, switching_rate).
 
@@ -929,6 +951,18 @@ def _wcc_level_surrogate_test(
         Block size for block permutation.
     threshold : float
         Threshold for 'state_shuffle'.
+    gap_policy : {"segment", "merge_valid"} or None
+        Audit M5 (2026-09-13): forwarded to ``extract_features`` for BOTH
+        the observed and the surrogate draws. The legacy behaviour
+        NaN-compressed the WCC before recomputing dwell_time /
+        switching_rate, which is equivalent to forcing ``merge_valid`` —
+        while the scientific canonical path (pipeline_bridge) computes the
+        feature table with ``gap_policy="segment"`` on discontinuity-masked
+        data. The same dyad could therefore report different dwell_time
+        values inside the L1 test and in the manuscript feature table.
+        Passing the caller's policy aligns the two; ``None`` preserves the
+        extract_features default (merge_valid) for backward compatibility
+        with frozen artifacts.
 
     Raises
     ------
@@ -1010,7 +1044,10 @@ def _wcc_level_surrogate_test(
             stacklevel=2,
         )
 
-    obs_feats = extract_features(wcc_valid, hz=hz, wcc_window_sec=wcc_window_sec, threshold=threshold)
+    obs_feats = extract_features(
+        wcc, hz=hz, wcc_window_sec=wcc_window_sec, threshold=threshold,
+        gap_policy=gap_policy,
+    )
     rng = np.random.default_rng(seed)
 
     # Collect null feature values
@@ -1026,7 +1063,10 @@ def _wcc_level_surrogate_test(
                 hysteresis_delta=SWITCHING_HYSTERESIS_DELTA)
         else:
             wcc_s = iaaft_surrogate(wcc_valid, rng=rng)
-        feats_s = extract_features(wcc_s, hz=hz, wcc_window_sec=wcc_window_sec, threshold=threshold)
+        feats_s = extract_features(
+            wcc_s, hz=hz, wcc_window_sec=wcc_window_sec, threshold=threshold,
+            gap_policy=gap_policy,
+        )
         for f in features:
             v = getattr(feats_s, f, np.nan)
             if np.isfinite(v):
@@ -1073,16 +1113,20 @@ def _empty_result(reason: str) -> Dict[str, Any]:
         "p_mean_synchrony": 1.0,
         "p_peak_amplitude": 1.0,
         "p_bimodality_coefficient": 1.0,
+        "p_synchrony_entropy": 1.0,
         "null_mean_synchrony": np.array([]),
         "null_peak_amplitude": np.array([]),
         "null_bimodality_coefficient": np.array([]),
+        "null_synchrony_entropy": np.array([]),
         "obs_mean_synchrony": np.nan,
         "obs_peak_amplitude": np.nan,
         "obs_bimodality_coefficient": np.nan,
+        "obs_synchrony_entropy": np.nan,
         "n_surrogates": 0,
         "n_valid_mean_synchrony": 0,
         "n_valid_peak_amplitude": 0,
         "n_valid_bimodality_coefficient": 0,
+        "n_valid_synchrony_entropy": 0,
         "null_model": "none",
         "per_feature_significant": {},
         "alpha": np.nan,
@@ -1107,6 +1151,7 @@ def wcc_surrogate_test(
     threshold: float = ONSET_THRESHOLD,
     discontinuity_mask: Optional[np.ndarray] = None,
     min_segment_samples: Optional[int] = None,
+    gap_policy: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Test significance of WCC features using surrogate data.
@@ -1195,6 +1240,7 @@ def wcc_surrogate_test(
             null_model=null_model,
             block_size=block_size,
             threshold=threshold,
+            gap_policy=gap_policy,
         )
 
 

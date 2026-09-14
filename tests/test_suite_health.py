@@ -36,7 +36,7 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 
 # Recorded 2026-08-02. Any consolidation or rename MUST update both this and
 # tests/README.md — changing the baseline is a reviewed act, not a side effect.
-_EXPECTED_COLLECTED = 561  # 2026-09-10 r5: +3 (entropy fixed-range x2, signflip seed salt x1) +1 module-resolution param instance (new test module)  # 2026-09-09 r4: +4 (bridge label hygiene x3 incl. cross-modal-convention guard, gate three-way status x1)  # 2026-09-09: +4 H0 calibration endpoint tests +1 module-resolution param instance (new test module)  # 2026-09-08 r2: +7 round-2 statistical-kernel tests +1 module-resolution param instance  # 2026-09-08: +9 (WCC/IAAFT cross-validation tests incl. 3-param sweep) +1 module-resolution param instance  # 2026-09-07: +7 (v1 defaults guard x5, existence-gate NaN sensitivity x2) +2 param instances (module-resolution test scales with module count)
+_EXPECTED_COLLECTED = 586  # 2026-09-13 audit-r6: +25 (adversarial-review fixes M1/M2/M3/M5/M6/M7/M8: masked-conv smoothing x10, mask fail-loud x2, L0 entropy coverage x3, L1 gap_policy passthrough x2, L2 estimand x2, design-threshold warning x2, suite additions) +2 module-resolution param instances (new test module + collected-environment expansion)  # 2026-09-10 r5: +3 (entropy fixed-range x2, signflip seed salt x1) +1 module-resolution param instance (new test module)  # 2026-09-09 r4: +4 (bridge label hygiene x3 incl. cross-modal-convention guard, gate three-way status x1)  # 2026-09-09: +4 H0 calibration endpoint tests +1 module-resolution param instance (new test module)  # 2026-09-08 r2: +7 round-2 statistical-kernel tests +1 module-resolution param instance  # 2026-09-08: +9 (WCC/IAAFT cross-validation tests incl. 3-param sweep) +1 module-resolution param instance  # 2026-09-07: +7 (v1 defaults guard x5, existence-gate NaN sensitivity x2) +2 param instances (module-resolution test scales with module count)
 # 2026-08-02: 4 tests promoted from the nightly slow layer to the PR gate
 # (whole-cascade summary, L2 kwarg names, L1 denominator, cross-process seed
 # stability), so slow went 59 -> 55 and not-slow 447 -> 451.
@@ -72,7 +72,7 @@ _EXPECTED_COLLECTED = 561  # 2026-09-10 r5: +3 (entropy fixed-range x2, signflip
 # Evidence-resolution governance added one fast contract
 # (520 -> 521, not-slow 453 -> 454).
 _EXPECTED_SLOW = 71  # +1 H0 calibration KS uniformity (slow)  # +1 cross-dyad seed independence (slow)  # +2 existence-gate NaN sensitivity (marked slow)
-_EXPECTED_NOT_SLOW = 490  # r5: +3 round-5 tests +1 module-resolution param instance  # r4: +4 (bridge label hygiene x3, gate status x1)  # +3 H0 calibration endpoint tests (L0/L1/L2) +1 module-resolution param instance  # +6 round-2 tests +1 param instance  # +9 cross-validation +1 param instance  # +5 defaults guard +2 param instances
+_EXPECTED_NOT_SLOW = 515  # audit-r6: +25 fast tests (see _EXPECTED_COLLECTED chain)  # r5: +3 round-5 tests +1 module-resolution param instance  # r4: +4 (bridge label hygiene x3, gate status x1)  # +3 H0 calibration endpoint tests (L0/L1/L2) +1 module-resolution param instance  # +6 round-2 tests +1 param instance  # +9 cross-validation +1 param instance  # +5 defaults guard +2 param instances
 
 # Module-level Path constants that are legitimately allowed not to exist
 # (e.g. output paths written during a test run). Keyed by "module:attribute"
