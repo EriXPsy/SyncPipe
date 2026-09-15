@@ -1,6 +1,10 @@
 """Minor-round regression tests (adversarial-review m2/m3/m4/m6/m8/m11,
 2026-09-14). Document-only minors (m1/m5/m7/m9/m12/m13) carry no behaviour
-to test; they are verified by inspection in the audit checklist."""
+to test; they are verified by inspection in the audit checklist.
+
+Note: the m2 behaviour change (full-width NaN-padded gate aggregation) was
+reverted on 2026-09-15 — the canonical semantics are shortest-width
+truncation. See TestGateTruncationSemantics below."""
 
 from __future__ import annotations
 
@@ -10,11 +14,24 @@ import pytest
 
 
 # ---------------------------------------------------------------------------
-# m2 — second-order gate consumes ALL valid draws (no shortest-width chop).
+# Gate group-null aggregation — canonical shortest-width truncation.
 # ---------------------------------------------------------------------------
 
-class TestGateFullWidthNull:
-    def test_unequal_null_lengths_are_padded_not_chopped(self):
+class TestGateTruncationSemantics:
+    def test_unequal_null_lengths_are_truncated_not_padded(self):
+        """The group-null stack is chopped to the shortest dyad width.
+
+        m2 (2026-09-14) padded the stack to the FULL width (max). It was
+        reverted on 2026-09-15 because it broke two frozen guards in
+        ``tests/test_existence_gate_nan_sensitivity.py`` — namely
+        ``test_gate_type_one_error_heterogeneous_nan_ragged`` (H0 FPR fell to
+        0.003, required 0.02–0.08) and
+        ``test_gate_is_conservative_when_one_dyad_has_few_draws``
+        (``assert 97 == 5``). Columns supported by only some dyads are not
+        draws from the group-mean null, so including them over-widens the
+        null and inflates conservatism. Canonical semantics:
+        ``width = min(a.size for a in stack)``, nanmean within that width.
+        """
         from syncpipe.inference_pipeline import _existence_gate_by_modality
         results = {
             "d1__ECG": {
@@ -29,8 +46,12 @@ class TestGateFullWidthNull:
             },
         }
         gate = _existence_gate_by_modality(results, primary_modalities=("ECG",))
-        # n_null_draws must reflect the FULL width (6), not the min (4).
-        assert gate["per_modality"]["ECG"]["n_null_draws"] == 6
+        # n_null_draws must reflect the shortest width (4), not the FULL (6).
+        assert gate["per_modality"]["ECG"]["n_null_draws"] == 4
+        # min attainable two-sided p = 2 / (4 + 1).
+        assert gate["per_modality"]["ECG"]["min_attainable_two_sided_p"] == (
+            pytest.approx(2 / 5)
+        )
 
 
 # ---------------------------------------------------------------------------

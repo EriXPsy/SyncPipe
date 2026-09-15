@@ -959,3 +959,34 @@ Documentation-only fixes (verified by inspection, no behaviour change):
 
 Test suite: 596 collected / 525 fast / 71 slow (+10 fast regression
 tests in `tests/test_audit_minor_fixes.py`).
+
+## 2026-09-15 — Revert of m2: restore shortest-width gate truncation
+
+Supersedes the **m2** entry of 2026-09-14. The "second-order existence
+gate consumes ALL valid surrogate draws (full-width NaN-padded matrix)"
+change was reverted by commit `ecf19a3`; the canonical semantics are once
+again **shortest-width truncation** — `width = min(a.size for a in stack)`
+with a draw-wise `nanmean` within that width
+(`syncpipe/inference_pipeline.py`, `_existence_gate_by_modality`).
+
+Rationale — both frozen guards in
+`tests/test_existence_gate_nan_sensitivity.py` failed under full-width
+padding:
+
+- `test_gate_type_one_error_heterogeneous_nan_ragged` — measured H0 FPR
+  fell to **0.003** (required 0.02–0.08): full-width padding is
+  over-conservative.
+- `test_gate_is_conservative_when_one_dyad_has_few_draws` — the recorded
+  `n_null_draws` no longer tracked the shortest dyad, so the guard failed
+  with `assert 97 == 5`.
+
+A column supported by only some dyads is not a draw from the group-mean
+null; including those columns over-widens the null distribution.
+Truncation to the shortest width keeps the group null a genuine sample of
+the group-mean null.
+
+`ecf19a3` reverted the estimator but was itself incomplete — it did not
+update `tests/test_audit_minor_fixes.py`, `CHANGELOG.md`, or this log,
+leaving the push red (0/9 checks; the 9 checks all trace to this single
+root cause). The present entry closes that loop. The 2026-09-14 m2 entry
+above is retained unchanged as decision history.

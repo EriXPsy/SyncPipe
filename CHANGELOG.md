@@ -43,8 +43,13 @@
 
 ### Changed (audit round-6b: minor adversarial-review fixes)
 
-- Second-order existence gate consumes all valid surrogate draws
-  (full-width NaN-padded aggregation instead of shortest-length chop).
+- Second-order existence gate keeps **shortest-width truncation**
+  (`width = min(a.size for a in stack)`, draw-wise `nanmean` within that
+  width). The interim full-width NaN-padded aggregation (2026-09-14) was
+  reverted on 2026-09-15: columns supported by only some dyads are not
+  draws from the group-mean null, so padding over-widens the null and is
+  over-conservative (measured H0 FPR = 0.003; the frozen guard requires
+  0.02–0.08).
 - Exploratory AUC diagnostics impute inside the CV pipeline
   (`_FoldMedianImputer`); no more whole-data median leak.
 - `Dyad(dyad_id=<non-string>)` coerces with a warning (was silently
