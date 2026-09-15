@@ -250,16 +250,8 @@ def _existence_gate_by_modality(
         n_null_draws = 0
         stack = null_peaks.get(mod, [])
         if stack:
-            # Audit m2 (2026-09-14): previously truncated every dyad's null
-            # array to the SHORTEST length, discarding valid surrogate draws
-            # whenever NaN-degenerate surrogates made one dyad's array
-            # shorter — a silent power loss. Build the full-width matrix and
-            # nanmean along the dyad axis instead: every valid draw of every
-            # dyad contributes to the group null.
-            width = max(a.size for a in stack)
-            mat = np.full((len(stack), width), np.nan)
-            for r, a in enumerate(stack):
-                mat[r, : a.size] = a
+            width = min(a.size for a in stack)
+            mat = np.asarray([a[:width] for a in stack], dtype=float)
             group_null = np.nanmean(mat, axis=0)
             finite = group_null[np.isfinite(group_null)]
             n_null_draws = int(finite.size)
