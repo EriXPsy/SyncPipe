@@ -145,13 +145,14 @@ intentionally add or remove tests, update both places in the same commit.
 
 | Metric                              | Value |
 |------------------------------------|-------|
-| Collected tests (`--collect-only`) | **521** |
-| `slow` subset (`-m slow`)          | 67    |
-| `not slow` subset (`-m "not slow"`)| 454   |
+| Collected tests (`--collect-only`) | **607** |
+| `slow` subset (`-m slow`)          | 71    |
+| `not slow` subset (`-m "not slow"`)| 536   |
 
-> Recorded 2026-08-19. Collected total **521** = 454 fast (`not slow`) + 67
-> `slow`. Enforced automatically by `tests/test_suite_health.py`; changing these
-> numbers is a reviewed act, not a side effect.
+> Table refreshed 2026-09-15 to the authoritative `test_suite_health.py`
+> values. Collected total **607** = 536 fast (`not slow`) + 71 `slow`. Enforced
+> automatically by `tests/test_suite_health.py`; changing these numbers is a
+> reviewed act, not a side effect.
 >
 > History: an earlier baseline (430 = 371 + 59) had gone stale. The split then
 > moved from 59/447 to 55/451 when four integration tests were promoted from the
@@ -166,6 +167,10 @@ intentionally add or remove tests, update both places in the same commit.
 > group surrogate test added one net test (469 → 470, 414 → 415). The
 > autocorrelation-robustness validation added 5 tests (470 → 475, 415 → 420).
 > The envelope exporter added 6 tests (475 → 481, 420 → 426).
+> On 2026-09-15 the P1 dead-code removal deleted the unreachable duplicate
+> `PairResult` / `compute_pair_pipeline` from `computation_pipeline.py` and added
+> three fail-loud re-export guards in `tests/unit/test_pipeline_io.py`
+> (604 → 607 collected, 533 → 536 fast; `slow` unchanged at 71).
 
 ## Suite self-health guard (`test_suite_health.py`)
 

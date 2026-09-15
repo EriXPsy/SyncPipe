@@ -11,9 +11,14 @@ yields identical features**, regardless of which input mode produced it.
 behaviorally identical to the prior implementation.
 """
 
+import ast
+import inspect
+
 import numpy as np
 import pandas as pd
 
+import syncpipe.computation_pipeline as computation_pipeline_module
+import syncpipe.pair_pipeline as pair_pipeline_module
 from syncpipe.pair_pipeline import PairResult as PairResultCanonical
 from syncpipe.pair_pipeline import compute_pair_pipeline as compute_pair_pipeline_canonical
 from syncpipe.computation_pipeline import (
@@ -29,6 +34,54 @@ def test_pair_api_has_canonical_module_and_compat_exports():
     assert compute_pair_pipeline is compute_pair_pipeline_canonical
     assert PairResult.__module__ == "syncpipe.pair_pipeline"
     assert compute_pair_pipeline.__module__ == "syncpipe.pair_pipeline"
+
+
+def test_computation_pipeline_defines_no_local_pair_api():
+    """Fail-loud guard: the canonical per-pair API must NOT be re-defined here.
+
+    ``computation_pipeline`` used to carry a *second*, unreachable copy of
+    ``PairResult`` / ``compute_pair_pipeline`` that was shadowed at import time
+    by the ``pair_pipeline`` re-exports — pure dead code, and a drift hazard
+    against the frozen source of truth.  That duplicate was deleted; this
+    guard keeps it deleted (AST-based, so prose in the module cannot satisfy
+    it by accident).
+    """
+    tree = ast.parse(inspect.getsource(computation_pipeline_module))
+    top_level_defs = {
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    }
+    assert "compute_pair_pipeline" not in top_level_defs
+    assert "PairResult" not in top_level_defs
+
+
+def test_compatibility_reexports_bind_the_canonical_objects():
+    """Both names must still be *bound* at module level, to pair_pipeline's."""
+    assert computation_pipeline_module.PairResult is pair_pipeline_module.PairResult
+    assert (
+        computation_pipeline_module.compute_pair_pipeline
+        is pair_pipeline_module.compute_pair_pipeline
+    )
+    assert computation_pipeline_module.PairResult.__module__ == "syncpipe.pair_pipeline"
+    assert (
+        computation_pipeline_module.compute_pair_pipeline.__module__
+        == "syncpipe.pair_pipeline"
+    )
+
+
+def test_wrappers_resolve_canonical_api_via_module_global():
+    """``quick_compute`` / ``batch_compute`` call ``compute_pair_pipeline`` by
+    module-global name.  After the local duplicate is gone, that name must
+    still resolve to the canonical implementation (otherwise NameError)."""
+    assert (
+        quick_compute.__globals__["compute_pair_pipeline"]
+        is pair_pipeline_module.compute_pair_pipeline
+    )
+    assert (
+        batch_compute.__globals__["compute_pair_pipeline"]
+        is pair_pipeline_module.compute_pair_pipeline
+    )
 
 
 def _make_signals(n=200, seed=0):
