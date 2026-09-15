@@ -67,7 +67,7 @@ preserve the existing public API and CLI/API byte parity.
 
 ## Milestone E — versioning and migration (implemented)
 
-Package releases are versioned as 1.0.1; the breaking canonical contract ships
+Package releases are versioned as 1.2.1; the breaking canonical contract ships
 as config/manifest schema v2.0.0 (schema versions track the data-contract
 shape, not the release). Viewer analysis JSON remains independently versioned
 at 0.3.0, preprocessing provenance at 1.0.0, and typed evidence at 1.1.0. `syncpipe migrate` and the

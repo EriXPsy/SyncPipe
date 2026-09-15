@@ -46,7 +46,13 @@ def _design_resolution(design: Optional[Dict[str, Any]], endpoint: str) -> float
     if n is None or int(n) < 1:
         return float("nan")
     n = int(n)
-    return float(1.0 / (2 ** n)) if n <= 12 else float(1.0 / 20001.0)
+    if n <= 12:
+        return float(1.0 / (2 ** n))
+    # Audit m3 (2026-09-14): derive from the design-control constant
+    # instead of re-hard-coding 20001 — the previous literal silently
+    # coupled this file to _paired_signflip_p_upper's max_draws default.
+    from ..design_controls import SIGNFLIP_MAX_DRAWS
+    return float(1.0 / (SIGNFLIP_MAX_DRAWS + 1.0))
 
 
 def _group_endpoint_status(

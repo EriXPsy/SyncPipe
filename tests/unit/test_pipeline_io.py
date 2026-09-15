@@ -14,12 +14,21 @@ behaviorally identical to the prior implementation.
 import numpy as np
 import pandas as pd
 
+from syncpipe.pair_pipeline import PairResult as PairResultCanonical
+from syncpipe.pair_pipeline import compute_pair_pipeline as compute_pair_pipeline_canonical
 from syncpipe.computation_pipeline import (
     PairResult,
     batch_compute,
     compute_pair_pipeline,
     quick_compute,
 )
+
+
+def test_pair_api_has_canonical_module_and_compat_exports():
+    assert PairResult is PairResultCanonical
+    assert compute_pair_pipeline is compute_pair_pipeline_canonical
+    assert PairResult.__module__ == "syncpipe.pair_pipeline"
+    assert compute_pair_pipeline.__module__ == "syncpipe.pair_pipeline"
 
 
 def _make_signals(n=200, seed=0):

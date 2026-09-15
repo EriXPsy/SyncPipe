@@ -32,6 +32,11 @@ from .feature_definitions import ONSET_THRESHOLD, extract_features
 
 SignalPair = Tuple[np.ndarray, np.ndarray]
 
+# Audit m3 (2026-09-14): promoted to a module constant so downstream
+# consumers (evidence/builder.py's minimum-attainable-p resolution) can
+# derive from ONE source instead of re-hard-coding 20000/20001.
+SIGNFLIP_MAX_DRAWS: int = 20000
+
 DEFAULT_AUDIT_FEATURES: Tuple[str, ...] = (
     "mean_synchrony",
     "peak_amplitude",
@@ -234,7 +239,9 @@ def synchrony_existence_audit(
 
 
 def _paired_signflip_p_upper(
-    deltas: np.ndarray, *, seed: int = 42, max_draws: int = 20000) -> float:
+    deltas: np.ndarray, *, seed: int = 42,
+    max_draws: int = SIGNFLIP_MAX_DRAWS,
+) -> float:
     """One-sided paired sign-flip p-value for mean(delta) > 0."""
     d = np.asarray(deltas, dtype=float)
     d = d[np.isfinite(d)]

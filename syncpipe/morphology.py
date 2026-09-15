@@ -22,6 +22,8 @@ confirmatory FDR family.
 """
 from __future__ import annotations
 
+import logging
+
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -35,6 +37,8 @@ from sklearn.preprocessing import StandardScaler
 
 from .dynamic_features import extract_dynamic_features
 from .feature_definitions import ONSET_THRESHOLD, _find_runs
+
+logger = logging.getLogger(__name__)
 
 
 __all__ = [
@@ -421,6 +425,32 @@ def collinearity_report(
     return corr, pd.Series(vif, name="VIF")
 
 
+from sklearn.base import BaseEstimator, TransformerMixin
+
+
+class _FoldMedianImputer(BaseEstimator, TransformerMixin):
+    """Median imputer that learns per-fold medians inside a CV pipeline.
+
+    Audit m4 (2026-09-14): replaces whole-data median fills that leaked
+    held-out information across the CV boundary in exploratory AUC
+    diagnostics (incremental_value / matched_mean_contrast).
+    """
+
+    def fit(self, X, y=None):
+        Xa = np.asarray(X, dtype=float)
+        self.medians_ = np.nanmedian(Xa, axis=0)
+        # all-NaN column -> 0 (StandardScaler will handle scale)
+        self.medians_ = np.where(np.isfinite(self.medians_), self.medians_, 0.0)
+        return self
+
+    def transform(self, X):
+        Xa = np.asarray(X, dtype=float).copy()
+        idx = np.where(np.isnan(Xa))
+        if idx[0].size:
+            Xa[idx] = self.medians_[idx[1]]
+        return Xa
+
+
 def incremental_value(
     feat_df: pd.DataFrame,
     y: np.ndarray,
@@ -450,7 +480,11 @@ def incremental_value(
         feats = [f for f in feats if f not in baseline_feats]
 
     allcols = list(dict.fromkeys(baseline_feats + feats))
-    Xall = feat_df[allcols].apply(pd.to_numeric, errors="coerce").fillna(feat_df[allcols].median())
+    # Audit m4 (2026-09-14): imputation is now FIT-ON-FOLD inside the CV
+    # pipeline (median learned on the training folds only; see the
+    # module-level _FoldMedianImputer). The previous whole-data median
+    # fill leaked held-out information across the CV boundary.
+    Xall = feat_df[allcols].apply(pd.to_numeric, errors="coerce")
 
     def auc_of(cols):
         if not cols:
@@ -461,11 +495,15 @@ def incremental_value(
         if n_splits < 2 or X.shape[1] == 0:
             return np.nan
         cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+        pipe = make_pipeline(
+            _FoldMedianImputer(), StandardScaler(),
+            LogisticRegression(max_iter=1000),
+        )
         scoring = "roc_auc_ovr" if len(classes) > 2 else "roc_auc"
         try:
             return float(np.mean(cross_val_score(pipe, X, y, cv=cv, scoring=scoring)))
-        except Exception:
+        except Exception as exc:  # audit m10: never fully silent
+            logger.debug("incremental_value.auc_of failed: %s", exc)
             return np.nan
 
     base_auc = auc_of(baseline_feats)
@@ -518,17 +556,22 @@ def matched_mean_contrast(
     for f in features:
         if f == "mean_synchrony" or f not in sub or sub[f].std() < 1e-9:
             continue
-        col = pd.to_numeric(sub[f], errors="coerce").fillna(sub[f].median())
+        col = pd.to_numeric(sub[f], errors="coerce")
         classes, counts = np.unique(ysub, return_counts=True)
         n_splits = int(min(5, counts.min()))
         if n_splits < 2:
             continue
         cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+        # audit m4: fold-internal imputation (no whole-subset leak)
+        pipe = make_pipeline(
+            _FoldMedianImputer(), StandardScaler(),
+            LogisticRegression(max_iter=1000),
+        )
         scoring = "roc_auc_ovr" if len(classes) > 2 else "roc_auc"
         try:
             auc = float(np.mean(cross_val_score(pipe, col.values.reshape(-1, 1), ysub, cv=cv, scoring=scoring)))
-        except Exception:
+        except Exception as exc:  # audit m10: never fully silent
+            logger.debug("matched_mean_contrast AUC failed for %s: %s", f, exc)
             auc = np.nan
         rows.append({"feature": f, "auc_within_mean_band": auc, "n_in_band": int(mask.sum())})
     return pd.DataFrame(rows).sort_values("auc_within_mean_band", ascending=False)

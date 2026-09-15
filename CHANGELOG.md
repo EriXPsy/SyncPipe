@@ -37,7 +37,32 @@
 ### Added
 
 - `tests/test_audit_round6_fixes.py`: 24 regression tests covering all of
-  the above (suite now 586 collected / 515 fast / 71 slow).
+  the above.
+
+## 1.2.1 — 2026-09-14
+
+### Changed (audit round-6b: minor adversarial-review fixes)
+
+- Second-order existence gate consumes all valid surrogate draws
+  (full-width NaN-padded aggregation instead of shortest-length chop).
+- Exploratory AUC diagnostics impute inside the CV pipeline
+  (`_FoldMedianImputer`); no more whole-data median leak.
+- `Dyad(dyad_id=<non-string>)` coerces with a warning (was silently
+  replaced by "dyad_01").
+- `_binarize_with_hysteresis` vectorised; bit-identical to the previous
+  loop (random parity test), ~2x faster on long traces.
+- `SIGNFLIP_MAX_DRAWS` constant de-duplicated across design controls and
+  the evidence builder.
+- L1 WCC-level results record the effective `wcc_window_sec` and a
+  heuristic-fallback flag.
+- Documentation: cumsum tolerance, score_view pooling scope, hz default
+  provenance, BC threshold caveat, five debug-logged exception branches,
+  Axis-D comment drift, lag sign convention.
+
+### Added
+
+- `tests/test_audit_minor_fixes.py`: 10 regression tests (suite now 596
+  collected / 525 fast / 71 slow).
 
 ## 1.1.0 — 2026-09-10
 

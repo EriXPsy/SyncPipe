@@ -85,9 +85,21 @@ class Dyad(SynchronyDataset):
         # Extract dyad_id if provided as a string; otherwise use default.
         # Always remove it from modalities to prevent add_modality() from
         # treating it as a DataFrame.
+        # Audit m6 (2026-09-14): a non-string dyad_id (e.g. an int database
+        # key) was silently swallowed to "dyad_01", which can conflate two
+        # different dyads in batch outputs. Coerce explicitly and warn.
         dyad_id = modalities.pop("dyad_id", "dyad_01")
         if not isinstance(dyad_id, str):
-            dyad_id = "dyad_01"
+            import warnings as _w
+            coerced = str(dyad_id)
+            _w.warn(
+                f"Dyad(dyad_id={dyad_id!r}): non-string dyad_id coerced to "
+                f"{coerced!r} (was previously silently replaced by "
+                f"'dyad_01'). Pass an explicit string identifier.",
+                UserWarning,
+                stacklevel=2,
+            )
+            dyad_id = coerced
         super().__init__(dyad_id=dyad_id, discontinuity_mask=discontinuity_mask)
         self._default_hz = hz
         for name, df in modalities.items():
@@ -473,7 +485,12 @@ class DynamicAnalyzer:
             )
             wcc_cache[src_key] = wcc
 
-        # 4. Score view (context-based synchrony summaries)
+        # 4. Score view (context-based synchrony summaries).
+        # NOTE (audit m5, 2026-09-14): mean_sync pools modality pairs with
+        # an UNWEIGHTED mean, which is a descriptive viewer convenience.
+        # It deliberately does NOT feed any inferential stage (P0-2 refuses
+        # cross-modality pooling for inference); scientific conclusions
+        # must use the per-modality outputs, never this field.
         if dataset.context_labels:
             t_vec = dataset.time_vector()
             # WCC[i] covers the raw window [i, i + window_size); its temporal

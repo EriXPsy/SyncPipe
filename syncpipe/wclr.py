@@ -36,6 +36,8 @@ picking algorithm. PLoS ONE, 14(2), e0211494.
 """
 from __future__ import annotations
 
+import logging
+
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -51,6 +53,10 @@ __all__ = [
     "windowed_cross_lagged_regression",
     "wclr_coupling_trace",
 ]
+
+
+
+logger = logging.getLogger(__name__)
 
 
 def _standardized_beta(
@@ -87,7 +93,8 @@ def _standardized_beta(
         if not np.isfinite(beta[target_col]):
             return None
         return float(beta[target_col])
-    except Exception:
+    except Exception as exc:  # audit m10: never fully silent
+        logger.debug("wclr computation failed: %s", exc)
         return None
 
 
@@ -123,7 +130,8 @@ def _r2_increment(
         beta_ar, *_ = np.linalg.lstsq(X_ar_only, yv, rcond=None)
         pred_ar = X_ar_only @ beta_ar
         r2_ar = _r2(yv - pred_ar, yc)
-    except Exception:
+    except Exception as exc:  # audit m10: never fully silent
+        logger.debug("wclr computation failed: %s", exc)
         return None
 
     X_full = np.column_stack([np.ones(n), arv, xv])
@@ -131,7 +139,8 @@ def _r2_increment(
         beta_full, *_ = np.linalg.lstsq(X_full, yv, rcond=None)
         pred_full = X_full @ beta_full
         r2_full = _r2(yv - pred_full, yc)
-    except Exception:
+    except Exception as exc:  # audit m10: never fully silent
+        logger.debug("wclr computation failed: %s", exc)
         return None
 
     delta = float(r2_full - r2_ar)

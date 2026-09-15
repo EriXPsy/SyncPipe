@@ -1,7 +1,5 @@
 # SyncPipe
 
-<img width="1376" height="768" alt="SyncPipe" src="syncpipe-logo-mark.svg" />
-
 **SyncPipe checks whether two aligned time series move together, tests common alternative explanations, compares conditions, and writes a report that states what the result does—and does not—support.**
 
 It is designed for dyadic, continuous, low-frequency signals such as processed
@@ -85,11 +83,14 @@ inference with stated claim limits, that is SyncPipe's niche.
 
 ## Install
 
+For normal use, install the released package from PyPI:
+
 ```bash
-python -m pip install -e .
+python -m pip install syncpipe
 ```
 
-For development and tests:
+For source development and tests, install the checked-out repository with its
+ development dependencies:
 
 ```bash
 python -m pip install -e ".[dev]"

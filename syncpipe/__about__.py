@@ -1,7 +1,7 @@
 """Version information."""
 
 # Distribution release version (the pip-installable package).
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 
 # Gate 2 — three-way version contract. External consumers pin and bump these
 # independently; they must NOT be collapsed back into a single __version__.

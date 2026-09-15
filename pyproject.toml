@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "syncpipe"
-version = "1.2.0"
+version = "1.2.1"
 description = "SyncPipe: an audited measurement, governance, and inference pipeline for dyadic continuous synchrony (WCC) — standardized computation, surrogate and design-control null models, and a governed descriptor-status table."
-readme = "docs/USER_MANUAL.md"
+readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 keywords = [
@@ -67,6 +67,7 @@ syncpipe = "syncpipe.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["syncpipe*"]
+exclude = ["experimental*", "archive*", "artifacts*"]
 
 [tool.setuptools.package-data]
 syncpipe = ["schemas/*.json"]

@@ -250,8 +250,16 @@ def _existence_gate_by_modality(
         n_null_draws = 0
         stack = null_peaks.get(mod, [])
         if stack:
-            width = min(a.size for a in stack)
-            mat = np.vstack([a[:width] for a in stack])  # (n_dyads, width)
+            # Audit m2 (2026-09-14): previously truncated every dyad's null
+            # array to the SHORTEST length, discarding valid surrogate draws
+            # whenever NaN-degenerate surrogates made one dyad's array
+            # shorter — a silent power loss. Build the full-width matrix and
+            # nanmean along the dyad axis instead: every valid draw of every
+            # dyad contributes to the group null.
+            width = max(a.size for a in stack)
+            mat = np.full((len(stack), width), np.nan)
+            for r, a in enumerate(stack):
+                mat[r, : a.size] = a
             group_null = np.nanmean(mat, axis=0)
             finite = group_null[np.isfinite(group_null)]
             n_null_draws = int(finite.size)
@@ -328,6 +336,10 @@ class InferencePipeline:
     def __init__(
         self,
         features_df: pd.DataFrame,
+        # Audit m7 (2026-09-14): this 4.0 default is a Lerique-dataset
+        # convention leaking into a general API (most other SyncPipe
+        # entry points default to 1.0). Kept for backward compatibility
+        # with frozen artifacts; always pass hz explicitly for new work.
         hz: float = 4.0,
         wcc_window_sec: Optional[float] = None,
         surrogate_n: int = 100,

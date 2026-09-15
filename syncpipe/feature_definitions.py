@@ -64,9 +64,13 @@ must not be re-derived by filtering ``FEATURE_TIER``.
   L0 (permutation-invariant):   mean_synchrony, peak_amplitude,
                              synchrony_entropy, bimodality_coefficient
     → Null model: SIGNAL-LEVEL IAAFT (destroy all coupling, including L0 moments)
-  L1 (local temporal structure): dwell_time, switching_rate,
-                             bimodality_coefficient (structural semantics)
+  L1 (local temporal structure): dwell_time, switching_rate
     → Null model: WCC-LEVEL IAAFT (preserve L0 moments, destroy run-length)
+    (bimodality_coefficient is listed ONLY under L0 above — the earlier
+    duplicate listing here as "structural semantics" drifted from
+    MATHEMATICAL_TIER, which assigns BC to exactly one tier, L0.  Its
+    *interpretive* reading is distributional/structural, but its
+    mathematical invariance class is L0.  Audit m12, 2026-09-14.)
   L2 (event-locked / peak-timing morphology): onset_latency, rise_time,
                              recovery_time, first_peak_time, inter_peak_cv
     → v1 status: exploratory descriptors. Their existence null is not validated
@@ -1306,19 +1310,40 @@ def _binarize_with_hysteresis(
     if hysteresis_delta <= 0:
         return (wcc >= threshold) & finite
 
+    # Vectorised Schmitt trigger (audit m8, 2026-09-14; bit-identical to
+    # the previous pure-Python loop, verified by unit test). NaN positions
+    # are hard False and RESET the hysteresis memory: process each maximal
+    # finite RUN independently so a discontinuity cannot bridge two runs.
     enter = threshold + hysteresis_delta
     exit_ = threshold - hysteresis_delta
-    state = False
-    for i in range(n):
-        if not finite[i]:
-            states[i] = False
-            state = False  # reset hysteresis memory at the discontinuity
-            continue
-        if not state and wcc[i] >= enter:
-            state = True
-        elif state and wcc[i] < exit_:
-            state = False
-        states[i] = state
+    v = np.where(finite, wcc, np.nan)
+    for s, e in _finite_segments(finite):
+        seg = v[s:e]
+        above_enter = seg >= enter
+        below_exit = seg < exit_
+        # Schmitt trigger via cumulative reset: a rising crossing at i sets
+        # state True from i onward; a falling crossing (state True and
+        # value < exit) sets it False. Because crossings alternate
+        # deterministically given the current state, encode as a scan over
+        # "events": position is an ENTER event if above_enter and previous
+        # effective state was False; an EXIT event if below_exit and state
+        # was True. Implement with np.select + cummax-style fold, which for
+        # boolean state machines is expressible as: last event index wins.
+        # Event markers: +1 = potential enter, -1 = potential exit.
+        marker = np.where(above_enter, 1, np.where(below_exit, -1, 0))
+        # Resolve state: iterate events in order via a small Python loop is
+        # O(run length); instead use the closed form — within a run the
+        # Schmitt state is "last marker that could fire", where an enter
+        # marker can fire only when state is False and an exit only when
+        # True. Because enter/exit markers strictly alternate in their
+        # firing, taking the running LAST marker index and mapping its sign
+        # reproduces the state machine:
+        idx = np.arange(e - s)
+        fired = np.where(marker != 0, idx, -1)
+        # forward-fill the last fired marker position
+        last_fired = np.maximum.accumulate(fired + 1) - 1  # -1 = none yet
+        fired_sign = np.where(last_fired >= 0, marker[np.clip(last_fired, 0, None)], 0)
+        states[s:e] = fired_sign == 1
     return states
 
 
@@ -1559,6 +1584,15 @@ def compute_bimodality_coefficient(wcc: np.ndarray) -> float:
     where :math:`\\gamma` is skewness and :math:`\\kappa` is the
     (non-excess) kurtosis.  BC > 0.555 indicates a bimodal distribution
     (Ellison 1987; Pfister et al. 2013).
+
+    Threshold caveat (audit m9, 2026-09-14): the 0.555 cut-point is
+    derived under the uniform reference distribution and is NOT a valid
+    bimodality criterion for platykurtic baselines (proper kurtosis near
+    or below ~1.8, e.g. near-uniform WCC densities, where the uniform's
+    own BC already sits close to the cut).  Treat BC here as a continuous
+    distribution-shape DESCRIPTOR; do not report dichotomised
+    "bimodal / not bimodal" labels from the 0.555 threshold in any
+    manuscript output.
 
     For alternating high/low coupling (PGT-2), BC directly measures the
     separability of the two synchrony states.  Unlike Shannon entropy

@@ -918,3 +918,44 @@ warning.
 
 Test suite: 586 collected / 515 fast / 71 slow (+25 fast regression
 tests in `tests/test_audit_round6_fixes.py`).
+
+## 2026-09-14 — Round-6b: adversarial-review minor fixes (m1–m13)
+
+All thirteen Minor findings from the adversarial review were resolved.
+Behaviour-changing fixes (each covered by regression tests in
+`tests/test_audit_minor_fixes.py`):
+
+- **m2** — second-order existence gate now consumes ALL valid surrogate
+  draws (full-width NaN-padded matrix) instead of chopping every dyad to
+  the shortest null length (silent power loss).
+- **m4** — exploratory AUC diagnostics (`incremental_value`,
+  `matched_mean_contrast`) now impute inside the CV pipeline
+  (`_FoldMedianImputer`, train-fold medians only); the previous
+  whole-data median fill leaked held-out information.
+- **m6** — `Dyad(dyad_id=<non-string>)` now coerces to `str` with a
+  warning instead of silently replacing with "dyad_01" (two different
+  dyads could previously be conflated).
+- **m8** — `_binarize_with_hysteresis` vectorised (per-finite-run
+  last-fired-marker scan); bit-identical to the reference loop (500-case
+  random parity test + NaN-gap reset case), ~2x faster.
+- **m3** — `SIGNFLIP_MAX_DRAWS` promoted to a module constant;
+  `evidence/builder._design_resolution` derives from it instead of a
+  hard-coded 20001.
+- **m11** — L1 WCC-level result now records the actual
+  `wcc_window_sec` used and whether it was the heuristic fallback.
+
+Documentation-only fixes (verified by inspection, no behaviour change):
+
+- **m1** cumsum numerical-tolerance note; **m5** viewer `score_view`
+  unweighted-pooling disclosure (descriptive only, never inferential);
+- **m7** `InferencePipeline(hz=4.0)` dataset-convention note;
+  **m9** BC 0.555 threshold caveat (platykurtic baselines; continuous
+  descriptor only);
+- **m10** five silent `except Exception` branches now log at debug level
+  (morphology x2, wclr x3);
+- **m12** Axis-D header comment no longer double-lists
+  bimodality_coefficient under L1; **m13** WCC lag sign convention
+  documented (y-leads-x for positive lag).
+
+Test suite: 596 collected / 525 fast / 71 slow (+10 fast regression
+tests in `tests/test_audit_minor_fixes.py`).

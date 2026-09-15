@@ -4,6 +4,7 @@ from __future__ import annotations
 """P2 release-hygiene fixes: summarize multimodal, JSON L2Result, seed, empty WCC."""
 
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -11,6 +12,29 @@ import pytest
 
 from syncpipe.feature_definitions import extract_features
 from syncpipe.inference_pipeline import InferencePipeline
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_repository_scope_classifies_non_release_material():
+    scope = (ROOT / "docs" / "REPOSITORY_SCOPE.md").read_text(encoding="utf-8")
+    for name in ("experimental/", "archive/", "artifacts/", "_logs/"):
+        assert name in scope
+    assert "must not be treated as release content" in scope
+
+
+def test_release_metadata_uses_readme_and_ci_wheel_contract():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "syncpipe-logo-mark.svg" not in readme
+    assert 'readme = "README.md"' in pyproject
+    assert 'exclude = ["experimental*", "archive*", "artifacts*"]' in pyproject
+    assert "python -m build --wheel" in ci
+    assert "pip install --no-deps --target" in ci
+    assert "python -m syncpipe --version" in ci
+    assert "python -m syncpipe demo" in ci
 
 
 def _uni(n=8):
@@ -162,3 +186,13 @@ def test_run_full_cascade_accepts_contrast_and_multimodal_df():
     # of _build_cascade_summary emits "L2", so the per-modality scope label was
     # never verified. Require it outright.
     assert "per-modality" in out["cascade_summary"]
+
+
+def test_current_release_version_sources_are_consistent():
+    about = (ROOT / "syncpipe" / "__about__.py").read_text(encoding="utf-8")
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    citation = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
+    assert 'version = "1.2.1"' in pyproject
+    assert '__version__ = "1.2.1"' in about
+    assert "version: 1.2.1" in citation
+    assert "## 1.2.1" in (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")

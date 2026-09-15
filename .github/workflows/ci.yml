@@ -23,6 +23,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
       - run: python -m build --wheel
+      - name: Install and smoke-test wheel
+        shell: bash
+        run: |
+          wheel_dir="$(mktemp -d)"
+          python -m pip install --no-deps --target "$wheel_dir" dist/*.whl
+          PYTHONPATH="$wheel_dir" python -m syncpipe --version
+          PYTHONPATH="$wheel_dir" python -m syncpipe demo --surrogates 2 --audit-surrogates 3 --demo-dyads 1 -o "$wheel_dir/demo"
+          test -f "$wheel_dir/demo/DEMO_REPORT.md"
       - run: pytest tests/ -m "not slow" -q --tb=short
       - name: Test reporting
         if: always()
