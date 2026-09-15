@@ -25,6 +25,7 @@ tests/
 │   ├── test_significance.py      # surrogate / null models / significance / fdr / existence audit / kuramoto
 │   ├── test_prediction.py        # prediction / cross_modal / failed_fold / seed / finding17 / leakage
 │   ├── test_pipeline_io.py       # computation_pipeline / pipeline_bridge / io / dataset / real loaders
+│   ├── test_facade_parity.py     # dynamic_features facade re-export identity + pairing SSoT guards
 │   ├── test_api_core.py          # cli / demo / public API + namespace entry tests
 │   ├── test_canonical.py         # canonical_runner / config resolution
 │   ├── test_importer.py          # importer / delimiter sniffing
@@ -145,12 +146,12 @@ intentionally add or remove tests, update both places in the same commit.
 
 | Metric                              | Value |
 |------------------------------------|-------|
-| Collected tests (`--collect-only`) | **607** |
+| Collected tests (`--collect-only`) | **613** |
 | `slow` subset (`-m slow`)          | 71    |
-| `not slow` subset (`-m "not slow"`)| 536   |
+| `not slow` subset (`-m "not slow"`)| 542   |
 
 > Table refreshed 2026-09-15 to the authoritative `test_suite_health.py`
-> values. Collected total **607** = 536 fast (`not slow`) + 71 `slow`. Enforced
+> values. Collected total **613** = 542 fast (`not slow`) + 71 `slow`. Enforced
 > automatically by `tests/test_suite_health.py`; changing these numbers is a
 > reviewed act, not a side effect.
 >
@@ -171,6 +172,11 @@ intentionally add or remove tests, update both places in the same commit.
 > `PairResult` / `compute_pair_pipeline` from `computation_pipeline.py` and added
 > three fail-loud re-export guards in `tests/unit/test_pipeline_io.py`
 > (604 → 607 collected, 533 → 536 fast; `slow` unchanged at 71).
+> On 2026-09-15 (P2) the `dynamic_features` facade re-export parity guards and
+> the `pairing.py` single-source-of-truth reuse guards were added in the new
+> `tests/unit/test_facade_parity.py` (607 → 613 collected, 536 → 542 fast;
+> `slow` unchanged at 71); three dangling `docs/…` references were repointed at
+> real documents.
 
 ## Suite self-health guard (`test_suite_health.py`)
 

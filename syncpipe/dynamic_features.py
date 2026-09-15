@@ -5,14 +5,18 @@ Theoretical Framework
 --------------------
 SyncPipe conceptualizes interpersonal synchrony through a
 morphology-aware dimensional model (INTENSITY / STRUCTURE / TIMING;
-see ``docs/DIMENSIONAL_MODEL.md``).  Synchrony Epochs can take
+see ``docs/FEATURE_TABLE.md``).  Synchrony Epochs can take
 multiple forms — single-peak, oscillatory, sustained, asymmetric decay
 and features are classified into three tiers (CORE /
 CONDITIONAL / REFERENCE) reflecting cross-morphology robustness.
 
-Feature math lives in :mod:`syncpipe.feature_definitions` (SSoT).
-This module is responsible for WCC computation, surrogate generation,
-and thin orchestration wrappers that delegate to the SSoT.
+Compatibility facade + cross-pair orchestration.  Feature math lives in
+:mod:`syncpipe.feature_definitions` (SSoT); WCC computation lives in
+:mod:`syncpipe.wcc`, and the surrogate / null models in
+:mod:`syncpipe.null_models`.  This module re-exports those objects for
+backward compatibility and provides the cross-pair orchestration entry
+points :func:`extract_features_all_pairs` / :func:`extract_features_segmented`,
+which delegate to the SSoT.
 
 Attribution
 ----------

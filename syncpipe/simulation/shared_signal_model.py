@@ -1,8 +1,12 @@
 """
 Unified signal generator for all PGT scenarios.
 
-Signal model: person = c(t)*shared + (1-c(t))*independent + noise.
-Math derivation: see docs/signal_model.md.
+Signal model: person = c(t)*shared + (1-c(t))*independent + noise, where
+``c(t)`` is the time-varying coupling weight in [0, 1] (see
+``constant_coupling`` / ``alternating_coupling`` below), ``shared`` is the
+common multi-sine rhythm built by ``_shared_rhythm``, and ``independent`` is
+the person-specific component.  This module is the authoritative definition
+of that generator.
 
 Responsible for: generate PGT signals, ground-truth WCC, coupling builders.
 MUST NOT import SyncPipe feature extraction (circular dependency).

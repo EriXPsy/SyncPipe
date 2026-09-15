@@ -809,8 +809,11 @@ def residualize_features(
     """
     Remove linear contribution of baseline (mean_synchrony) from each feature.
 
-    Implements the deconfounding step described in DIMENSIONAL_MODEL.md §2:
-        f_residual = f − β̂·mean_synchrony
+    Deconfounding step: regress each feature on the shared baseline
+    (``mean_synchrony``) and keep the OLS residual, so downstream contrasts
+    are not confounded by the overall coupling level:
+
+        f_residual = f − (α + β̂·mean_synchrony)
 
     Parameters
     ----------
