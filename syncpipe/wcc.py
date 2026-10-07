@@ -133,10 +133,10 @@ def sliding_window_wcc(
     # Boundary samples with no overlapping partner become NaN, never wrap.
     if lag_samples > 0:
         y_lagged = np.full(n, np.nan)
-        y_lagged[lag_samples:] = y[:-lag_samples]
+        y_lagged[:-lag_samples] = y[lag_samples:]
     elif lag_samples < 0:
         y_lagged = np.full(n, np.nan)
-        y_lagged[:lag_samples] = y[-lag_samples:]
+        y_lagged[-lag_samples:] = y[:lag_samples]
     else:
         y_lagged = y
 
@@ -234,6 +234,41 @@ def _apply_discontinuity_mask(
     wcc = wcc.copy()
     wcc[invalid] = np.nan
     return wcc
+
+
+# ---------------------------------------------------------------------------
+# Unit (scale) invariance of the flat-window guard (audit P0-1, 2026-10-07,
+# ported from Claude's scale-invariance patch; see DECISION_LOG 2026-10-04)
+# ---------------------------------------------------------------------------
+
+# A window whose std is below this fraction of the signal's global std is
+# numerically flat: its std is rounding noise, not variability.  The legacy
+# product-only guard (``denom > 1e-10``) had two unit-dependence defects:
+# (1) at raw-unit scales (e.g. Siemens, std ~1e-5) EVERY window fell below
+# the absolute floor and the whole trace became NaN, while QC passed the
+# same signal (the two floors disagreed); (2) a window flat in only ONE
+# signal (std ~1e-8 rounding noise) passed whenever the other varied and
+# returned a meaningless ~0 instead of NaN — at ANY scale.  Each signal is
+# therefore checked against its own relative floor.
+_REL_STD_FLOOR = 1e-6
+
+
+def _unit_scale(centered: np.ndarray) -> float:
+    """Global scale (std over finite values) making the flat-window guard unit-free.
+
+    Pearson correlation is invariant to rescaling, but the absolute
+    ``denom > 1e-10`` guard was not: the same data in raw units lost most
+    windows to NaN.  Dividing each demeaned signal by its own global std is
+    an exact no-op for the correlation and turns the guard into "window
+    variance is negligible *relative to the signal's own variance*".  A
+    constant signal (scale 0 or a single finite sample) is left unscaled, so
+    its windows still come out NaN.
+    """
+    finite = centered[np.isfinite(centered)]
+    if finite.size < 2:
+        return 1.0
+    scale = float(np.std(finite))
+    return scale if np.isfinite(scale) and scale > 0.0 else 1.0
 
 def sliding_window_wcc_masked(
     x: np.ndarray,
@@ -337,6 +372,11 @@ def _sliding_window_wcc_cumsum(
     mean_y_global = float(np.mean(y))
     x_demeaned = x - mean_x_global
     y_demeaned = y - mean_y_global
+    # Unit-free guard (audit P0-1, 2026-10-07): divide by each signal's own
+    # global std — an exact no-op for Pearson r — so the flat-window floor
+    # below is RELATIVE to the signal's own scale, not to raw units.
+    x_demeaned = x_demeaned / _unit_scale(x_demeaned)
+    y_demeaned = y_demeaned / _unit_scale(y_demeaned)
 
     kern = _make_window_kernel(window_type, window_size)  # length window_size, sum == window_size
 
@@ -396,7 +436,12 @@ def _sliding_window_wcc_cumsum(
     denom = std_x * std_y
 
     wcc = np.full_like(sum_x, np.nan)
-    valid = denom > 1e-10
+    # Relative floor (audit P0-1): each signal's window std must exceed
+    # _REL_STD_FLOOR of its own global std, so a window flat in ONE signal
+    # is NaN even when the other varies (legacy product-only guard let it
+    # through with a meaningless ~0), and raw-unit scales no longer lose
+    # every window to an absolute floor.
+    valid = (denom > 1e-10) & (std_x > _REL_STD_FLOOR) & (std_y > _REL_STD_FLOOR)
     wcc[valid] = cov[valid] / denom[valid]
     return np.clip(wcc, -1.0, 1.0)
 
@@ -455,6 +500,11 @@ def _sliding_window_wcc_stride(
     my = float(np.nanmean(y))
     xg = np.where(np.isfinite(x), x - mx, 0.0)
     yg = np.where(np.isfinite(y), y - my, 0.0)
+    # Unit-free guard (audit P0-1, 2026-10-07): scale from FINITE values only
+    # (the NaN positions carry weight 0 below, so excluding them here keeps
+    # the reference scale honest on gappy traces).  Exact no-op for Pearson r.
+    xg = xg / _unit_scale(np.where(np.isfinite(x), x - mx, np.nan))
+    yg = yg / _unit_scale(np.where(np.isfinite(y), y - my, np.nan))
     xw = sliding_window_view(xg, window_size)
     yw = sliding_window_view(yg, window_size)
 

@@ -138,6 +138,37 @@ def test_gordon_mask_false_where_either_person_nan():
     assert mask.tolist() == [True, False, False, True]
 
 
+def test_gordon_short_rows_warning_is_traceable(tmp_path, caplog):
+    pair = tmp_path / "behavioral data" / "p1_p2"
+    pair.mkdir(parents=True)
+    path = pair / "exp1.csv"
+    pd.DataFrame({c: np.arange(29) for c in G.RAW_COLUMNS}).to_csv(path, index=False)
+    assert G.load_gordon_dataset(tmp_path) == []
+    assert str(path) in caplog.text
+    assert "only 29 valid rows (<30); skipping" in caplog.text
+
+
+def test_lerique_segment_diagnostics_distinguish_failed_files(tmp_path):
+    from scipy.io import savemat
+
+    good = tmp_path / "pce01_P1_Rest2.mat"
+    bad = tmp_path / "pce01_P1_Rest3.mat"
+    savemat(good, {"sig": np.arange(10, dtype=np.float32)})
+    bad.write_bytes(b"not a mat file")
+    diagnostics = []
+    raw, paths, mask = L._collect_segments_for_person(
+        tmp_path, "pce01", "ECG", "1", "Rest", [2, 3, 4], diagnostics,
+    )
+    assert paths == [good]
+    assert len(raw) == len(mask) == 10
+    by_segment = {item["segment"]: item for item in diagnostics}
+    assert by_segment[2]["raw_length"] == 10
+    assert by_segment[3]["status"] == "load_error"
+    assert by_segment[3]["raw_length"] is None
+    assert by_segment[3]["error"]
+    assert by_segment[4]["status"] == "missing"
+
+
 def test_gordon_mask_all_true_when_clean():
     rec = _gordon_record([1.0, 2.0, 3.0], [4.0, 5.0, 6.0])
     dyad = G.gordon_record_to_syncpipe_dyad(rec)

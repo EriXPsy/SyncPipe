@@ -203,7 +203,13 @@ class LeriqueDyadCondition:
         (so downstream WCC can skip cross-boundary windows).
     meta : dict
         Free-form metadata (raw file paths, segment indices, alignment
-        sanity flag, raw_fs_hz, etc.).
+        sanity flag, raw_fs_hz, etc.). ``raw_lengths`` preserves P1/P2
+        lengths before alignment (None means unavailable). ``source_segments``
+        records each requested path, segment, raw length and loaded/missing/
+        load_error status. ``missing_members`` and ``exclusion_reasons`` explain
+        incomplete records. In raw mode a missing side leaves no shared samples;
+        the present side is empty on that grid, not evidence of an empty source.
+        Such diagnostic records must not enter the Dyad bridge.
     """
     dyad_id: str
     dyad_label: str
@@ -585,6 +591,7 @@ def _collect_segments_for_person(
     person: str,
     cond_class: str,
     seg_indices: Sequence[int],
+    diagnostics: Optional[List[Dict[str, object]]] = None,
 ) -> Tuple[Optional[np.ndarray], List[Path], np.ndarray]:
     """Load and concatenate a specific list of segments for one person.
 
@@ -640,16 +647,34 @@ def _collect_segments_for_person(
             dyad_label, modality_name, person, cond_class,
             missing_idx, list(seg_indices),
         )
+    if diagnostics is not None:
+        for idx in missing_idx:
+            diagnostics.append({
+                "person": f"P{person}", "segment": idx,
+                "path": str(pce_subdir / f"{dyad_label}_P{person}_{cond_class}{idx}.mat"),
+                "raw_length": None, "status": "missing",
+            })
 
     if not requested_paths:
         return None, [], np.zeros(0, dtype=bool)
 
     parts: List[np.ndarray] = []
+    loaded_paths: List[Path] = []
     for p in requested_paths:
+        item = {
+            "person": f"P{person}", "segment": int(_parse_filename(p.name)["seg"]),
+            "path": str(p), "raw_length": None, "status": "load_error",
+        }
         try:
-            parts.append(_load_mat_segment(p))
+            arr = _load_mat_segment(p)
+            parts.append(arr)
+            loaded_paths.append(p)
+            item.update(raw_length=len(arr), status="loaded")
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to load %s: %s", p, exc)
+            item["error"] = str(exc)
+        if diagnostics is not None:
+            diagnostics.append(item)
 
     if not parts:
         return None, [], np.zeros(0, dtype=bool)
@@ -662,7 +687,7 @@ def _collect_segments_for_person(
         if cursor < len(boundary_mask):
             boundary_mask[cursor] = False
 
-    return concat, requested_paths, boundary_mask
+    return concat, loaded_paths, boundary_mask
 
 
 def _segments_for_condition_unit(unit: str) -> Tuple[str, Sequence[int]]:
@@ -867,13 +892,16 @@ def load_lerique_dataset(
             for unit in condition_units:
                 cond_class, seg_indices = _segments_for_condition_unit(unit)
 
+                source_segments: List[Dict[str, object]] = []
                 a_raw, a_paths, a_mask = _collect_segments_for_person(
                     pce_dir, dyad_label, modality, person="1",
                     cond_class=cond_class, seg_indices=seg_indices,
+                    diagnostics=source_segments,
                 )
                 b_raw, b_paths, b_mask = _collect_segments_for_person(
                     pce_dir, dyad_label, modality, person="2",
                     cond_class=cond_class, seg_indices=seg_indices,
+                    diagnostics=source_segments,
                 )
 
                 aligned = _verify_p1_p2_length_alignment(
@@ -885,10 +913,19 @@ def load_lerique_dataset(
                     min_duration_sec=min_duration_sec,
                 )
 
-                incomplete = (
-                    (a_raw is None) or (b_raw is None)
-                    or (not aligned) or (not duration_ok)
-                )
+                raw_lengths = {
+                    "P1": None if a_raw is None else len(a_raw),
+                    "P2": None if b_raw is None else len(b_raw),
+                }
+                missing_members = [p for p, n in raw_lengths.items() if n is None]
+                exclusion_reasons = []
+                if missing_members:
+                    exclusion_reasons.append("missing_member")
+                if not aligned:
+                    exclusion_reasons.append("length_mismatch")
+                if not duration_ok:
+                    exclusion_reasons.append("below_min_duration")
+                incomplete = bool(exclusion_reasons)
                 if drop_incomplete and ((a_raw is None) or (b_raw is None)):
                     logger.info(
                         "Drop incomplete: dyad=%s modality=%s unit=%s "
@@ -991,6 +1028,11 @@ def load_lerique_dataset(
                         "cond_class": cond_class,
                         "segment_indices": list(seg_indices),
                         "alignment_ok": bool(aligned),
+                        "source_segments": source_segments,
+                        "raw_lengths": raw_lengths,
+                        "missing_members": missing_members,
+                        "exclusion_reasons": exclusion_reasons,
+                        "duration_ok": bool(duration_ok),
                     },
                 )
                 records.append(rec)
@@ -1028,7 +1070,10 @@ def lerique_record_to_syncpipe_dyad(rec: LeriqueDyadCondition):
     if rec.incomplete:
         raise ValueError(
             f"Cannot convert incomplete record {rec.dyad_id}: "
-            "missing or misaligned person_a/person_b."
+            "missing, misaligned, or too-short person_a/person_b; "
+            f"exclusion_reasons={rec.meta.get('exclusion_reasons', [])}, "
+            f"missing_members={rec.meta.get('missing_members', [])}, "
+            f"raw_lengths={rec.meta.get('raw_lengths', {})}."
         )
     from syncpipe.core import Dyad  # local import keeps converter light
 

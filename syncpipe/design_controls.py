@@ -22,8 +22,8 @@ import zlib
 
 import numpy as np
 
-from .dynamic_features import (
-    sliding_window_wcc,
+from .wcc import sliding_window_wcc
+from .null_models import (
     wcc_surrogate_test,
     _prepare_iaaft_segments,
     _segmentwise_wcc,
@@ -113,7 +113,7 @@ def extract_pair_features(
         return {name: float("nan") for name in feature_names}
     wcc = sliding_window_wcc(a, b, window_size=window_size, hz=hz, window_type=window_type)
     if discontinuity_mask is not None:
-        from .dynamic_features import _apply_discontinuity_mask
+        from .wcc import _apply_discontinuity_mask
         wcc = _apply_discontinuity_mask(wcc, discontinuity_mask, window_size)
     feats = extract_features(
         wcc,

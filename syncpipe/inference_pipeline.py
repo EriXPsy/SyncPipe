@@ -30,7 +30,8 @@ from .design_controls import (
     design_control_audit,
     synchrony_existence_audit,
 )
-from .dynamic_features import sliding_window_wcc, wcc_surrogate_test
+from .wcc import sliding_window_wcc
+from .null_models import wcc_surrogate_test
 from .feature_definitions import (
     EXISTENCE_GATE_ALPHA,
     FDR_FAMILIES,
@@ -87,7 +88,16 @@ def _apply_global_modality_fdr(results: Dict[str, Any], alpha: float) -> Dict[st
                 all_items.append((modality, result))
                 if result.feature in reference_set:
                     continue
-                fam = family_of.get(result.feature, result.feature)
+                fam = family_of.get(result.feature)
+                if fam is None:
+                    if not result.claimable:
+                        result.p_fdr = float("nan")
+                        result.significant_05 = False
+                        continue
+                    raise ValueError(
+                        f"Feature {result.feature!r} has no registered FDR family; "
+                        "confirmatory inference requires an explicit endpoint contract."
+                    )
                 by_family.setdefault(fam, []).append((modality, result))
     if not all_items:
         return results
@@ -1325,11 +1335,16 @@ class InferencePipeline:
             applicable = [r for r in self._l1_results.values()
                           if r.get("applicable", True)]
             n_l1 = len(applicable)
+            n_l1_untestable = len(self._l1_results) - n_l1
             n_l1_sig = sum(
                 1 for r in applicable
                 if r.get("per_feature_significant", {}).get("switching_rate", False)
             )
             lines.append(f"\nL1 (WCC-level IAAFT): {n_l1_sig}/{n_l1} significant")
+            if n_l1_untestable:
+                lines.append(
+                    f"  Not applicable: {n_l1_untestable} trace(s) excluded from denominator"
+                )
             lines.append("  Tests: dwell_time, switching_rate")
             lines.append("  H0: WCC temporal structure is random")
             lines.append(

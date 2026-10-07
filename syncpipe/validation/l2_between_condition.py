@@ -665,7 +665,7 @@ def between_condition_fdr(
                 defined_b=def_b_count,
                 p_definedness=p_def,
                 definedness_status=definedness_status,
-                claimable=False if undefined_policy == "gate" else claimable,
+                claimable=False,
             ))
             continue
 
@@ -748,13 +748,19 @@ def between_condition_fdr(
     }
     reference_set = set(REFERENCE_FEATURE)
 
-    # Group result indices by their SSoT family; unknown features get their
-    # own singleton group (BH over a single p is identity — fail-safe).
+    # Group only registered confirmatory endpoints; other descriptors remain
+    # exploratory and must not silently acquire singleton families.
     groups: Dict[str, List[int]] = {}
     for i, r in enumerate(results):
         if r.feature in reference_set:
             continue  # reference: reported, not corrected
-        groups.setdefault(family_of.get(r.feature, r.feature), []).append(i)
+        family = family_of.get(r.feature)
+        if family is None:
+            r.claimable = False
+            r.p_fdr = float("nan")
+            r.significant_05 = False
+            continue
+        groups.setdefault(family, []).append(i)
 
     for fam, idxs in groups.items():
         p_raw_grp = np.array([results[i].p_raw for i in idxs], dtype=float)
@@ -768,6 +774,7 @@ def between_condition_fdr(
     # and they can never be declared significant in the confirmatory claim.
     for r in results:
         if r.feature in reference_set:
+            r.claimable = False
             r.p_fdr = float("nan")
             r.significant_05 = False
 

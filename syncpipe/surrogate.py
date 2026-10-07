@@ -205,6 +205,17 @@ def state_transition_shuffle_surrogate(
     return res[:n]
 
 
+def _iaaft_energy(x: np.ndarray) -> float:
+    """Variance-scaled convergence energy for IAAFT (audit P0-1, 2026-10-07).
+
+    Returns the signal's mean squared deviation from its mean, falling back
+    to 1.0 for constant/zero-variance input so the loop still terminates on
+    the absolute ``tol`` for that degenerate case.
+    """
+    energy = float(np.mean((x - np.mean(x)) ** 2))
+    return energy if (np.isfinite(energy) and energy > 0.0) else 1.0
+
+
 def iaaft_surrogate(
     x: np.ndarray,
     rng: np.random.Generator,
@@ -299,10 +310,16 @@ def iaaft_surrogate(
         # (d) IFFT back to time domain
         x_new = np.fft.irfft(X_new, n=n)
 
-        # (e) Convergence check on iterative signal change
+        # (e) Convergence check on iterative signal change.
+        # Relative to the signal's own variance (audit P0-1, 2026-10-07):
+        # signal_change is a sum of SQUARES, so an absolute threshold made
+        # the stopping point depend on the unit — a signal in small units
+        # (std ~1e-7) was declared converged after one pass, drifting every
+        # surrogate-derived quantity with the unit. For unit-variance input
+        # (e.g. z-scored) this is identical to the legacy criterion.
         signal_change = float(np.sum((x_new - x_surr) ** 2))
         x_surr = x_new
-        if signal_change < tol * n:
+        if signal_change < tol * n * _iaaft_energy(x):
             break
 
     # Final rank adjustment: exact empirical amplitude distribution, approximate

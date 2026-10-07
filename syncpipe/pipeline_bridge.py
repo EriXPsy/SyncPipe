@@ -298,6 +298,7 @@ def records_to_inference_inputs(
             hz=hz,
             wcc_window_size=window_size,
             discontinuity_masks=masks,
+            window_type=window_type,
         )
 
     # ------------------------------------------------------------------

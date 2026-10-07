@@ -10,6 +10,13 @@ prediction, AR baseline). v1's scientific scope is same-modality measurement +
 audited inference; the cross-modal prediction regression family contradicted
 that scope, so it was moved here out of the package.
 
+## `decision10_sweep.py`
+
+Historical DECISION-10 prediction-threshold calibration, retained outside the
+release package alongside `experimental.prediction`. Its import path supports
+direct execution (`python experimental/decision10_sweep.py`); the expensive
+sweep is not part of v1 validation. Historical outputs are retained unchanged.
+
 ## `scripts/`
 
 One-off diagnostics, superseded validation runners, falsified experiments, and
@@ -26,8 +33,7 @@ kept (locally) so those citations stay resolvable, but they are **candidates for
 once the referenced method sections are rewritten** — do not rely on them as
 maintained code:
 
-- `circular_shift_timing_null_FALSIFIED.py` — the falsified circular-shift
-  timing null (retired; see METHOD_LOG §7d).
+- The previously used circular-shift timing-null prototype was removed after falsification; see the timing validation documentation for the supported alternative.
 - `analyze_pgt2_fixed.py` — one-off "fixed" analysis reading `pgt2_grid_results.csv`.
 - `diagnose_pgt2_drift.py` — one-off drift diagnosis.
 - `diagnose_h2_switching_entropy.py` — one-off switching/entropy noise diagnosis.

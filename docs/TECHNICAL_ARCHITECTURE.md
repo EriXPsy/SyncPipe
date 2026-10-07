@@ -316,7 +316,8 @@ v1 多数 bug 共性是"能跑就跑而非出错就响"（Blind Spot C）。原�
 
 - **Peak-duration bias**：靠观测元数据 + 严格拒不等长缓解；duration-aware 峰值校正**推迟**至独立仿真验证（不静默加最大统计量校正）。
 - **NaN / dropout 策略**：有硬 NaN 比守卫；dropout vs segment-seam 区分、最短有限 WCC 点等**尚未最终确定**，须列为局限。
-- **真实数据状态**：数据集分 `fully rerunnable` / `artifact-backed` / `diagnostic only`；Gordon/Andersen loader 不完整，不得声称完全可复现。Bizzego 目前唯一由 CI 强制 `fully rerunnable`。
+- **真实数据状态**：数据集分 `fully rerunnable` / `artifact-backed` / `diagnostic only`；标签须有原始数据访问、loader、预处理、manifest 与实际重跑证据支持。撤回“Bizzego 唯一由 CI 强制 fully rerunnable”的断言；脚本或历史产物存在不等于完成端到端复现验收。本次未做任何 loader 全量验收。
+- **论文对齐证据边界**：已读取 Bizzego 原作者 `03_sync_ibi.py`、`04_test_cop_UFL.py` 与 Andersen `stats_HR.R`；前者支持 IAAFT 调用及三类输出分布存在，后者支持读取相关结果后拟合统计模型。不能据此断言 Bizzego 三分解与本项目完全等价、Andersen 使用相同 circular-shift null，或整体 null 模型一致。论文 PDF 与上游/依赖实现仍待核验；详见 `REALDATA_PAPER_ALIGNMENT.md`。
 - **prediction.py 无 null model**（见 #9 / `V1_CLAIM_CEILING.md` §6a）。
 - **L1 不发 per-dyad 判定**（`L1_INFERENCE_UNIT = "group"`，2026-08-06 裁定）。
 

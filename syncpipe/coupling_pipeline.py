@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from .dynamic_features import sliding_window_wcc
+from .wcc import _sliding_window_wcc_cumsum, sliding_window_wcc
 from .wclr import wclr_coupling_trace
 
 
@@ -29,8 +29,6 @@ def compute_coupling_trace(
         )
 
     if method == "cumsum" and window_type == "rect":
-        from .dynamic_features import _sliding_window_wcc_cumsum
-
         if normalize:
             a_min, a_max = np.nanmin(sig_a), np.nanmax(sig_a)
             b_min, b_max = np.nanmin(sig_b), np.nanmax(sig_b)

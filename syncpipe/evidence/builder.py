@@ -238,7 +238,29 @@ def build_evidence_chain(
         reason="live/replay, yoked, or equivalent reciprocity-breaking contrast not supplied",
     )
 
-    l2_status, l2_reason = _group_endpoint_status(group, endpoint)
+    primary_modalities = tuple(existence_gate.get("primary_modalities", ()))
+    primary_group = {
+        modality: payload for modality, payload in (group or {}).items()
+        if modality in primary_modalities
+    }
+    if not primary_modalities or not primary_group:
+        l2_status = EvidenceStatus.INCONCLUSIVE
+        l2_reason = "declared primary modality absent from group inference"
+    else:
+        l2_status, l2_reason = _group_endpoint_status(primary_group, endpoint)
+    supporting_contrasts = [
+        {
+            "modality": modality,
+            "condition_a": getattr(result, "condition_a", None),
+            "condition_b": getattr(result, "condition_b", None),
+        }
+        for modality, payload in primary_group.items()
+        if isinstance(payload, dict)
+        for result in payload.get("per_feature", ())
+        if getattr(result, "feature", None) == endpoint
+        and bool(getattr(result, "claimable", False))
+        and bool(getattr(result, "significant_05", False))
+    ]
     l2_supported = l2_status is EvidenceStatus.SUPPORTED
     l2 = EvidenceStageResult(
         stage_id="L2", name="condition_difference",
@@ -248,6 +270,10 @@ def build_evidence_chain(
         rival_addressed="within-dyad condition-label exchangeability",
         unresolved_rivals=("construct interpretation depends on E0-E5",),
         reason=l2_reason,
+        statistics={
+            "primary_modalities": list(primary_modalities),
+            "supporting_contrasts": supporting_contrasts,
+        },
     )
 
     stages = (e0, e1, e2, e3, e4, e5, l2)

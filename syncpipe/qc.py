@@ -717,7 +717,12 @@ def _check_signal_integrity(dataset: Any, config: Dict[str, Any]) -> StageResult
             # as "same value"), so a value may repeat non-adjacently across a
             # tiny excursion and still be merged.  _find_runs() is strict
             # boolean run detection and would change the flatline lengths.
-            tol = max(1e-9, 1e-6 * max(abs(finite.min()), abs(finite.max()), 1.0))
+            # Audit P0-1 (2026-10-07): the tolerance is RELATIVE to the
+            # signal's own range, so a valid signal in small units (e.g.
+            # Siemens) is not mistaken for a flatline; a truly constant
+            # signal has range 0 and still gets the absolute 1e-12 floor.
+            rng_span = float(np.ptp(finite))
+            tol = max(1e-12, 1e-6 * rng_span)
             change = np.abs(np.diff(finite)) > tol
             run_ends = np.where(change)[0] + 1
             run_lengths = np.diff(np.concatenate(([0], run_ends, [finite.size])))

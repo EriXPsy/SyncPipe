@@ -104,6 +104,13 @@ from .discriminant import (
     exact_binomial_interval,
     evaluate_discriminant_acceptance,
 )
+from .gt_matrix import (
+    GTScenario,
+    GTValidationResult,
+    GT_SCENARIOS,
+    make_gt_scenario,
+    validate_gt_contract,
+)
 
 __all__ = [
     # Level 1
@@ -178,4 +185,10 @@ __all__ = [
     "run_discriminant_benchmark",
     "exact_binomial_interval",
     "evaluate_discriminant_acceptance",
+    # Phase-1 GT validation matrix
+    "GTScenario",
+    "GTValidationResult",
+    "GT_SCENARIOS",
+    "make_gt_scenario",
+    "validate_gt_contract",
 ]

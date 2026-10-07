@@ -37,6 +37,46 @@ def test_release_metadata_uses_readme_and_ci_wheel_contract():
     assert "python -m syncpipe demo" in ci
 
 
+@pytest.mark.parametrize("line", [
+    "import multisync",
+    "import multisync.prediction as prediction  # legacy",
+    "from multisync.core import analyze  # multisync/core.py",
+    "python -m multisync demo  # multiSyncPy comparison",
+    "multisync analyze --out multisync_results",
+    "multisync --help  # compatibility alias",
+    'multisync = "syncpipe.cli:main"',
+    "COPY multisync/ /app/multisync/",
+])
+def test_branding_rejects_removed_namespace_even_with_allowed_context(line):
+    from scripts.audit_syncpipe_branding import _classify_line
+
+    for path in ("README.md", "pyproject.toml", "Dockerfile", "syncpipe/__init__.py"):
+        assert _classify_line(Path(path), line)[0] == "violation"
+
+
+@pytest.mark.parametrize("line", [
+    "Compare with third-party multiSyncPy.",
+    "python -m syncpipe analyze --out artifacts/multisync_results/run1",
+    "multiSyncPy results: multisync_results/report.json",
+])
+def test_branding_allows_third_party_and_historical_results(line):
+    from scripts.audit_syncpipe_branding import _classify_line
+
+    assert _classify_line(Path("README.md"), line)[0] == "allowed"
+
+
+def test_branding_strict_scan_records_violation_location(tmp_path):
+    from scripts.audit_syncpipe_branding import strict_external_findings
+
+    (tmp_path / "README.md").write_text(
+        "import syncpipe\nthird-party multiSyncPy\nimport multisync.core  # legacy\n",
+        encoding="utf-8",
+    )
+    findings = strict_external_findings(tmp_path)
+    assert [(f.line_no, f.status) for f in findings] == [(2, "allowed"), (3, "violation")]
+    assert findings[-1].path == "README.md"
+
+
 def _uni(n=8):
     rows = []
     for d in range(n):

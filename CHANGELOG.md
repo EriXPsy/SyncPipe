@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed (P0-1, owner-approved port of the scale-invariance prototype)
+
+- **Unit (scale) invariance of the numerical core.** WCC flat-window
+  guards, IAAFT convergence and the QC flatline tolerance are now
+  relative to each signal's own scale; a window flat in one signal is
+  NaN instead of ~0. Raw-unit physiological data (e.g. micro-Siemens EDA)
+  no longer produces empty WCC traces or surrogate drift.
+- Suite baseline: 744 collected / 673 fast / 71 slow (+23 scale tests).
+
 ## 1.2.0 — 2026-09-13
 
 ### Changed (audit round-6: adversarial-review fixes)

@@ -17,6 +17,8 @@ import json
 import os
 import tempfile
 
+import copy
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -228,6 +230,21 @@ class TestDynamicFeatures:
         wcc = sliding_window_wcc(x, y, window_size=10, hz=1.0)
         # Mean WCC should be near 0 for uncorrelated
         assert abs(np.nanmean(wcc)) < 0.3
+
+    def test_lag_compensation_direction_matches_declared_sign(self):
+        from syncpipe.dynamic_features import sliding_window_wcc
+        base = np.sin(np.linspace(0, 12 * np.pi, 120))
+        lag = 4
+        y_positive = np.full(base.size, np.nan)
+        y_positive[lag:] = base[:-lag]
+        y_negative = np.full(base.size, np.nan)
+        y_negative[:-lag] = base[lag:]
+
+        positive = sliding_window_wcc(base, y_positive, window_size=20, hz=1.0, lag_samples=lag)
+        negative = sliding_window_wcc(base, y_negative, window_size=20, hz=1.0, lag_samples=-lag)
+
+        assert np.nanmean(positive) > 0.99
+        assert np.nanmean(negative) > 0.99
 
     def test_wcc_with_lag(self):
         from syncpipe.dynamic_features import sliding_window_wcc
@@ -891,10 +908,17 @@ def _make_traces_and_conditions(n_per: int = 6):
     return traces, np.array(conds)
 
 
+_METHOD1_CACHE = None
+
+
 def _analyzer():
+    global _METHOD1_CACHE
     traces, conds = _make_traces_and_conditions()
     analyzer = MorphologyAnalyzer(traces, hz=1.0)
-    analyzer.run_method1(max_k=4, seed=42)
+    if _METHOD1_CACHE is None:
+        _METHOD1_CACHE = analyzer.run_method1(max_k=4, seed=42)
+    else:
+        analyzer._method1 = copy.deepcopy(_METHOD1_CACHE)
     return analyzer, conds
 
 
@@ -1723,6 +1747,23 @@ def test_wclr_trace_shape():
     expected_len = len(a) - 10 + 1
     assert len(trace) == expected_len
     assert len(lags) == expected_len
+
+
+def test_wclr_positive_lag_means_x_leads_y():
+    rng = np.random.default_rng(123)
+    n = 240
+    lead = 4
+    x = rng.normal(size=n)
+    y = np.full(n, np.nan)
+    y[lead:] = x[:-lead] + 0.05 * rng.normal(size=n - lead)
+
+    trace, lags = windowed_cross_lagged_regression(
+        x, y, window_size=80, max_lag_samples=8, metric="r2"
+    )
+
+    valid = np.isfinite(trace)
+    assert np.nanmean(trace) > 0.5
+    assert np.median(lags[valid]) == lead
 
 
 def test_wclr_coupling_increases_with_coupling():

@@ -35,7 +35,8 @@ tests/
 │   ├── test_inference.py         # inference_pipeline / l0 / l1 / l2 / design_control / group inference
 │   └── test_canonical_parity.py  # cross-process canonical parity
 ├── contracts/
-│   └── test_release_contracts.py # p2 release hygiene + parity / audit-interface contract tests
+│   ├── test_release_contracts.py # p2 release hygiene + parity / audit-interface contract tests
+│   └── test_measurement_infrastructure_contracts.py # measurement-state and claimability contracts
 └── validation/                   # SLOW layer — 4 files, all marked @pytest.mark.slow
     └── test_*.py
 ```
@@ -146,14 +147,39 @@ intentionally add or remove tests, update both places in the same commit.
 
 | Metric                              | Value |
 |------------------------------------|-------|
-| Collected tests (`--collect-only`) | **613** |
+| Collected tests (`--collect-only`) | **708** |
 | `slow` subset (`-m slow`)          | 71    |
-| `not slow` subset (`-m "not slow"`)| 542   |
+| `not slow` subset (`-m "not slow"`)| 637   |
 
-> Table refreshed 2026-09-15 to the authoritative `test_suite_health.py`
-> values. Collected total **613** = 542 fast (`not slow`) + 71 `slow`. Enforced
-> automatically by `tests/test_suite_health.py`; changing these numbers is a
-> reviewed act, not a side effect.
+> 2026-09-18 Lerique预处理对照新增10项fast测试及1项模块路径检查；collect实测708，slow/not-slow由suite-health重新实测。仅对照、未改生产默认，完整dyad结果在 artifacts/lerique_segments_20260918；不代表全套执行通过。
+
+> 2026-09-18 v3 边界诊断新增8个fast实例，实测697=626+71。覆盖连续不变、独立分段参考、边界不跨段、真实缺失不得mask豁免、短段/全无效及保留20%门禁。相关四文件192项通过；runner与preparation 17项另存v3/geometry_tests.xml。未宣称全套697项执行通过。
+
+> 2026-09-18 描述性真实数据 runner 新增 **6 个 fast 测试实例**（单位、共同轴及 4 个无效输入契约）；新增 `tests/unit/test_realdata_standardized.py` 带来 **1 个 suite-health module-path 检查实例**。基线 **682 → 689**，fast **611 → 618**，slow 保持 **71**，即 **689 = 618 + 71**。合同测试通过不代表真实数据科学有效或论文复现。
+>
+> 2026-09-18 Bizzego 入口回归新增 **5 个 fast 测试实例**；新增测试模块带来 **1 个 suite-health module-path 实例**。实测基线 **676 → 682**，fast **605 → 611**，slow 保持 **71**，即 **682 = 611 + 71**。合成 manifest 仅验证当前 schema、loader、L0/L1 入口契约，不是真实 Bizzego IBI 验证。
+>
+> 2026-09-18 loader 诊断修复新增 **9 个 fast 测试实例**：
+> `tests/unit/test_pipeline_io.py::test_lerique_raw_alignment_diagnostics` 的
+> 7 个参数化实例覆盖单边/双边缺失、长度不齐、时长不足及正常配对；
+> `tests/unit/test_realtest.py` 新增 Gordon 短文件 warning 可追溯性与
+> Lerique 源段加载失败/缺失诊断 2 个实例。均在已有模块内，无 module-path
+> 实例增量；未修改 markers、删除或隐藏测试。基线 **667 → 676**，
+> fast **596 → 605**，slow 保持 **71**，即 **676 = 605 + 71**。
+>
+> Previous table verified 2026-09-18 by collect-only: **667 = 596 fast + 71 slow**.
+> Before this branding change the workspace already collected 655: the Han
+> paradigm guard adds 3 cases, GT matrix contracts add 18, and their two
+> suite-health module-path cases explain 632 → 655 (561 → 584 fast).
+> The 12 branding regression cases in the existing release-contract module
+> explain 655 → 667 (584 → 596 fast); no tests were hidden or excluded.
+> Previous baseline verified 2026-09-17: **632 = 561 fast + 71 slow**.
+> The two existing lag-direction regressions in `tests/unit/test_features.py`
+> explain 613 → 615 (542 → 544 fast). The measurement-infrastructure module
+> adds 16 collected test instances (including parameterized cases), plus its
+> suite-health module-path case: 615 → 632 (544 → 561 fast). Slow remains 71.
+> Enforced automatically by `tests/test_suite_health.py`; changing these numbers
+> is a reviewed act, not a side effect.
 >
 > History: an earlier baseline (430 = 371 + 59) had gone stale. The split then
 > moved from 59/447 to 55/451 when four integration tests were promoted from the

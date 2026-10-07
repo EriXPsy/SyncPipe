@@ -4,12 +4,10 @@ Inputs must already be aligned, preprocessed one-dimensional signals. This
 module does not preprocess raw physiological recordings.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union
-from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from dataclasses import dataclass, field
 
 from .dynamic_features import (
     _apply_discontinuity_mask,
@@ -17,12 +15,6 @@ from .dynamic_features import (
 )
 from .coupling_pipeline import compute_coupling_trace
 from .feature_definitions import DynamicFeatures
-from .session_threshold import (
-    compute_session_pooled_threshold,
-    compute_session_pooled_thresholds_by_modality,
-)
-from .feature_definitions import ONSET_THRESHOLD
-
 # Canonical per-pair API lives in ``pair_pipeline.py``; re-exported here for
 # backwards compatibility (``syncpipe.computation_pipeline.PairResult`` /
 # ``.compute_pair_pipeline``).  ``quick_compute`` / ``batch_compute`` below call
@@ -176,9 +168,16 @@ class ComputationPipeline:
             raise ValueError("Call load_signals() first.")
 
         self._wcc = compute_coupling_trace(
-            self._sig_a, self._sig_b, self.hz, self.window_size,
-            self.backend, method, normalize, self.window_type,
-            self.wclr_max_lag_samples, self.wclr_metric,
+            self._sig_a,
+            self._sig_b,
+            self.hz,
+            self.window_size,
+            self.backend,
+            method,
+            normalize,
+            self.window_type,
+            self.wclr_max_lag_samples,
+            self.wclr_metric,
         )
         # Gate out coupling windows that straddle a segment-boundary seam.
         # NaN windows are skipped by feature extraction (isfinite) and by the
@@ -233,6 +232,7 @@ class ComputationPipeline:
         sig_a: np.ndarray,
         sig_b: np.ndarray,
         label: Optional[str] = None,
+        discontinuity_mask: Optional[np.ndarray] = None,
         **metadata,
     ) -> Dict[str, float]:
         """One-shot: load → compute WCC → extract features.
@@ -240,27 +240,59 @@ class ComputationPipeline:
         Equivalent to calling load_signals(), compute_wcc(), extract_features()
         in sequence.
         """
-        self.load_signals(sig_a, sig_b, label=label, **metadata)
-        self.compute_wcc()
-        return self.extract_features()
+        self.load_signals(
+            sig_a,
+            sig_b,
+            label=label,
+            discontinuity_mask=discontinuity_mask,
+            **metadata,
+        )
+        result = compute_pair_pipeline(
+            self._sig_a,
+            self._sig_b,
+            hz=self.hz,
+            window_size=self.window_size,
+            onset_threshold=self.onset_threshold,
+            discontinuity_mask=self._discontinuity_mask,
+            label=label,
+            window_type=self.window_type,
+            backend=self.backend,
+            wclr_max_lag_samples=self.wclr_max_lag_samples,
+            wclr_metric=self.wclr_metric,
+        )
+        self._wcc = result.wcc
+        self._features = result.features
+        return self._features
 
     # ---- output --------------------------------------------------------
 
+    def _pair_result(self) -> PairResult:
+        if self._wcc is None or self._features is None:
+            raise ValueError("Call compute_wcc() and extract_features() first.")
+        metadata = dict(self._metadata)
+        label = metadata.pop("label", None)
+        return PairResult(
+            self._wcc,
+            self._features,
+            self.hz,
+            self.window_size,
+            label=label,
+            discontinuity_mask=self._discontinuity_mask,
+            metadata=metadata,
+        )
+
     def to_dataframe(self) -> pd.DataFrame:
         """Return results as a single-row DataFrame."""
-        if self._features is None:
-            raise ValueError("Call extract_features() first.")
-        feature_dict = self._features.to_dict()
-        row = {**self._metadata, **feature_dict}
+        frame = self._pair_result().to_dataframe()
         n_signal = int(self._sig_a.size) if self._sig_a is not None else 0
-        n_wcc = int(self._wcc.size) if self._wcc is not None else 0
-        n_valid = int(np.isfinite(self._wcc).sum()) if self._wcc is not None else 0
-        row["n_signal_samples"] = n_signal
-        row["n_wcc_points"] = n_wcc
-        row["n_valid_wcc_points"] = n_valid
-        row["valid_wcc_fraction"] = n_valid / n_wcc if n_wcc else float("nan")
-        row["wcc_observation_sec"] = n_wcc / self.hz if self.hz > 0 else float("nan")
-        return pd.DataFrame([row])
+        n_wcc = int(self._wcc.size)
+        n_valid = int(np.isfinite(self._wcc).sum())
+        frame["n_signal_samples"] = n_signal
+        frame["n_wcc_points"] = n_wcc
+        frame["n_valid_wcc_points"] = n_valid
+        frame["valid_wcc_fraction"] = n_valid / n_wcc if n_wcc else float("nan")
+        frame["wcc_observation_sec"] = n_wcc / self.hz
+        return frame
 
     @property
     def wcc(self) -> Optional[np.ndarray]:

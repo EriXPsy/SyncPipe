@@ -37,7 +37,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from .dynamic_features import sliding_window_wcc
+from .wcc import sliding_window_wcc
 from .preparation import resolve_signal_geometry
 from .feature_definitions import (
     compute_surrogate_threshold,
@@ -76,6 +76,7 @@ def _generate_surrogate_coupling_matrix(
     backend: str = "wcc",
     wclr_max_lag_samples: int = 2,
     discontinuity_mask: Optional[np.ndarray] = None,
+    window_type: str = "rect",
 ) -> np.ndarray:
     """Generate (surrogate_n, n_coupling_points) matrix of surrogate coupling values.
 
@@ -117,6 +118,7 @@ def _generate_surrogate_coupling_matrix(
                     a_surr, b_surr,
                     window_size=window_size,
                     hz=hz,
+                    window_type=window_type,
                 )
             coup_s[start:start + len(segment)] = segment
         surrogate_couplings.append(coup_s)
@@ -136,6 +138,7 @@ def compute_session_pooled_threshold(
     wclr_max_lag_samples: int = 2,
     fallback_threshold: float = ONSET_THRESHOLD,
     discontinuity_masks: Optional[List[Optional[np.ndarray]]] = None,
+    window_type: str = "rect",
 ) -> Tuple[float, Dict]:
     """Compute a single surrogate threshold pooled across all dyads.
 
@@ -192,6 +195,7 @@ def compute_session_pooled_threshold(
             "mode": "session_pooled",
             "fallback_used": True,
             "reason": "empty dyad_signals",
+            "window_type": window_type,
             "n_dyads_input": 0,
             "n_dyads_used": 0,
         }
@@ -225,6 +229,7 @@ def compute_session_pooled_threshold(
             backend=backend,
             wclr_max_lag_samples=wclr_max_lag_samples,
             discontinuity_mask=mask_i,
+            window_type=window_type,
         )
         if not np.isfinite(coup_matrix).any():
             n_excluded_no_eligible_segments += 1
@@ -251,6 +256,7 @@ def compute_session_pooled_threshold(
             "mode": "session_pooled",
             "fallback_used": True,
             "reason": "no dyads produced finite surrogate coupling values",
+            "window_type": window_type,
             "n_dyads_input": len(dyad_signals),
             "n_dyads_used": 0,
             "n_dyads_excluded_nonfinite": n_excluded_nonfinite,
@@ -300,6 +306,7 @@ def compute_session_pooled_threshold(
         "percentile": percentile,
         "surrogate_method": surrogate_method,
         "backend": backend,
+        "window_type": window_type,
         "fallback_used": not is_surrogate,
         "n_discontinuity_masks_applied": n_masks_applied,
     }
@@ -341,6 +348,7 @@ def compute_session_pooled_thresholds_by_modality(
     fallback_threshold: float = ONSET_THRESHOLD,
     discontinuity_masks: Optional[List[Optional[np.ndarray]]] = None,
     return_meta: bool = False,
+    window_type: str = "rect",
 ) -> Union[Dict[str, float], Dict[str, Tuple[float, Dict]]]:
     """Compute one surrogate threshold per modality (per-modality pooled null).
 
@@ -430,6 +438,7 @@ def compute_session_pooled_thresholds_by_modality(
             wclr_max_lag_samples=wclr_max_lag_samples,
             fallback_threshold=fallback_threshold,
             discontinuity_masks=mod_masks,
+            window_type=window_type,
         )
         if meta.get("fallback_used", False):
             logger.warning(
@@ -456,6 +465,7 @@ def compute_condition_pooled_thresholds(
     backend: str = "wcc",
     wclr_max_lag_samples: int = 2,
     fallback_threshold: float = ONSET_THRESHOLD,
+    window_type: str = "rect",
 ) -> Dict[str, Tuple[float, Dict]]:
     """Compute one pooled surrogate threshold per experimental condition.
 
@@ -492,6 +502,7 @@ def compute_condition_pooled_thresholds(
             backend=backend,
             wclr_max_lag_samples=wclr_max_lag_samples,
             fallback_threshold=fallback_threshold,
+            window_type=window_type,
         )
         meta["mode"] = "condition_pooled"
         meta["condition"] = cond

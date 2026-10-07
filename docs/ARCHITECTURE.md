@@ -76,11 +76,39 @@ user explicitly supplies signal identity, unit, preprocessing provenance,
 endpoint, and primary modality assumptions. Every migration writes source and
 target hashes plus warnings in `MIGRATION_REPORT.json`.
 
-## Milestone F — external validation (infrastructure implemented; evidence pending)
+The external validation infrastructure is not external validation: the milestone remains scientifically incomplete until an unaffiliated researcher publishes or archives an own-data run and methodological critique under `docs/EXTERNAL_VALIDATION.md`.
 
-`syncpipe external-kit` creates deterministic usability inputs, a blind protocol,
-runbook, feedback form and independent-report template. `syncpipe external-check`
-audits bundle structure and claim fields without asserting numerical findings.
-This infrastructure is not external validation: the milestone remains
-scientifically incomplete until an unaffiliated researcher publishes or archives
-an own-data run and methodological critique under `docs/EXTERNAL_VALIDATION.md`.
+## Strategic position: v1 measurement infrastructure
+
+SyncPipe v1 is intentionally a **narrow, deep, auditable measurement infrastructure** for aligned dyadic continuous signals. It is not a universal synchrony toolbox and does not claim to measure the complete interpersonal synchrony construct.
+
+The v1 contribution is workflow standardisation: a declared input contract, shared preparation geometry, one validated primary estimator (zero-lag windowed cross-correlation, with WCLR retained as a separate backend), explicit null hypotheses, design controls, evidence states, claim ceilings, and reproducible bundles. WCC is an estimator, not the construct itself.
+
+The measurement object is therefore represented as:
+
+```text
+construct → estimand → estimator → descriptor → null → admissible claim
+```
+
+The v1 primary path freezes the estimator and endpoint rather than exposing an unconstrained algorithm menu. This limits implementation and validation debt while making cross-pipeline comparisons defensible.
+
+## Evidence architecture
+
+L0, L1, and L2 are parallel evidence components, not a mechanical filter that removes observations. L0 audits whether the observed association exceeds an independent signal-level null; L1 audits temporal structure in the derived trace; L2 tests a pre-specified within-dyad condition contrast. L0/L1 results must not silently select the sample used by L2.
+
+The public result is an evidence profile, not a single synchrony confidence score:
+
+```text
+existence status + trace-structure status + condition-contrast status
+→ permitted claim + prohibited interpretation
+```
+
+Undefined, untestable, and unsupported states remain distinct from non-significance.
+
+## Version boundary and roadmap
+
+- **v1.x:** WCC/WCLR computation, aligned dyadic preparation, L0/L1/L2 evidence governance, design controls, reproducible export, calibration and external validation infrastructure. No confirmatory multi-estimator claim.
+- **v2.x:** only after simulation and independent validation: a measurement-estimator contract, one additional estimator family (initially phase or wavelet coherence), estimator-specific null compatibility, and sensitivity reporting. New estimators remain descriptive until their null and calibration contracts are complete.
+- **v3.x:** optional multiverse and additional nonlinear/warping estimators, structured observation identities, incremental caching, and broader modality adapters. These are not v1 commitments.
+
+The governing rule is that an estimator enters the supported scientific path only when its estimand, preprocessing assumptions, definedness rules, null model, calibration evidence, performance envelope, and interpretation ceiling are documented and tested together.

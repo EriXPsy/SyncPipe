@@ -249,50 +249,19 @@ def load_bizzego():
 
 
 def load_han():
-    """Han: RawSCLData/<pid>_Stim_{A,B}.xls.
+    """Han is not supported by the native WCC loader.
 
-    Each file is (time, 8 affect-rating channels), all numeric.  We form a
-    single composite affective-arousal series per person as the row-mean of the
-    8 channels.  Dyads are formed by pairing consecutive participant IDs
-    (cross-pair heuristic; documented as exploratory).  Stim_A vs Stim_B is the
-    within-(cross)pair contrast.
+    The paper's estimand is CRQA on each of eight 1-Hz SCL message series,
+    using the published 10-s/4-dimension/10%-maximum-distance settings.
+    The repository files do not identify the original 490 participant pairs;
+    pairing consecutive IDs and averaging the eight channels would therefore
+    change both the estimand and the dyad unit.  Refuse this path rather than
+    emit a misleading WCC replication.
     """
-    folder = OSF / "Han-bzkdy" / "Data" / "RawSCLData"
-    files = sorted(glob.glob(str(folder / "*.xls")))
-    pdata = {}
-    for f in files:
-        name = Path(f).stem  # FO110_Stim_A
-        parts = name.split("_Stim_")
-        if len(parts) != 2:
-            continue
-        pid, cond = parts[0], parts[1]
-        d = pd.read_excel(f, header=0)
-        num = d.select_dtypes(include=[np.number]).drop(columns=["stim"], errors="ignore")
-        if num.shape[1] == 0:
-            continue
-        arr = num.mean(axis=1).to_numpy(dtype=float)
-        arr = arr[~np.isnan(arr)]
-        if arr.size > 30:
-            pdata.setdefault(pid, {})[cond] = arr
-    pids = sorted(pdata.keys())
-    out = []
-    for i in range(len(pids) - 1):
-        pa, pb = pids[i], pids[i + 1]
-        for cond in ("A", "B"):
-            sa = pdata[pa].get(cond)
-            sb = pdata[pb].get(cond)
-            if sa is None or sb is None:
-                continue
-            out.append(RawRecord(dyad_label=f"{pa}-{pb}", modality="affect",
-                                 condition=f"Stim_{cond}", person_a=sa,
-                                 person_b=sb, target_hz=1.0))
-    cfg = dict(hz=1.0, window=20, design_condition="Stim_A",
-               l2_contrast=("Stim_A", "Stim_B"),
-               status="raw_adapter_heuristic",
-               note="Raw SCL/affect .xls -> composite (mean of 8 channels) at "
-                    "1 Hz; cross-pair = consecutive participant IDs "
-                    "(documented heuristic); paired Stim_A/B.")
-    return out, cfg
+    raise NotImplementedError(
+        "Han requires the original CRQA implementation and pair metadata; "
+        "consecutive-ID composite WCC is unsupported"
+    )
 
 
 def load_andersen():

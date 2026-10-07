@@ -58,10 +58,14 @@ def _reference_wcc(
 
 
 def _lag(y: np.ndarray, lag_samples: int) -> np.ndarray:
-    """Shift y forward by lag samples; the first `lag` samples become NaN."""
+    """Apply the public WCC lag convention without circular wrapping."""
     out = np.full(y.size, np.nan, dtype=float)
-    if lag_samples < y.size:
-        out[lag_samples:] = y[: y.size - lag_samples]
+    if lag_samples > 0:
+        out[:-lag_samples] = y[lag_samples:]
+    elif lag_samples < 0:
+        out[-lag_samples:] = y[:lag_samples]
+    else:
+        out[:] = y
     return out
 
 

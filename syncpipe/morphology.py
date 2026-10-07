@@ -35,7 +35,7 @@ from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.metrics import adjusted_rand_score, silhouette_score
 from sklearn.preprocessing import StandardScaler
 
-from .dynamic_features import extract_dynamic_features
+from .dynamic_feature_extraction import extract_dynamic_features
 from .feature_definitions import ONSET_THRESHOLD, _find_runs
 
 logger = logging.getLogger(__name__)

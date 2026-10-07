@@ -990,3 +990,40 @@ update `tests/test_audit_minor_fixes.py`, `CHANGELOG.md`, or this log,
 leaving the push red (0/9 checks; the 9 checks all trace to this single
 root cause). The present entry closes that loop. The 2026-09-14 m2 entry
 above is retained unchanged as decision history.
+
+## 2026-10-07 — P0-1: unit (scale) invariance of the numerical core (owner-approved port)
+
+Ported from Claude's 2026-10-04 scale-invariance prototype after the
+dialectical review (`claude_patch_dialectical_review.md`): all four bugs
+were verified against the live tree (wcc absolute floors, IAAFT absolute
+convergence, QC absolute flatline tolerance) and the fix math was accepted
+(unit normalisation is an exact no-op for Pearson r).
+
+1. `wcc.py` — each demeaned signal is divided by its own global std
+   (finite values only in the stride backend) before the cumsum/stride
+   engines; the flat-window guard now checks EACH signal's window std
+   against a relative floor (`_REL_STD_FLOOR = 1e-6` of its own global
+   std) in addition to the legacy product guard. Consequences: raw-unit
+   scales (e.g. Siemens, std ~1e-5) no longer lose every window to NaN,
+   and a window flat in ONE signal is NaN instead of a meaningless ~0 at
+   any scale.
+2. `surrogate.py` — IAAFT convergence is relative to the signal's own
+   variance (`tol * n * mean((x-mean)^2)`; identical for unit-variance
+   input), so surrogate draw sequences no longer drift with the unit.
+3. `qc.py` — flatline tolerance is relative to the signal's own range
+   (`max(1e-12, 1e-6 * ptp)`), so a valid small-unit signal is not
+   flagged as flat; a truly constant signal still fails via the absolute
+   floor.
+
+Tests: `tests/test_scale_invariance.py` (+23 incl. one extra case beyond
+the prototype: a window flat in exactly one signal must be NaN, at two
+scales). End-to-end `synchrony_existence_audit` byte-stable across
+1x / 1e-7x scaling. Suite baseline 708 -> 744 collected / 673 fast
+(measured; the prior 637 fast count had drifted +13 from unrecorded
+collect-only expansion, corrected here).
+
+Deviation from prototype: none in substance; the port adds the
+finite-values-only scale reference in the stride backend and keeps the
+legacy `denom > 1e-10` product guard as an additional belt (the
+prototype replaced it in spirit; both orders of magnitude are now
+covered by the relative floors).

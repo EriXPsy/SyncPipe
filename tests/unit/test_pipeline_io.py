@@ -348,6 +348,54 @@ def test_lerique_loader_combines_person_masks_preprocessed(tmp_path):
     assert not np.array_equal(mask, b_rs)   # P2 side not kept alone
 
 
+@pytest.mark.parametrize("a_n,b_n,reasons", [
+    (120, None, ["missing_member"]),
+    (None, 120, ["missing_member"]),
+    (None, None, ["missing_member"]),
+    (120, 100, ["length_mismatch"]),
+    (30, 30, ["below_min_duration"]),
+    (30, None, ["missing_member", "below_min_duration"]),
+    (120, 120, []),
+])
+def test_lerique_raw_alignment_diagnostics(tmp_path, a_n, b_n, reasons):
+    root = tmp_path / "lerique_missing"
+    pce = root / "ECG" / "pce01"
+    pce.mkdir(parents=True)
+    for person, n in ((1, a_n), (2, b_n)):
+        if n is not None:
+            _write_lerique_mat(pce / f"pce01_P{person}_Rest1.mat", n)
+
+    kwargs = dict(modalities=["ECG"], condition_units=["rest1"], raw_fs=1.0)
+    rec, = load_lerique_dataset(
+        root, **kwargs, preprocess=False, drop_incomplete=False,
+        drop_misaligned=False, drop_short_duration=False,
+    )
+    assert rec.incomplete == bool(reasons)
+    n_common = min(a_n or 0, b_n or 0)
+    assert rec.n_samples == n_common
+    assert rec.duration_sec == n_common
+    assert rec.discontinuity_mask.shape == (n_common,)
+    assert rec.discontinuity_mask.dtype == bool
+    for df, n in ((rec.person_a, a_n), (rec.person_b, b_n)):
+        assert (df is None) == (n is None)
+        if df is not None:
+            assert len(df) == n_common
+    assert rec.meta["raw_lengths"] == {"P1": a_n, "P2": b_n}
+    assert rec.meta["missing_members"] == [
+        p for p, n in (("P1", a_n), ("P2", b_n)) if n is None
+    ]
+    assert rec.meta["exclusion_reasons"] == reasons
+    for source, n in zip(rec.meta["source_segments"], (a_n, b_n)):
+        assert source["raw_length"] == n
+        assert source["segment"] == 1
+        assert source["status"] == ("missing" if n is None else "loaded")
+        assert source["path"].endswith(f"pce01_{source['person']}_Rest1.mat")
+    if reasons:
+        with pytest.raises(ValueError, match=reasons[0]):
+            lerique_record_to_syncpipe_dyad(rec)
+    assert len(load_lerique_dataset(root, **kwargs)) == (0 if reasons else 1)
+
+
 def test_gordon_loader_returns_records(tmp_path):
     """Smoke test that exercises load_gordon_dataset end-to-end on a
     synthetic CSV tree (the real loader, not the record -> dyad bridge)."""

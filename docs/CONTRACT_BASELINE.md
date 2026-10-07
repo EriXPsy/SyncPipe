@@ -6,18 +6,21 @@ This document defines the externally observable contracts protected during the f
 
 ## 1. Supported scientific path
 
+The supported v1 path is intentionally narrow and deep. SyncPipe standardizes a declared dyadic measurement workflow; it does not claim to measure the complete interpersonal synchrony construct.
+
 ```text
 manifest + analysis configuration
 → preparation and QC
 → aligned dyadic observations
-→ WCC-derived measurement
+→ WCC/WCLR measurement backend
 → existence and design-control audits
 → planned condition inference
-→ evidence and claimability
+→ evidence profile and claimability
 → report bundle
 ```
 
-The supported v1 scope is two aligned, preprocessed, continuous signals from the same signal type, zero-lag sliding-window correlation, and a pre-specified two-condition comparison.
+The v1 primary estimand is a pre-specified descriptor of zero-lag windowed association on two aligned continuous signals. WCC is an estimator, not the construct itself. The supported v1 scope is two aligned, preprocessed, continuous signals from the same signal type, zero-lag sliding-window correlation, and a pre-specified two-condition comparison.
+
 
 ## 2. Public entry points
 

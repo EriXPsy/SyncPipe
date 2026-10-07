@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from .feature_definitions import ONSET_THRESHOLD
+from .pair_pipeline import compute_pair_pipeline
 from .session_threshold import compute_session_pooled_thresholds_by_modality
 
 
@@ -72,6 +73,7 @@ class BatchComputationPipeline:
         self._labels: List[Optional[str]] = []
         self._modalities: List[Optional[str]] = []
         self._metadata: List[Dict[str, object]] = []
+        self._discontinuity_masks: List[Optional[np.ndarray]] = []
         self._thresholds: Dict[str, float] = {}
         self._threshold: Optional[float] = None
         self._threshold_meta: Optional[Dict] = None
@@ -86,6 +88,7 @@ class BatchComputationPipeline:
         sig_b: np.ndarray,
         label: Optional[str] = None,
         modality: Optional[str] = None,
+        discontinuity_mask: Optional[np.ndarray] = None,
         **metadata,
     ):
         """Add one dyad to the batch.
@@ -97,12 +100,27 @@ class BatchComputationPipeline:
             ``onset_threshold="session_pooled"`` dyads are grouped by modality
             so each modality gets its own pooled surrogate threshold. Dyads
             added without a modality are grouped under a single shared key.
+        discontinuity_mask : np.ndarray of bool, optional
+            Signal-resolution mask marking valid within-segment samples. Windows
+            crossing a false boundary are excluded from coupling features.
         """
-        self._dyad_signals.append((np.asarray(sig_a, dtype=float),
-                                   np.asarray(sig_b, dtype=float)))
+        a = np.asarray(sig_a, dtype=float)
+        b = np.asarray(sig_b, dtype=float)
+        if a.ndim != 1 or b.ndim != 1 or a.size != b.size:
+            raise ValueError("sig_a and sig_b must be 1-D arrays with equal length")
+        if np.isinf(a).any() or np.isinf(b).any():
+            raise ValueError("sig_a and sig_b must not contain +/-Inf")
+        if discontinuity_mask is not None:
+            discontinuity_mask = np.asarray(discontinuity_mask, dtype=bool)
+            if discontinuity_mask.ndim != 1 or discontinuity_mask.size != a.size:
+                raise ValueError(
+                    "discontinuity_mask must be a 1-D boolean array with signal length"
+                )
+        self._dyad_signals.append((a, b))
         self._labels.append(label)
         self._modalities.append(modality)
         self._metadata.append(metadata)
+        self._discontinuity_masks.append(discontinuity_mask)
 
     def _modality_of(self, i: int) -> str:
         """Resolve the grouping key for dyad ``i`` (None -> "None" sentinel)."""
@@ -198,18 +216,21 @@ class BatchComputationPipeline:
         ):
             mod_key = self._modality_of(i)
             threshold = self._thresholds.get(mod_key, ONSET_THRESHOLD)
-            from .computation_pipeline import ComputationPipeline
-
-            pipe = ComputationPipeline(
+            result = compute_pair_pipeline(
+                sig_a,
+                sig_b,
                 hz=self.hz,
                 window_size=self.window_size,
                 onset_threshold=threshold,
                 backend=self.backend,
                 wclr_max_lag_samples=self.wclr_max_lag_samples,
                 wclr_metric=self.wclr_metric,
+                discontinuity_mask=self._discontinuity_masks[i],
+                label=label,
+                dyad_id=i,
+                **meta,
             )
-            pipe.run(sig_a, sig_b, label=label, dyad_id=i, **meta)
-            row = pipe.to_dataframe()
+            row = result.to_dataframe()
             row["threshold_mode"] = self._threshold_meta.get("mode", "unknown")
             row["threshold_value"] = threshold
             row["threshold_fallback"] = fallback_by_modality.get(
