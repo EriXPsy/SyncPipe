@@ -1,4 +1,19 @@
 """Bizzego 入口真实执行回归；合成信号不冒充原始研究数据。"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "run_bizzego_replication.py"
+
+pytestmark = pytest.mark.skipif(
+    not _SCRIPT.exists(),
+    reason=("run_bizzego_replication.py is untracked in the published repository; "
+            "these contracts apply only to full working checkouts"),
+)
+
 import builtins
 import json
 import sys
@@ -7,7 +22,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from scripts import run_bizzego_replication as runner
+import importlib
+
+if _SCRIPT.exists():
+    runner = importlib.import_module("scripts.run_bizzego_replication")
+else:  # untracked in published checkouts; module-level skipif handles it
+    runner = None
 
 
 def manifest(tmp_path):

@@ -89,6 +89,14 @@ _EXPECTED_NOT_SLOW = 673  # 2026-10-07 scale invariance: +23 fast; re-measured (
 # (e.g. output paths written during a test run). Keyed by "module:attribute"
 # so each exemption is explicit and reviewable.
 _ALLOWED_MISSING_PATHS: dict[str, str] = {
+    # scripts/ entry-point runners are untracked in the published
+    # repository; their contract tests skip themselves when absent.
+    "tests.unit.test_bizzego_replication_entrypoint:_SCRIPT":
+        "run_bizzego_replication.py untracked (scripts/)",
+    "tests.unit.test_lerique_segments:_SCRIPT":
+        "compare_lerique_segments.py untracked (scripts/)",
+    "tests.unit.test_realdata_standardized:_SCRIPT":
+        "run_realdata_standardized.py untracked (scripts/)",
     # experimental/ is deliberately untracked in the published repository;
     # the sweep smoke tests skip themselves when the script is absent.
     "tests.validation.test_sensitivity_sweep:SWEEP_SCRIPT":

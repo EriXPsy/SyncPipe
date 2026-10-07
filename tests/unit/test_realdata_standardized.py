@@ -1,13 +1,36 @@
 """Contracts for the bounded descriptive real-data runner."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "run_realdata_standardized.py"
+
+pytestmark = pytest.mark.skipif(
+    not _SCRIPT.exists(),
+    reason=("run_realdata_standardized.py is untracked in the published repository; "
+            "these contracts apply only to full working checkouts"),
+)
+
 from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from scripts.run_realdata_standardized import (
-    UNITS, validate_signals, geometry_diagnostics, independent_segment_reference,
-)
+import importlib
+
+if _SCRIPT.exists():
+    _m = importlib.import_module("scripts.run_realdata_standardized")
+    UNITS = _m.UNITS
+    validate_signals = _m.validate_signals
+    geometry_diagnostics = _m.geometry_diagnostics
+    independent_segment_reference = _m.independent_segment_reference
+else:
+    UNITS = validate_signals = geometry_diagnostics = \
+        independent_segment_reference = None
 from syncpipe.pair_pipeline import compute_pair_pipeline
 from syncpipe.preparation import resolve_signal_geometry
 

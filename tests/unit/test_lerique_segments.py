@@ -1,8 +1,29 @@
 """Diagnostic alternatives, not a change to the frozen production loader."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+_SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "compare_lerique_segments.py"
+
+pytestmark = pytest.mark.skipif(
+    not _SCRIPT.exists(),
+    reason=("compare_lerique_segments.py is untracked in the published repository; "
+            "these contracts apply only to full working checkouts"),
+)
+
 import numpy as np
 import pytest
 
-from scripts.compare_lerique_segments import segment_reference
+import importlib
+
+if _SCRIPT.exists():
+    segment_reference = importlib.import_module(
+        "scripts.compare_lerique_segments").segment_reference
+else:
+    segment_reference = None
 from syncpipe.realtest import lerique_2024 as L
 
 
