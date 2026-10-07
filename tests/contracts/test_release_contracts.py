@@ -16,6 +16,16 @@ from syncpipe.inference_pipeline import InferencePipeline
 
 ROOT = Path(__file__).resolve().parents[2]
 
+# Branding-audit contracts import an untracked scripts/ runner; skip the
+# branding tests when the script is absent from the checkout (published
+# repository), matching the scripts-contract skipif precedent.
+_BRANDING_SCRIPT = ROOT / "scripts" / "audit_syncpipe_branding.py"
+
+_branding_skip = pytest.mark.skipif(
+    not _BRANDING_SCRIPT.exists(),
+    reason="audit_syncpipe_branding.py is untracked in the published repository",
+)
+
 
 def test_repository_scope_classifies_non_release_material():
     scope = (ROOT / "docs" / "REPOSITORY_SCOPE.md").read_text(encoding="utf-8")
@@ -47,6 +57,7 @@ def test_release_metadata_uses_readme_and_ci_wheel_contract():
     'multisync = "syncpipe.cli:main"',
     "COPY multisync/ /app/multisync/",
 ])
+@_branding_skip
 def test_branding_rejects_removed_namespace_even_with_allowed_context(line):
     from scripts.audit_syncpipe_branding import _classify_line
 
@@ -59,12 +70,14 @@ def test_branding_rejects_removed_namespace_even_with_allowed_context(line):
     "python -m syncpipe analyze --out artifacts/multisync_results/run1",
     "multiSyncPy results: multisync_results/report.json",
 ])
+@_branding_skip
 def test_branding_allows_third_party_and_historical_results(line):
     from scripts.audit_syncpipe_branding import _classify_line
 
     assert _classify_line(Path("README.md"), line)[0] == "allowed"
 
 
+@_branding_skip
 def test_branding_strict_scan_records_violation_location(tmp_path):
     from scripts.audit_syncpipe_branding import strict_external_findings
 

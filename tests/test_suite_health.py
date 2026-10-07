@@ -97,6 +97,14 @@ _ALLOWED_MISSING_PATHS: dict[str, str] = {
         "compare_lerique_segments.py untracked (scripts/)",
     "tests.unit.test_realdata_standardized:_SCRIPT":
         "run_realdata_standardized.py untracked (scripts/)",
+    # Governance docs are intentionally untracked in the published
+    # repository; their contract tests skip themselves when absent.
+    "tests.contracts.test_measurement_infrastructure_contracts:_POSITIONING_DOC":
+        "V1_POSITIONING_AND_ROADMAP.md untracked (docs/)",
+    "tests.contracts.test_measurement_infrastructure_contracts:_RISK_DOC":
+        "RISK_REGISTER.md untracked (docs/)",
+    "tests.contracts.test_release_contracts:_BRANDING_SCRIPT":
+        "audit_syncpipe_branding.py untracked (scripts/)",
     # experimental/ is deliberately untracked in the published repository;
     # the sweep smoke tests skip themselves when the script is absent.
     "tests.validation.test_sensitivity_sweep:SWEEP_SCRIPT":

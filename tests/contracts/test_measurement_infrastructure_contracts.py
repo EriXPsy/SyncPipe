@@ -15,15 +15,27 @@ from syncpipe.validation.l2_between_condition import between_condition_fdr
 ROOT = Path(__file__).resolve().parents[2]
 
 
+_POSITIONING_DOC = ROOT / "docs" / "V1_POSITIONING_AND_ROADMAP.md"
+_RISK_DOC = ROOT / "docs" / "RISK_REGISTER.md"
+
+
+@pytest.mark.skipif(
+    not _POSITIONING_DOC.exists(),
+    reason="V1_POSITIONING_AND_ROADMAP.md is untracked in the published repository",
+)
 def test_v1_positioning_document_declares_narrow_scope():
-    text = (ROOT / "docs" / "V1_POSITIONING_AND_ROADMAP.md").read_text(encoding="utf-8")
+    text = _POSITIONING_DOC.read_text(encoding="utf-8")
     assert "窄而深" in text
     assert "WCC 是 estimator，不是 construct" in text
     assert "L0/L1 不得事后筛选 L2" in text
 
 
+@pytest.mark.skipif(
+    not _RISK_DOC.exists(),
+    reason="RISK_REGISTER.md is untracked in the published repository",
+)
 def test_risk_register_covers_priority_levels():
-    text = (ROOT / "docs" / "RISK_REGISTER.md").read_text(encoding="utf-8")
+    text = _RISK_DOC.read_text(encoding="utf-8")
     for level in ("P0", "P1", "P2"):
         assert f"### {level}-" in text
 
