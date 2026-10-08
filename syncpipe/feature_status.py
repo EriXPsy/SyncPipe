@@ -16,6 +16,7 @@ Important boundary:
 
 from __future__ import annotations
 
+import logging
 from typing import Dict, List
 
 
@@ -294,7 +295,10 @@ def feature_status_table(as_dataframe: bool = True):
         return rows
     try:
         import pandas as pd
-    except Exception:
+    except Exception as exc:  # audit F3: degrade visibly, not silently
+        logging.getLogger(__name__).debug(
+            "feature_status: pandas unavailable, returning list of dicts: %s", exc
+        )
         return rows
     return pd.DataFrame(rows)
 

@@ -103,36 +103,36 @@ def scenario_wab_validation(
 ) -> TreurDyadResult:
     """
     GT-4 v2: W_AB trajectory validation scenario.
-    
+
     Generates a known coupling trajectory with four phases:
       Phase 1 (0–25%): low coupling (baseline)
       Phase 2 (25–45%): rapid rise (synchrony emerges)
       Phase 3 (45–75%): high plateau (sustained synchrony)
       Phase 4 (75–100%): gradual decay (recovery)
-    
+
     W_AB(t) is the TRUE coupling strength. SyncPipe features
     should recover the timing and magnitude of these phases.
     """
     rng = np.random.default_rng(seed)
     n = int(duration_sec * hz)
     t = np.arange(n) / hz
-    
+
     # Four-phase W_AB(t) trajectory
     w_ab = np.zeros(n)
     p1_end = int(0.25 * n)
     p2_end = int(0.45 * n)
     p3_end = int(0.75 * n)
-    
+
     w_ab[:p1_end] = 0.15                           # Phase 1: baseline
     w_ab[p1_end:p2_end] = np.linspace(0.15, 0.90, p2_end - p1_end)  # Phase 2: rise
     w_ab[p2_end:p3_end] = 0.90                      # Phase 3: plateau
     w_ab[p3_end:] = np.linspace(0.90, 0.25, n - p3_end)  # Phase 4: decay
-    
+
     # Generate modulated signals
     base = np.sin(2 * np.pi * 0.10 * t) + 0.5 * np.sin(2 * np.pi * 0.30 * t)
     x_a = base + 0.10 * rng.normal(0, 1, n)
     x_b = w_ab * base + (1 - w_ab) * (np.cos(2 * np.pi * 0.25 * t) + 0.10 * rng.normal(0, 1, n))
-    
+
     return TreurDyadResult(
         x_A=x_a, x_B=x_b, x_A_obs=x_a, x_B_obs=x_b,
         W_AB=w_ab, W_BA=w_ab,
@@ -150,7 +150,7 @@ def scenario_wab_validation_with_switching(
 ) -> TreurDyadResult:
     """
     GT-4 v3: W_AB trajectory with multiple coupling/de-coupling cycles.
-    
+
     Generates n_switches full in-out cycles of synchrony.
     Each cycle: low → rise → high → decay → low.
     Tests whether SyncPipe switching_rate and dwell_time capture
@@ -159,16 +159,16 @@ def scenario_wab_validation_with_switching(
     rng = np.random.default_rng(seed)
     n = int(duration_sec * hz)
     t = np.arange(n) / hz
-    
+
     w_ab = np.zeros(n)
     cycle_len = n // n_switches
-    
+
     for k in range(n_switches):
         start = k * cycle_len
         end = min((k + 1) * cycle_len, n)
         seg_len = end - start
         seg_t = t[start:end] - t[start]
-        
+
         # Within each cycle: low → rise → high → decay → low
         phase_len = seg_len // 5
         i1 = start
@@ -176,16 +176,16 @@ def scenario_wab_validation_with_switching(
         i3 = start + 2*phase_len
         i4 = start + 3*phase_len
         i5 = start + 4*phase_len
-        
+
         w_ab[i1:i2] = 0.15
         w_ab[i2:i3] = np.linspace(0.15, 0.85, min(i3-i2, len(w_ab[i2:i3])))
         w_ab[i3:i4] = 0.85
         w_ab[i4:i5] = np.linspace(0.85, 0.15, min(i5-i4, len(w_ab[i4:i5])))
-    
+
     base = np.sin(2 * np.pi * 0.10 * t) + 0.5 * np.sin(2 * np.pi * 0.30 * t)
     x_a = base + 0.10 * rng.normal(0, 1, n)
     x_b = w_ab * base + (1 - w_ab) * (np.cos(2 * np.pi * 0.25 * t) + 0.10 * rng.normal(0, 1, n))
-    
+
     return TreurDyadResult(
         x_A=x_a, x_B=x_b, x_A_obs=x_a, x_B_obs=x_b,
         W_AB=w_ab, W_BA=w_ab,

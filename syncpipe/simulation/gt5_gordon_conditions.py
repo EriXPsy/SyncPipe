@@ -222,30 +222,30 @@ def _generate_ibi_signals(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generate IBI signals with empirically-matched synchrony levels.
-    
+
     Real IBI sync from Full_Data.csv: 0.15–0.19 (mean ~0.17).
     Calibrated coupling produces Pearson r in target range.
     """
     rng = np.random.default_rng(seed + 1)
     n = len(motion_a)
     t = np.arange(n) / hz
-    
+
     # Calibrated coupling factor (can be overridden per dyad)
     coup = coupling if coupling is not None else cond.target_ibi_sync_mean * 4.0
     coup = np.clip(coup, 0.4, 1.2)
-    
+
     # Shared: respiratory sinus arrhythmia (RSA ~0.25 Hz)
     resp = 20 * np.sin(2 * np.pi * 0.25 * t)
-    
+
     # Independent: realistic HRV (~40ms SD) with low-frequency component
     lf_a = 5 * np.cumsum(rng.normal(0, 1, n)) / np.sqrt(n) * 10
     lf_b = 5 * np.cumsum(rng.normal(0, 1, n)) / np.sqrt(n) * 10
     hf_a = 38 * rng.normal(0, 1, n)
     hf_b = 38 * rng.normal(0, 1, n)
-    
+
     ibi_a = 800 + coup * resp + (1 - coup*0.5) * (lf_a + hf_a)
     ibi_b = 800 + coup * resp + (1 - coup*0.5) * (lf_b + hf_b)
-    
+
     return ibi_a, ibi_b
 
 
@@ -263,15 +263,15 @@ def _generate_eda_signals(
     rng = np.random.default_rng(seed + 2)
     n = len(motion_a)
     t = np.arange(n) / hz
-    
+
     coup = coupling if coupling is not None else 0.48
-    
+
     # Reduced tonic shared (cuts shared variance to hit 0.48 target)
     tonic = 0.3 * np.sin(2 * np.pi * 0.04 * t) + 0.15 * np.sin(2 * np.pi * 0.06 * t)
     kernel = np.ones(int(5 * hz)) / (5 * hz)
     env_a = np.convolve(np.abs(motion_a), kernel, mode='same')
     env_b = np.convolve(np.abs(motion_b), kernel, mode='same')
-    
+
     # Higher independent noise, calibrated shared component
     eda_a = 1.5 + tonic + coup*env_a + (1-coup)*rng.normal(0, 0.4, n)
     eda_b = 1.5 + tonic + coup*env_b + (1-coup)*rng.normal(0, 0.4, n)
@@ -336,7 +336,7 @@ def run_gt5(
 
         for dyad_i in range(n_dyads):
             dyad_seed = seed + cond.cond_num * 1000 + dyad_i
-            
+
             # === Dyad heterogeneity: sample from condition distribution ===
             # Each dyad gets its own shared_rhythm_weight and coupling,
             # sampled from a Beta distribution centered on the condition mean
@@ -392,7 +392,7 @@ def run_gt5(
             # EDA synchrony
             mask_e = ~(np.isnan(eda_a) | np.isnan(eda_b))
             eda_corr_val = float(np.abs(np.corrcoef(eda_a[mask_e], eda_b[mask_e])[0, 1])) if mask_e.sum() > 10 else 0.0
-            
+
             cond_eda_corr.append(eda_corr_val)
 
             # SyncPipe features (behavioral signals as input)
@@ -400,7 +400,7 @@ def run_gt5(
                 motion_a, motion_b, window_size=int(30 * hz), hz=hz
             )
             dr = _extract_features(wcc, hz=hz, wcc_window_sec=30.0, threshold=0.5)
-            
+
             row = {
                 "dyad": dyad_i,
                 "behavioral_sync_s": round(beh_sync, 1),

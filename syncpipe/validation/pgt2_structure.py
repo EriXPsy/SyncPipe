@@ -135,7 +135,7 @@ def _run_pgt2_cell(
     # Now: wcc_window_sec = max(5.0, epoch_duration / 2)
     wcc_win_sec = max(5.0, epoch_duration / 2.0)
     wcc_win_samples = max(2, int(round(wcc_win_sec * cfg.hz_wcc)))
-    
+
     wcc = sliding_window_wcc(
         result.x_A, result.x_B,
         window_size=wcc_win_samples,

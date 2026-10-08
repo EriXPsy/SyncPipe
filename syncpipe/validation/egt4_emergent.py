@@ -115,11 +115,11 @@ def _run_cell_b_emergent_nostim(
         seed=seed,
         shared_drive=False,
     )
-    
+
     # Handle both return types (PGTResult from dummy, or whatever treur returns)
     x_A = getattr(result, "x_A_obs", getattr(result, "x_A", None))
     x_B = getattr(result, "x_B_obs", getattr(result, "x_B", None))
-    
+
     # BUG FIX (2026-06-23): window_size is in samples, not seconds.
     # Cell B/D signals are at cfg.hz=10Hz, so window_size=cfg.wcc_window_samples
     # (computed as wcc_window_sec * hz_wcc = 30*1 = 30) would only cover 3 seconds.
@@ -189,7 +189,7 @@ def _run_cell_d_emergent_shared(
     )
     x_A = getattr(result, "x_A_obs", getattr(result, "x_A", None))
     x_B = getattr(result, "x_B_obs", getattr(result, "x_B", None))
-    
+
     # BUG FIX (2026-06-23): window_size is in samples, not seconds.
     # Cell D signals are at cfg.hz=10Hz, need window_size = wcc_window_sec * hz.
     wcc_win_samples = int(round(cfg.wcc_window_sec * cfg.hz))
@@ -198,7 +198,7 @@ def _run_cell_d_emergent_shared(
         factor = int(cfg.hz / cfg.hz_wcc)
         if factor > 1:
             wcc = wcc[::factor]
-            
+
     feats = _extract_six_features(
         wcc, hz=cfg.hz_wcc,
         onset_threshold=cfg.onset_threshold,

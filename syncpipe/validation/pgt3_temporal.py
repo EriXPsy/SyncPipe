@@ -154,7 +154,7 @@ def _run_pgt3_cell(
         factor = int(cfg.hz_signal / cfg.hz_wcc)
         if factor > 1:
             wcc = wcc[::factor]
-            
+
     wcc_hz = cfg.hz_wcc
 
     if cfg.use_surrogate_threshold:

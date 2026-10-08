@@ -798,7 +798,7 @@ def group_comparison(
         dyad_results_a=group_a,
         dyad_results_b=group_b,
     )
-    
+
 def residualize_features(
     df: pd.DataFrame,
     features: List[str],

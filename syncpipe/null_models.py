@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 import logging
@@ -214,7 +214,6 @@ def _signal_level_surrogate_test(
         f"other — do not let this drift silently."
     )
 
-    logger = logging.getLogger(__name__)
     wcc = np.asarray(wcc, dtype=float)
     valid_mask = np.isfinite(wcc)
     wcc_valid = wcc[valid_mask]
@@ -475,7 +474,6 @@ def _wcc_level_surrogate_test(
                 f"_signal_level_surrogate_test for those instead."
             )
 
-    logger = logging.getLogger(__name__)
     wcc = np.asarray(wcc, dtype=float)
     valid_mask = np.isfinite(wcc)
     wcc_valid = wcc[valid_mask]
@@ -700,7 +698,6 @@ def wcc_surrogate_test(
     result : dict
         Dictionary with p-values and null distributions.
     """
-    logger = logging.getLogger(__name__)
 
     # Derive wcc_window_sec from wcc_window_size if not provided
     if wcc_window_sec is None and wcc_window_size is not None and hz > 0:
