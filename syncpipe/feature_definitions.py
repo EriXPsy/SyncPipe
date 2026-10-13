@@ -142,7 +142,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field, fields as _dc_fields, MISSING as _DC_MISSING
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
