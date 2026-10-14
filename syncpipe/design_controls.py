@@ -291,6 +291,7 @@ def design_control_audit(
     seed: int = 42,
     window_type: str = "rect",
     discontinuity_masks: Optional[Mapping[str, np.ndarray]] = None,
+    partition: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, Any]:
     """Run pseudo-pair and time-shift design controls for a cohort.
 
@@ -300,6 +301,16 @@ def design_control_audit(
         ``dyad_id -> (person_a_signal, person_b_signal)``.  At least two dyads
         are required for pseudo-pair controls; one dyad is sufficient for
         time-shift controls.
+        partition : mapping, optional
+            ``pair_id -> group label`` (the canonical path passes the
+            MODALITY).  A pseudo-partner is drawn ONLY from other pairs in
+            the same group, so an EDA signal is never paired with an ECG
+            signal, and one dyad's modalities are never treated as
+            independent strangers.  With more than one group the summary
+            is computed and tested PER GROUP (``per_group``); the pooled
+            ``feature_summary`` is suppressed because pooling groups both
+            mismatches the null (cross-modality pseudo-pairs) and counts
+            one dyad several times.
     n_pseudo_per_dyad : int
         Number of pseudo-pair draws per real dyad.  Default 10 (publication
         grade); raise further for very small cohorts where the pseudo-null
@@ -313,6 +324,16 @@ def design_control_audit(
     """
     rng = np.random.default_rng(seed)
     ids = list(signal_pairs.keys())
+    if partition is None:
+        group_of = {i: "" for i in ids}
+    else:
+        missing_groups = sorted(set(ids) - set(partition))
+        if missing_groups:
+            raise ValueError(
+                "partition must use the same keys as signal_pairs; "
+                f"missing groups for {missing_groups[:10]}"
+            )
+        group_of = {i: str(partition[i]) for i in ids}
     if discontinuity_masks is not None:
         missing_masks = sorted(set(ids) - set(discontinuity_masks))
         if missing_masks:
@@ -410,7 +431,12 @@ def design_control_audit(
     pseudo_lengths: list = []  # effective (post-alignment) length per pseudo-pair
     if len(ids) >= 2:
         for dyad_id in ids:
-            partners = [p for p in ids if p != dyad_id]
+            partners = [
+                p for p in ids
+                if p != dyad_id and group_of[p] == group_of[dyad_id]
+            ]
+            if not partners:
+                continue
             replace = n_pseudo_per_dyad > len(partners)
             chosen = rng.choice(partners, size=n_pseudo_per_dyad, replace=replace)
             a, _ = signal_pairs[dyad_id]
@@ -518,17 +544,18 @@ def design_control_audit(
                     if np.isfinite(feats_real_ov.get(f, np.nan)):
                         shift_deltas[dyad_id][f].append(feats_real_ov[f] - feats[f])
 
-    feature_summary: Dict[str, Dict[str, Any]] = {}
-    for f in feature_names:
-        real_arr = np.array([real[d].get(f, np.nan) for d in ids], dtype=float)
+    def _summarize(gids):
+      summary: Dict[str, Dict[str, Any]] = {}
+      for f in feature_names:
+        real_arr = np.array([real[d].get(f, np.nan) for d in gids], dtype=float)
 
         pseudo_median = np.array([
             np.nanmedian(pseudo_values[d][f]) if pseudo_values[d][f] else np.nan
-            for d in ids
+            for d in gids
         ], dtype=float)
         shift_median = np.array([
             np.nanmedian(shift_values[d][f]) if shift_values[d][f] else np.nan
-            for d in ids
+            for d in gids
         ], dtype=float)
 
         pseudo_delta = real_arr - pseudo_median
@@ -537,9 +564,9 @@ def design_control_audit(
         # full-length-vs-short comparison the old delta used.
         shift_delta = np.array([
             np.nanmedian(shift_deltas[d][f]) if shift_deltas[d][f] else np.nan
-            for d in ids
+            for d in gids
         ], dtype=float)
-        feature_summary[f] = {
+        summary[f] = {
             "real_median": float(np.nanmedian(real_arr)),
             "pseudo_pair_median": float(np.nanmedian(pseudo_median)) if np.isfinite(pseudo_median).any() else float("nan"),
             "time_shift_median": float(np.nanmedian(shift_median)) if np.isfinite(shift_median).any() else float("nan"),
@@ -561,6 +588,14 @@ def design_control_audit(
             "n_pseudo_dyads": int(np.isfinite(pseudo_median).sum()),
             "n_time_shift_dyads": int(np.isfinite(shift_delta).sum()),
         }
+      return summary
+
+    # Review R4b: per-group summaries when a partition is supplied; the
+    # pooled feature_summary is suppressed with >1 group (pooling would
+    # both mismatch the null and count one dyad several times).
+    groups = sorted(set(group_of.values()))
+    per_group = {g: _summarize([i for i in ids if group_of[i] == g]) for g in groups}
+    feature_summary = per_group[groups[0]] if len(groups) == 1 else {}
 
     return {
         "audit": "design_controls",
@@ -605,4 +640,7 @@ def design_control_audit(
             ),
         },
         "feature_summary": feature_summary,
+        "groups": groups,
+        "per_group": per_group,
+        "pooled_summary_suppressed": len(groups) > 1,
     }
