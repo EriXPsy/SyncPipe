@@ -430,11 +430,11 @@ def _surrogate_cell(
     _L0_FEATURES = {"mean_synchrony", "peak_amplitude",
                    "synchrony_entropy", "bimodality_coefficient"}
     _L1_FEATURES = {"dwell_time", "switching_rate"}
-    
+
     fdr_feature_names = list(FEATURE_TAILS.keys())
     ref_feature_names = list(REFERENCE_TAILS.keys())
     all_feature_names = fdr_feature_names + ref_feature_names
-    
+
     # Null value collectors (separate for L0 and L1)
     null_vals_l0: Dict[str, List[float]] = {f: [] for f in all_feature_names if f in _L0_FEATURES or f in ref_feature_names}
     null_vals_l1: Dict[str, List[float]] = {f: [] for f in all_feature_names if f in _L1_FEATURES}
@@ -462,7 +462,7 @@ def _surrogate_cell(
         )
         for f in null_vals_l0:
             null_vals_l0[f].append(feats_l0[f])
-        
+
         # --- L1 null: WCC-level surrogate (preserve L0 moments) ---
         # Use IAAFT on the OBSERVED WCC to generate null WCC that preserves
         # mean, peak, distribution shape (L0 moments), only shuffling time structure.
@@ -475,7 +475,7 @@ def _surrogate_cell(
         )
         for f in null_vals_l1:
             null_vals_l1[f].append(feats_l1[f])
-        
+
         # Definedness count (use L0 null, since onset/recovery are L2 features)
         null_defined_count["onset_defined"] += int(np.isfinite(feats_l0.get("onset_latency", np.nan)))
         null_defined_count["recovery_defined"] += int(np.isfinite(feats_l0.get("recovery_time", np.nan)))

@@ -1,7 +1,7 @@
 """
 Level 2 SNR robustness validation
 ==================================
-Drives a noise_ratio x coupling x seed grid through the synthetic generator + WCC + 6 dynamic features, 
+Drives a noise_ratio x coupling x seed grid through the synthetic generator + WCC + 6 dynamic features,
 and quantifies how robust each feature is against measurement noise.
 
 What this module deliberately does NOT do
@@ -13,7 +13,7 @@ What this module deliberately does NOT do
 
 Definedness vs. significance (see recovery.py docstring)
 --------------------------------------------------------
-This module reports feature DEFINEDNESS only. The question "does feature value X under noise_ratio=R differ 
+This module reports feature DEFINEDNESS only. The question "does feature value X under noise_ratio=R differ
 significantly from H_0?" is deferred to Level 3. Level 2 answers a precondition question:
 "is feature X computable, and how does its value drift, as noise rises?"
 

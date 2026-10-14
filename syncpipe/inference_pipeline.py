@@ -20,6 +20,8 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import json
 
+import logging
+
 import numpy as np
 import pandas as pd
 
@@ -45,6 +47,8 @@ from .feature_definitions import (
     get_fdr_features,
 )
 from .validation.across_stim_shuffle import across_stim_shuffle_test
+logger = logging.getLogger(__name__)
+
 from .validation.l2_between_condition import (
     between_condition_fdr,
     between_condition_by_modality,
@@ -1422,13 +1426,15 @@ class InferencePipeline:
                 from dataclasses import is_dataclass, asdict
                 if is_dataclass(o) and not isinstance(o, type):
                     return _sanitize(asdict(o))
-            except Exception:
-                pass
+            except Exception as exc:  # audit F2: never fully silent
+                logger.debug("_sanitize dataclass fallback failed for %s: %s",
+                             type(o).__name__, exc)
             if hasattr(o, "to_dict") and callable(getattr(o, "to_dict")):
                 try:
                     return _sanitize(o.to_dict())
-                except Exception:
-                    pass
+                except Exception as exc:  # audit F2: never fully silent
+                    logger.debug("_sanitize to_dict fallback failed for %s: %s",
+                                 type(o).__name__, exc)
             raise TypeError(
                 f"Object of type {type(o).__name__} is not JSON serializable"
             )

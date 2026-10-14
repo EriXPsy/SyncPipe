@@ -358,7 +358,7 @@ class DynamicAnalyzer:
         self.qc_raise_on_fail = bool(qc_raise_on_fail)
         self.qc_config = qc_config
 
-    
+
     def _iter_pairs(self, dataset):
         """
         Generate (src_key, name_a, name_b, col_a, col_b, x, y)

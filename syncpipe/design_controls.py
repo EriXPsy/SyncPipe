@@ -22,6 +22,7 @@ import zlib
 
 import numpy as np
 
+from .preparation.observation import resolve_signal_geometry  # E3 matched-opportunity windows
 from .wcc import sliding_window_wcc
 from .null_models import (
     wcc_surrogate_test,
@@ -36,6 +37,18 @@ SignalPair = Tuple[np.ndarray, np.ndarray]
 # consumers (evidence/builder.py's minimum-attainable-p resolution) can
 # derive from ONE source instead of re-hard-coding 20000/20001.
 SIGNFLIP_MAX_DRAWS: int = 20000
+
+# E3 (time-shift) compares the real pair with a shifted pair on a MATCHED
+# number of windows (review R2, ported from the Claude P0 changeset,
+# 2026-10-13). A shift removes edge samples and, with segmented data, most
+# windows whose halves are not both inside a segment; `peak_amplitude` is a
+# maximum, so fewer windows alone lower the shifted arm and manufacture
+# "real > shifted". A lag whose shifted arm keeps fewer than this share of
+# the matched real arm's valid windows is skipped; if every lag is skipped
+# E3 reports no delta (NaN -> INCONCLUSIVE) instead of a false positive.
+# Null-world calibration on the ported change set: continuous 180 s FPR
+# 15.0% -> 2.5%; ten 60-s trials (seams masked) 87.5% -> 2.5%.
+MIN_SHIFT_WINDOW_RATIO = 0.8
 
 DEFAULT_AUDIT_FEATURES: Tuple[str, ...] = (
     "mean_synchrony",
@@ -422,6 +435,13 @@ def design_control_audit(
     shift_values: Dict[str, Dict[str, list]] = {
         dyad_id: {f: [] for f in feature_names} for dyad_id in ids
     }
+    # Paired (matched-length real overlap - shifted) deltas, one per usable lag
+    # (review R2): the per-dyad E3 delta is the median over lags of these.
+    shift_deltas: Dict[str, Dict[str, list]] = {
+        dyad_id: {f: [] for f in feature_names} for dyad_id in ids
+    }
+    n_lags_used = 0
+    n_lags_skipped_low_opportunity = 0
     for dyad_id in ids:
         # Crop from the raw (pre-finite) arrays so the discontinuity mask stays
         # index-aligned with the signals, matching how the real/pseudo arms pass
@@ -465,14 +485,38 @@ def design_control_audit(
                 shift_mask = (
                     (mask_full[: n + k] & mask_full[-k:]) if mask_full is not None else None
                 )
+            # Matched real arm (review R2): the SAME span length as the
+            # shifted arm (edge loss is shared), with the real pair's own
+            # mask, so both arms have comparable window counts.
+            m_len = a_use.size
+            real_mask_ov = mask_full[:m_len] if mask_full is not None else None
+            n_real_ov = int(
+                resolve_signal_geometry(a_full[:m_len], b_full[:m_len], real_mask_ov)
+                .window_mask(window_size).sum()
+            )
+            n_shift_ov = int(
+                resolve_signal_geometry(a_use, b_use, shift_mask)
+                .window_mask(window_size).sum()
+            )
+            if n_real_ov < 1 or n_shift_ov < MIN_SHIFT_WINDOW_RATIO * n_real_ov:
+                n_lags_skipped_low_opportunity += 1
+                continue
+            n_lags_used += 1
             feats = extract_pair_features(
                 a_use, b_use, hz=hz, window_size=window_size,
                 threshold=_threshold_for(dyad_id), feature_names=feature_names,
                 window_type=window_type, discontinuity_mask=shift_mask,
             )
+            feats_real_ov = extract_pair_features(
+                a_full[:m_len], b_full[:m_len], hz=hz, window_size=window_size,
+                threshold=_threshold_for(dyad_id), feature_names=feature_names,
+                window_type=window_type, discontinuity_mask=real_mask_ov,
+            )
             for f in feature_names:
                 if np.isfinite(feats.get(f, np.nan)):
                     shift_values[dyad_id][f].append(feats[f])
+                    if np.isfinite(feats_real_ov.get(f, np.nan)):
+                        shift_deltas[dyad_id][f].append(feats_real_ov[f] - feats[f])
 
     feature_summary: Dict[str, Dict[str, Any]] = {}
     for f in feature_names:
@@ -488,7 +532,13 @@ def design_control_audit(
         ], dtype=float)
 
         pseudo_delta = real_arr - pseudo_median
-        shift_delta = real_arr - shift_median
+        # Matched-opportunity delta (review R2): per usable lag
+        # (real overlap - shifted), median over lags — never the raw
+        # full-length-vs-short comparison the old delta used.
+        shift_delta = np.array([
+            np.nanmedian(shift_deltas[d][f]) if shift_deltas[d][f] else np.nan
+            for d in ids
+        ], dtype=float)
         feature_summary[f] = {
             "real_median": float(np.nanmedian(real_arr)),
             "pseudo_pair_median": float(np.nanmedian(pseudo_median)) if np.isfinite(pseudo_median).any() else float("nan"),
@@ -509,7 +559,7 @@ def design_control_audit(
             ),
             "n_real": int(np.isfinite(real_arr).sum()),
             "n_pseudo_dyads": int(np.isfinite(pseudo_median).sum()),
-            "n_time_shift_dyads": int(np.isfinite(shift_median).sum()),
+            "n_time_shift_dyads": int(np.isfinite(shift_delta).sum()),
         }
 
     return {
@@ -518,6 +568,12 @@ def design_control_audit(
         "n_dyads": len(ids),
         "threshold_scope": "per_pair_mapping" if isinstance(threshold, Mapping) else "fixed",
         "discontinuity_masks_applied": bool(discontinuity_masks),
+        "time_shift_opportunity": {
+            "min_window_ratio": MIN_SHIFT_WINDOW_RATIO,
+            "n_lag_arms_used": n_lags_used,
+            "n_lag_arms_skipped_low_opportunity": n_lags_skipped_low_opportunity,
+            "note": "lags whose shifted arm keeps fewer valid windows than the matched real arm are skipped",
+        },
         "pseudo_pair": {
             "enabled": len(ids) >= 2,
             "n_pseudo_per_dyad": int(n_pseudo_per_dyad),

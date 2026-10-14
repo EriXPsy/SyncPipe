@@ -19,7 +19,7 @@ try:  # Python 3.11+
 except ModuleNotFoundError:  # pragma: no cover - exercised only on <3.11
     import tomli as tomllib  # type: ignore
 
-from .pipeline_bridge import records_to_inference_inputs
+from .pipeline_bridge import InferenceInputs, records_to_inference_inputs
 from .preparation import LoaderRecord, PreparationExclusion, load_manifest_record
 from .evidence import derive_claimability
 from .export import capture_environment, safe_float, write_report_bundle

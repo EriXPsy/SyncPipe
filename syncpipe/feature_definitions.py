@@ -142,9 +142,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field, fields as _dc_fields, MISSING as _DC_MISSING
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -548,7 +550,7 @@ for _name in FDR_FEATURES:
     #   independent axes.
     if FEATURE_TIER[_name] == "reference":
         import logging
-        logging.getLogger(__name__).debug(
+        logger.debug(
             "'%s' is tiered as 'reference' but listed in FDR_FEATURES "
             "(allowed: reference is Axis A, FDR membership is driven "
             "by mathematical tier Axis D).",
@@ -1859,7 +1861,7 @@ def compute_surrogate_threshold(
         # Degenerate case: not enough finite surrogate WCC values to form a
         # reliable null distribution.  Fail LOUD (do NOT silently substitute)
         # and fall back to the locked DECISION-01 threshold.
-        logging.getLogger(__name__).warning(
+        logger.warning(
             "compute_surrogate_threshold: only %d finite surrogate WCC "
             "values (< 10) available — falling back to fixed ONSET_THRESHOLD"
             "=%s. Surrogate-derived threshold NOT used for this dyad/session.",
@@ -1872,7 +1874,7 @@ def compute_surrogate_threshold(
     # the preserved autocorrelation structure, NOT a genuine high sync-by-
     # chance level.  Fail LOUD and fall back to the fixed threshold.
     if derived > SURROGATE_THRESHOLD_MAX:
-        logging.getLogger(__name__).warning(
+        logger.warning(
             "compute_surrogate_threshold: derived threshold %.3f exceeds "
             "sanity ceiling %.2f — likely a periodicity/autocorrelation "
             "artifact of IAAFT surrogates. Falling back to fixed "
