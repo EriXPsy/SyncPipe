@@ -48,9 +48,9 @@ class TestGateTruncationSemantics:
         gate = _existence_gate_by_modality(results, primary_modalities=("ECG",))
         # n_null_draws must reflect the shortest width (4), not the FULL (6).
         assert gate["per_modality"]["ECG"]["n_null_draws"] == 4
-        # min attainable two-sided p = 2 / (4 + 1).
-        assert gate["per_modality"]["ECG"]["min_attainable_two_sided_p"] == (
-            pytest.approx(2 / 5)
+        # Review R4: the gate is one-sided upper; min attainable p = 1/(4+1).
+        assert gate["per_modality"]["ECG"]["min_attainable_p"] == (
+            pytest.approx(1 / 5)
         )
 
 

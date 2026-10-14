@@ -96,8 +96,8 @@ def build_evidence_chain(
         if isinstance(item, dict) and item.get("is_primary")
     ]
     e0_testable = any(
-        np.isfinite(item.get("min_attainable_two_sided_p", np.nan))
-        and item["min_attainable_two_sided_p"] < alpha
+        np.isfinite(item.get("min_attainable_p", np.nan))
+        and item["min_attainable_p"] < alpha
         for item in primary_results
     )
     if e0_supported:
