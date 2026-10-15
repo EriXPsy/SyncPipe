@@ -42,6 +42,8 @@ dependencies = [
 ecg = ["neurokit2>=0.2.7"]
 # Plotting for syncpipe.surface (SyncSurface.plot); matplotlib imported lazily.
 plot = ["matplotlib>=3.7"]
+# Code-quality tooling used by tests/contracts/test_quality_ratchet.py and scripts/quality_report.py.
+quality = ["ruff>=0.5", "radon>=6.0"]
 # Optional RQA convergence channel (Apache-2.0); pulls in PyOpenCL.
 # See scripts/run_crqa_convergence.py.  GPL-licensed toolboxes (pyspi,
 # pyphysio, crqa) are deliberately NOT offered as extras: GPL is contagious
