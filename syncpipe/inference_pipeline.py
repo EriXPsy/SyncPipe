@@ -582,6 +582,11 @@ class InferencePipeline:
                 "explicitly for confirmatory design-control reporting."
             )
 
+        # Review R4b (2026-10-14): a pseudo-partner must come from the SAME
+        # modality — pooled "<dyad>__<modality>" keys would otherwise pair
+        # an EDA signal with an ECG signal and count one dyad's modalities
+        # as independent strangers.
+        partition = {k: _modality_from_label(k) for k in signal_pairs}
         result = design_control_audit(
             signal_pairs,
             hz=self.hz,
@@ -593,6 +598,7 @@ class InferencePipeline:
             window_type=window_type,
             threshold=threshold,
             discontinuity_masks=discontinuity_masks,
+            partition=partition,
         )
         self._design_control_results = result
         return result
