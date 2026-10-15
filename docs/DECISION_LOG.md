@@ -1027,3 +1027,32 @@ finite-values-only scale reference in the stride backend and keeps the
 legacy `denom > 1e-10` product guard as an additional belt (the
 prototype replaced it in spirit; both orders of magnitude are now
 covered by the relative floors).
+
+## 2026-10-15 — R5: syncpipe.surface landed (owner-approved port, staged from the 2026-10-08 changeset)
+
+`syncpipe.surface` is the code carrier of the repositioning: a time x lag
+synchrony surface kept RAW before any summarising, so every scalar a
+study reports is a pure function of stored data (a different summary
+never requires re-estimating).
+
+- `model.py`: `SyncSurface` (immutable, content-hashed), `SurfaceSettings`
+  (fail-loud provenance), `SurfaceSummary` (bsync-compatible mean_abs_z /
+  peak_abs_z AND signed mean_z / peak_pos_z; lag-of-peak read from the
+  lag profile, not the single highest cell), `tidy()/to_bsync_frame()/
+  glance()` views, Fisher-z with bsync's Z_CLIP=0.9999.
+- `engine.py`: `wcc_surface` on the validated `sliding_window_wcc`
+  (scale invariance inherited); bsync-compatible grid (shared window
+  positions, trimmed by lag_max at both ends); enforce_susy_limit
+  (lag_max <= window//2); positive lag = x leads y (pinned by the
+  known-answer tests from PR #3).
+- `io.py`: exchange schema 0.1 (tidy CSV + JSON sidecar; hash verified
+  on read). `plotting.py`: matplotlib lazy, optional extra `plot`.
+- `conformance.py` + tests: comparer tested against deliberately WRONG
+  engines; the real-bsync comparison skips until golden values are
+  generated once in R (make_golden.R; pins bsync by installation, README
+  documents regeneration). pair.csv fixture is deterministic
+  (seed 20261008, x leads y by 3 samples).
+
+Public surface: 9 names. Not landed here (staged): manifest trial
+columns, lag range in the confirmatory chain, the bsync R-side adapter,
+quality ratchet (R6).
