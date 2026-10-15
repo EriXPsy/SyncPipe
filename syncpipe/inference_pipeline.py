@@ -237,6 +237,9 @@ def _existence_gate_by_modality(
     obs_peaks: Dict[str, List[float]] = {}
     null_peaks: Dict[str, List[np.ndarray]] = {}
     frac_sig: Dict[str, List[bool]] = {}
+    anti_obs: Dict[str, List[float]] = {}
+    anti_null: Dict[str, List[np.ndarray]] = {}
+    dyad_dir: Dict[str, List[Dict[str, bool]]] = {}
     for label, r in existence_results.items():
         if not isinstance(r, dict):
             continue
@@ -250,15 +253,32 @@ def _existence_gate_by_modality(
         null_arr = np.asarray(r.get(f"null_{endpoint}", []), dtype=float)
         if null_arr.size:
             null_peaks.setdefault(mod, []).append(null_arr)
+        dr = (r.get("direction_resolved") or {}).get(endpoint, {})
         frac_sig.setdefault(mod, []).append(
-            bool(r.get("per_feature_significant", {}).get(endpoint, False))
+            bool(dr.get("significant_upper",
+                        r.get("per_feature_significant", {}).get(endpoint, False)))
         )
+        p_up, p_lo = dr.get("p_upper"), dr.get("p_lower")
+        med = (float(np.median(null_arr[np.isfinite(null_arr)]))
+               if np.isfinite(null_arr).any() else float("nan"))
+        dyad_dir.setdefault(mod, []).append({
+            "above": bool(np.isfinite(med) and ov > med),
+            "below": bool(np.isfinite(med) and ov < med),
+            "sig_upper": bool(p_up is not None and np.isfinite(p_up) and p_up < alpha),
+            "sig_lower": bool(p_lo is not None and np.isfinite(p_lo) and p_lo < alpha),
+        })
+        ao = r.get(f"obs_antiphase_{endpoint}", np.nan)
+        an = np.asarray(r.get(f"null_antiphase_{endpoint}", []), dtype=float)
+        if np.isfinite(ao):
+            anti_obs.setdefault(mod, []).append(float(ao))
+        if an.size:
+            anti_null.setdefault(mod, []).append(an)
 
     per_modality: Dict[str, Dict[str, Any]] = {}
     for mod in sorted(obs_peaks):
         obs_vec = np.asarray(obs_peaks[mod], dtype=float)
         obs_mean = float(np.nanmean(obs_vec))
-        p_group = float("nan")
+        p_group = p_lower = float("nan")
         p_min_attainable = float("nan")
         p_monte_carlo_se = float("nan")
         n_null_draws = 0
@@ -270,23 +290,69 @@ def _existence_gate_by_modality(
             finite = group_null[np.isfinite(group_null)]
             n_null_draws = int(finite.size)
             if finite.size:
-                p_ge = (np.sum(finite >= obs_mean) + 1) / (finite.size + 1)
-                p_le = (np.sum(finite <= obs_mean) + 1) / (finite.size + 1)
-                q_tail = float(min(p_ge, p_le))
-                p_group = float(min(1.0, 2.0 * q_tail))
-                p_min_attainable = float(min(1.0, 2.0 / (finite.size + 1)))
-                p_monte_carlo_se = float(
-                    2.0 * np.sqrt(q_tail * (1.0 - q_tail) / finite.size)
+                # Review R4 (2026-10-14): the gate asks "does POSITIVE
+                # co-fluctuation exceed the independent-signal null?" — an
+                # upper-tail question. Two-sided let a peak significantly
+                # BELOW the null pass the gate (measured: anti-phase coupled
+                # pairs, obs 0.681 vs null 0.807, old gate PASS). The lower
+                # tail is reported descriptively in `direction`, never
+                # deciding the gate.
+                p_group = float(
+                    (np.sum(finite >= obs_mean) + 1) / (finite.size + 1)
                 )
-        n_dyads = int(obs_vec.size)
+                p_lower = float(
+                    (np.sum(finite <= obs_mean) + 1) / (finite.size + 1)
+                )
+                p_min_attainable = float(1.0 / (finite.size + 1))
+                p_monte_carlo_se = float(
+                    np.sqrt(p_group * (1.0 - p_group) / finite.size)
+                )
+        flags = dyad_dir.get(mod, [])
         sig = frac_sig.get(mod, [])
+        anti_flags = None
+        if anti_obs.get(mod):
+            anti_stack = anti_null.get(mod, [])
+            if anti_stack:
+                a_w = min(a.size for a in anti_stack)
+                a_mat = np.asarray([a[:a_w] for a in anti_stack], dtype=float)
+                a_gn = np.nanmean(a_mat, axis=0)
+                a_fin = a_gn[np.isfinite(a_gn)]
+                a_obs_mean = float(np.nanmean(np.asarray(anti_obs[mod])))
+                if a_fin.size:
+                    anti_flags = {
+                        "p_group_upper": float(
+                            (np.sum(a_fin >= a_obs_mean) + 1) / (a_fin.size + 1)
+                        ),
+                        "group_null_mean": float(np.mean(a_fin)),
+                        "n_null_draws": int(a_fin.size),
+                    }
         per_modality[mod] = {
-            "n_dyads": n_dyads,
+            "n_dyads": int(obs_vec.size),
             "group_observed_mean": obs_mean,
             "n_null_draws": n_null_draws,
+            "tail": "upper",
             "p_group": p_group,
-            "min_attainable_two_sided_p": p_min_attainable,
+            "min_attainable_p": p_min_attainable,
             "approx_monte_carlo_se": p_monte_carlo_se,
+            "direction": {
+                "n_dyads_above_null_median": int(sum(f["above"] for f in flags)),
+                "n_dyads_below_null_median": int(sum(f["below"] for f in flags)),
+                "n_dyads_sig_upper": int(sum(f["sig_upper"] for f in flags)),
+                "n_dyads_sig_lower": int(sum(f["sig_lower"] for f in flags)),
+                "p_group_lower": p_lower,
+                "reading": "descriptive; does not decide the gate",
+            },
+            "antiphase": {
+                "tier": "exploratory",
+                "group_observed_mean": (
+                    float(np.nanmean(anti_obs[mod])) if anti_obs.get(mod) else float("nan")
+                ),
+                "group_null_mean": (anti_flags or {}).get("group_null_mean", float("nan")),
+                "p_group_upper": (anti_flags or {}).get("p_group_upper", float("nan")),
+                "n_null_draws": (anti_flags or {}).get("n_null_draws", 0),
+                "reading": "negative co-fluctuation above the independent-signal null; "
+                           "regularity of that anti-phase is not tested in v1",
+            },
             # Descriptive only: fraction of dyads whose per-dyad test passed.
             "frac_dyads_significant": float(np.mean(sig)) if sig else float("nan"),
             "is_primary": mod in set(primary_modalities),
@@ -516,6 +582,11 @@ class InferencePipeline:
                 "explicitly for confirmatory design-control reporting."
             )
 
+        # Review R4b (2026-10-14): a pseudo-partner must come from the SAME
+        # modality — pooled "<dyad>__<modality>" keys would otherwise pair
+        # an EDA signal with an ECG signal and count one dyad's modalities
+        # as independent strangers.
+        partition = {k: _modality_from_label(k) for k in signal_pairs}
         result = design_control_audit(
             signal_pairs,
             hz=self.hz,
@@ -527,6 +598,7 @@ class InferencePipeline:
             window_type=window_type,
             threshold=threshold,
             discontinuity_masks=discontinuity_masks,
+            partition=partition,
         )
         self._design_control_results = result
         return result

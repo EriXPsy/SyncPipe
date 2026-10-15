@@ -265,9 +265,16 @@ def _signal_level_surrogate_test(
     # feature table / L2 / design-control path report under the same name.
     obs_mean = float(np.mean(wcc_valid))
     obs_peak, _ = compute_peak_amplitude(smoothed_wcc(wcc))  # full series; NaNs handled inside
+    # Mirror endpoint (anti-phase peak; review R4, 2026-10-14): the SAME
+    # estimator applied to -WCC — how strongly the pair reaches NEGATIVE
+    # co-fluctuation. Reported descriptively next to peak_amplitude; it
+    # never enters the positive-direction existence gate.
+    obs_anti, _ = compute_peak_amplitude(smoothed_wcc(-wcc))
     if not np.isfinite(obs_peak):
         # Fallback if smoothing path is fully non-finite (should be rare given n_valid gate)
         obs_peak = float(np.max(wcc_valid)) if wcc_valid.size else float("nan")
+    if not np.isfinite(obs_anti):
+        obs_anti = float(np.max(-wcc_valid)) if wcc_valid.size else float("nan")
     obs_bc = compute_bimodality_coefficient(wcc_valid)
     obs_entropy = compute_synchrony_entropy(wcc_valid)
 
@@ -280,6 +287,7 @@ def _signal_level_surrogate_test(
     # "valid" surrogates used as the Phipson-Smyth denominator.
     null_mean = np.full(surrogate_n, np.nan)
     null_peak = np.full(surrogate_n, np.nan)
+    null_anti = np.full(surrogate_n, np.nan)
     null_bc = np.full(surrogate_n, np.nan)
     null_entropy = np.full(surrogate_n, np.nan)
 
@@ -304,6 +312,8 @@ def _signal_level_surrogate_test(
         # surrogate WCC (with NaN seams) so smoothing neighborhood matches obs.
         _npk, _ = compute_peak_amplitude(smoothed_wcc(wcc_s))
         null_peak[i] = _npk if np.isfinite(_npk) else float(np.max(wcc_s_valid))
+        _apk, _ = compute_peak_amplitude(smoothed_wcc(-wcc_s))
+        null_anti[i] = _apk if np.isfinite(_apk) else float(np.max(-wcc_s_valid))
         null_bc[i] = compute_bimodality_coefficient(wcc_s_valid)
         null_entropy[i] = compute_synchrony_entropy(wcc_s_valid)
 
@@ -335,6 +345,28 @@ def _signal_level_surrogate_test(
     p_peak, null_peak_valid, n_peak, q_peak = _phipson_smyth_p(null_peak, obs_peak)
     p_bc, null_bc_valid, n_bc, q_bc = _phipson_smyth_p(null_bc, obs_bc)
     p_ent, null_ent_valid, n_ent, q_ent = _phipson_smyth_p(null_entropy, obs_entropy)
+
+    def _one_sided_p(null_arr: np.ndarray, obs_val: float, side: str) -> float:
+        """Phipson-Smyth one-sided p (review R4).
+
+        ``upper``: P(null >= obs); ``lower``: P(null <= obs). The tail
+        follows the QUESTION — "does positive co-fluctuation exceed the
+        independent-signal null?" is an upper-tail question. The legacy
+        two-sided p (``p_peak_amplitude``) is kept unchanged for
+        descriptive use.
+        """
+        finite_null = null_arr[np.isfinite(null_arr)]
+        n = finite_null.size
+        if n == 0 or not np.isfinite(obs_val):
+            return 1.0
+        if side == "upper":
+            return float((np.sum(finite_null >= obs_val) + 1) / (n + 1))
+        return float((np.sum(finite_null <= obs_val) + 1) / (n + 1))
+
+    p_peak_upper = _one_sided_p(null_peak, obs_peak, "upper")
+    p_peak_lower = _one_sided_p(null_peak, obs_peak, "lower")
+    p_anti_upper = _one_sided_p(null_anti, obs_anti, "upper")
+    null_anti_valid = null_anti[np.isfinite(null_anti)]
 
     def _mc_precision(n: int, tail_probability: float) -> Dict[str, float]:
         if n <= 0 or not np.isfinite(tail_probability):
@@ -383,6 +415,8 @@ def _signal_level_surrogate_test(
         "obs_peak_amplitude": obs_peak,
         "obs_bimodality_coefficient": obs_bc,
         "obs_synchrony_entropy": obs_entropy,
+        "obs_antiphase_peak_amplitude": obs_anti,
+        "null_antiphase_peak_amplitude": null_anti_valid,
         "n_surrogates": surrogate_n,
         "n_valid_mean_synchrony": n_mean,
         "n_valid_peak_amplitude": n_peak,
@@ -390,6 +424,21 @@ def _signal_level_surrogate_test(
         "n_valid_synchrony_entropy": n_ent,
         "null_model": "signal_level_iaaft",
         "per_feature_significant": per_feature_significant,
+        # Tail-resolved companions of ONE registered feature (peak_amplitude)
+        # and its mirror (review R4). Deliberately NOT p_* keys: those are
+        # reserved for registered features. The legacy two-sided
+        # p_peak_amplitude is unchanged.
+        "direction_resolved": {
+            "peak_amplitude": {
+                "p_upper": p_peak_upper, "p_lower": p_peak_lower,
+                "significant_upper": bool(p_peak_upper < alpha),
+                "significant_lower": bool(p_peak_lower < alpha),
+            },
+            "antiphase_peak_amplitude": {
+                "p_upper": p_anti_upper,
+                "significant_upper": bool(p_anti_upper < alpha),
+            },
+        },
         "alpha": alpha,
         "surrogate_precision": precision,
         "segmentation": segment_info,

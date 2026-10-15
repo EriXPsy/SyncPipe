@@ -1021,7 +1021,7 @@ def test_group_gate_detects_effect_in_primary():
     g = _existence_gate_by_modality(res, ["ECG", "EDA"])
     assert g["test"] == "second_order_group_surrogate"
     assert g["per_modality"]["ECG"]["p_group"] < 0.05
-    assert g["per_modality"]["ECG"]["min_attainable_two_sided_p"] == pytest.approx(2 / 101)
+    assert g["per_modality"]["ECG"]["min_attainable_p"] == pytest.approx(1 / 101)  # review R4a: one-sided floor
     assert g["per_modality"]["ECG"]["approx_monte_carlo_se"] >= 0.0
     assert g["per_modality"]["ECG"]["supports"] is True
     assert g["per_modality"]["EDA"]["supports"] is False

@@ -100,9 +100,10 @@ def test_gate_is_conservative_when_one_dyad_has_few_draws():
     )
     mod = gate["per_modality"]["ECG"]
     # Group null width = min over dyads = 5 finite draws -> min attainable
-    # two-sided p = 2/(5+1) = 0.333..., so the gate cannot pass at 0.05.
+    # one-sided p = 1/(5+1) = 0.167, so the gate cannot pass at 0.05.
+    # (Review R4: the gate is one-sided upper; the floor is 1/(n+1).)
     assert mod["n_null_draws"] == 5
-    assert mod["min_attainable_two_sided_p"] == pytest.approx(2 / 6)
+    assert mod["min_attainable_p"] == pytest.approx(1 / 6)
     assert gate["primary_pass"] is False
 
 

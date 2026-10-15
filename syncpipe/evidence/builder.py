@@ -13,11 +13,31 @@ from .models import (
 
 
 def _design_p(design: Optional[Dict[str, Any]], endpoint: str, key: str) -> float:
+    """Design-control p for the endpoint, modality-aware (review R4b).
+
+    With a partitioned audit (>1 group) the pooled feature_summary is
+    suppressed by design; per-modality p values are combined across the
+    PRIMARY groups with any-of-k (min(1, k * min p)) so the E2/E3 family
+    error stays controlled. Unpartitioned (single-group) audits keep the
+    legacy pooled value.
+    """
     if not isinstance(design, dict):
         return float("nan")
-    return float(
-        design.get("feature_summary", {}).get(endpoint, {}).get(key, np.nan)
-    )
+    fs = design.get("feature_summary")
+    if fs:
+        return float(fs.get(endpoint, {}).get(key, np.nan))
+    per_group = design.get("per_group") or {}
+    if not per_group or set(per_group) == {""}:
+        return float("nan")
+    values = [
+        float(per_group[g].get(endpoint, {}).get(key, np.nan))
+        for g in sorted(per_group)
+    ]
+    finite = [v for v in values if np.isfinite(v)]
+    if not finite:
+        return float("nan")
+    # any-of-k over the per-modality tests
+    return float(min(1.0, len(finite) * min(finite)))
 
 
 def _across_p(across: Optional[Dict[str, Any]], endpoint: str) -> float:
@@ -96,8 +116,8 @@ def build_evidence_chain(
         if isinstance(item, dict) and item.get("is_primary")
     ]
     e0_testable = any(
-        np.isfinite(item.get("min_attainable_two_sided_p", np.nan))
-        and item["min_attainable_two_sided_p"] < alpha
+        np.isfinite(item.get("min_attainable_p", np.nan))
+        and item["min_attainable_p"] < alpha
         for item in primary_results
     )
     if e0_supported:
