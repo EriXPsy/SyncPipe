@@ -1056,3 +1056,29 @@ never requires re-estimating).
 Public surface: 9 names. Not landed here (staged): manifest trial
 columns, lag range in the confirmatory chain, the bsync R-side adapter,
 quality ratchet (R6).
+
+## 2026-10-16 — R7: owner ratification of the 2026-10-08 repositioning decisions
+
+The three owner decisions cited by the 2026-10-08 changeset were
+re-confirmed explicitly by the owner on 2026-10-16 (session record:
+"显示确认R7工作"), closing the procedural gap flagged in the 2026-10-13
+dialectical review (the changeset quoted "owner decisions 2026-10-08"
+without a ratifiable record of its own):
+
+1. **Lag-range declaration** (V1_PROTOCOL §4 amendment): the frozen
+   protocol's zero-lag-only restriction is lifted in favour of a
+   DECLARED lag range (`lag_max_sec`; 0 = zero-lag). The confirmatory
+   chain stays zero-lag until the endpoint comparison selects a
+   lag-aware endpoint; non-zero lag is exploratory surface only.
+   Ratified together with the landing of `syncpipe.surface` (PR #5).
+2. **Manifest trial columns** (`trial_id` / `stimulus_key`, optional,
+   `MANIFEST_COLUMNS` unchanged): approved in principle; implementation
+   staged as the next feature PR (trial stacking with seam-aware masks,
+   equivalence-tested against hand-concatenated files).
+3. **Quality bar** (bsync's maturity profile as the yardstick, quality
+   ratchet with a committed baseline, strict gates for new packages):
+   ratified as landed in PR #5, with the review-scoped deviation that
+   history-tag metrics apply to strict packages only.
+
+Ratification status: (1) and (3) EFFECTIVE with PR #5 (71f304d);
+(2) APPROVED, implementation pending.
