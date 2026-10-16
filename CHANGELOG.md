@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Added (R5, owner-approved repositioning carrier, 2026-10-15)
+
+- **`syncpipe.surface`**: `SyncSurface` (time x lag, content-hashed,
+  immutable), native `wcc_surface` with bsync's grid and lag sign
+  (positive lag = x leads y), exchange schema 0.1 (tidy CSV + JSON
+  sidecar, hash verified on read), `summary()/tidy()/glance()/plot()`.
+  Nine public names. Optional extra `plot` (matplotlib, lazy).
+- **bsync conformance harness**: comparer tested against deliberately
+  wrong engines; deterministic fixture; `make_golden.R` for the one-time
+  R-side golden values (comparison skips until then). New dev dep:
+  hypothesis (property-based invariance tests).
+
 ### Changed (P0-1, owner-approved port of the scale-invariance prototype)
 
 - **Unit (scale) invariance of the numerical core.** WCC flat-window

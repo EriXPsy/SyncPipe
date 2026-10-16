@@ -1,0 +1,13 @@
+{
+  "measured_at_commit": "62ccd80",
+  "metrics": {
+    "ruff_core_E_F": 79,
+    "ruff_core_extended": 917,
+    "undocumented_public_callables": 51,
+    "public_callables": 290,
+    "strict_history_tag_mentions": 0,
+    "files_over_800_lines": 7,
+    "functions_cc_over_20": 20,
+    "max_cyclomatic_complexity": 60
+  }
+}
