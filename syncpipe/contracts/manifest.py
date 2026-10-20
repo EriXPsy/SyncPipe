@@ -18,6 +18,13 @@ MANIFEST_COLUMNS = [
     "signal_type", "unit", "preprocessing_path", "mask_path",
 ]
 
+# Optional columns (2026-10-16, owner-ratified R7 item 2). Absent (or
+# blank) they change nothing: one row is one series, as always.
+# MANIFEST_COLUMNS is deliberately NOT extended -- migration.py writes
+# manifests with it, and adding the trial columns there would force them
+# onto every migrated manifest.
+OPTIONAL_TRIAL_COLUMNS = ("trial_id", "stimulus_key")
+
 SCHEMA_NAMES = {
     "config": "config.schema.json",
     "manifest_record": "manifest-record.schema.json",
@@ -54,6 +61,13 @@ class ManifestRecord:
     unit: str
     preprocessing_path: str
     mask_path: Optional[str] = None
+    # Optional trial columns (OPTIONAL_TRIAL_COLUMNS): when trial_id is
+    # given, several rows may share one (dyad_id, modality, condition) --
+    # each row is one TRIAL of that series, loaded as separate segments no
+    # window can straddle. stimulus_key names the trial's stimulus (used
+    # to check that trials are comparable across dyads).
+    trial_id: Optional[str] = None
+    stimulus_key: Optional[str] = None
 
     def resolve(self, base_dir: Optional[Union[str, Path]] = None) -> "ManifestRecord":
         """Return a copy with all paths made absolute against ``base_dir``."""
@@ -75,6 +89,72 @@ class ManifestRecord:
             preprocessing_path=_abs(self.preprocessing_path),
             mask_path=_abs(self.mask_path) if self.mask_path else None,
         )
+
+
+def _optional_text(row: Any, df: "pd.DataFrame", column: str) -> Optional[str]:
+    """A stripped string from an optional column, or ``None`` if the column or the cell is empty."""
+    if column not in df.columns:
+        return None
+    raw = row[column]
+    if raw is None or (isinstance(raw, float) and np.isnan(raw)):
+        return None
+    text = str(raw).strip()
+    return text or None
+
+
+def _validate_series_keys(records: List["ManifestRecord"]) -> None:
+    """Uniqueness and trial rules for ``(dyad_id, modality, condition)`` series.
+
+    Rows without ``trial_id`` keep the original rule (one row per series).
+    Rows with ``trial_id`` may share a series, but a series is either all
+    trial rows or a single plain row, trial ids are unique inside it, and
+    ``stimulus_key`` (all or none, unique) is only allowed with
+    ``trial_id``. Where stimulus keys are given, every dyad of a
+    (modality, condition) must show the same stimuli in the same order,
+    because the stranger control pairs trials by position.
+    """
+    series: Dict[tuple, List["ManifestRecord"]] = {}
+    for r in records:
+        if r.stimulus_key is not None and r.trial_id is None:
+            raise ValueError(f"manifest row dyad={r.dyad_id}: stimulus_key requires trial_id")
+        series.setdefault((r.dyad_id, r.modality, r.condition), []).append(r)
+
+    for (dyad, modality, condition), rows in series.items():
+        label = f"(dyad_id={dyad}, modality={modality}, condition={condition})"
+        has_trial = [r.trial_id is not None for r in rows]
+        if not any(has_trial):
+            if len(rows) > 1:
+                raise ValueError("manifest contains duplicate (dyad_id, modality, condition) rows")
+            continue
+        if not all(has_trial):
+            raise ValueError(f"manifest series {label} mixes rows with and without trial_id")
+        ids = [r.trial_id for r in rows]
+        if len(set(ids)) != len(ids):
+            raise ValueError(f"manifest series {label} has duplicate trial_id values")
+        keys = [r.stimulus_key for r in rows]
+        if any(k is not None for k in keys):
+            if any(k is None for k in keys):
+                raise ValueError(f"manifest series {label}: stimulus_key must be given for every trial or for none")
+            if len(set(keys)) != len(keys):
+                raise ValueError(f"manifest series {label} repeats a stimulus_key; give each trial a distinct key")
+
+    by_cell: Dict[tuple, Dict[str, List[str]]] = {}
+    for r in records:
+        if r.stimulus_key is None:
+            continue
+        cell = (r.modality, r.condition)
+        by_cell.setdefault(cell, {})[r.dyad_id] = [
+            x.stimulus_key for x in series[(r.dyad_id, r.modality, r.condition)]
+        ]
+    for cell, per_dyad in by_cell.items():
+        reference = next(iter(per_dyad.values()))
+        for dyad, keys in per_dyad.items():
+            if keys != reference:
+                raise ValueError(
+                    f"manifest cell modality={cell[0]}, condition={cell[1]}: dyad {dyad!r} "
+                    f"has stimulus order {keys}, expected {reference}; the stranger control "
+                    "pairs trials by position, so the stimulus order differs between dyads"
+                )
 
 
 def parse_manifest(path: Union[str, Path]) -> List[ManifestRecord]:
@@ -122,12 +202,12 @@ def parse_manifest(path: Union[str, Path]) -> List[ManifestRecord]:
                 unit=str(row["unit"]).strip(),
                 preprocessing_path=str(row["preprocessing_path"]).strip(),
                 mask_path=mask_path,
+                trial_id=_optional_text(row, df, "trial_id"),
+                stimulus_key=_optional_text(row, df, "stimulus_key"),
             )
         )
 
-    keys = [(r.dyad_id, r.modality, r.condition) for r in records]
-    if len(set(keys)) != len(keys):
-        raise ValueError("manifest contains duplicate (dyad_id, modality, condition) rows")
+    _validate_series_keys(records)
     for r in records:
         if any(
             not str(getattr(r, field)).strip()
@@ -193,6 +273,6 @@ def load_preprocessing_provenance(
 
 
 __all__ = [
-    "ManifestRecord", "MANIFEST_COLUMNS", "SCHEMA_NAMES", "load_schema",
+    "ManifestRecord", "MANIFEST_COLUMNS", "OPTIONAL_TRIAL_COLUMNS", "SCHEMA_NAMES", "load_schema",
     "parse_manifest", "load_preprocessing_provenance",
 ]

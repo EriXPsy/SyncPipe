@@ -138,6 +138,7 @@ class ComputationPipeline:
         self._discontinuity_mask = discontinuity_mask
         self._metadata = {"label": label, **metadata}
         self._wcc = None
+        self._expected_gap: Optional[np.ndarray] = None
         self._features = None
 
     # ---- WCC computation ------------------------------------------------
@@ -183,9 +184,16 @@ class ComputationPipeline:
         # NaN windows are skipped by feature extraction (isfinite) and by the
         # surrogate nulls, keeping observed features and null consistent.
         if self._discontinuity_mask is not None:
+            unmasked = self._wcc
             self._wcc = _apply_discontinuity_mask(
                 self._wcc, self._discontinuity_mask, self.window_size
             )
+            # Windows the mask removed are excluded BY DESIGN, not missing
+            # data: remember where they are so max_nan_ratio does not count
+            # them (2026-10-16 trial/seam support).
+            self._expected_gap = np.isnan(self._wcc) & ~np.isnan(unmasked)
+        else:
+            self._expected_gap = None
 
         return self._wcc
 
@@ -216,6 +224,7 @@ class ComputationPipeline:
         # keep the SSoT default merge_valid (short dropout bridging).
         if self._discontinuity_mask is not None:
             kwargs["gap_policy"] = "segment"
+            kwargs["expected_gap"] = getattr(self, "_expected_gap", None)
 
         self._features = extract_dynamic_features(
             self._wcc,

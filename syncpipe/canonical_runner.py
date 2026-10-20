@@ -20,7 +20,10 @@ except ModuleNotFoundError:  # pragma: no cover - exercised only on <3.11
     import tomli as tomllib  # type: ignore
 
 from .pipeline_bridge import InferenceInputs, records_to_inference_inputs
-from .preparation import LoaderRecord, PreparationExclusion, load_manifest_record
+from .preparation import (
+    LoaderRecord, PreparationExclusion, iter_record_groups, load_manifest_record,
+    load_record_group, validate_trial_alignment,
+)
 from .evidence import derive_claimability
 from .export import capture_environment, safe_float, write_report_bundle
 from .inference_pipeline import InferencePipeline
@@ -164,19 +167,24 @@ def run_canonical(
     # --- preflight QC: resolve loader records; capture load failures ---
     loader_records: List[LoaderRecord] = []
     load_exclusions: List[PreparationExclusion] = []
-    for rec in records:
+    for group in iter_record_groups(records):
+        # Group identity for exclusion reporting: the series key of the group
+        # (single row or trial stack share (dyad_id, modality, condition)).
+        gid = group[0]
         try:
-            loader_records.append(load_manifest_record(rec, base_dir))
+            loader_records.append(load_record_group(group, base_dir))
         except (OSError, pd.errors.ParserError) as e:
             # Expected data/input failures become exclusions. Unexpected
             # programming/runtime errors must propagate instead of being
             # mislabeled as bad participant data.
             load_exclusions.append(PreparationExclusion(
-                key=f"{rec.dyad_id}__{rec.modality}__{rec.condition}",
-                dyad_id=rec.dyad_id, modality=rec.modality,
-                condition=rec.condition, code="load_error", stage="loading",
+                key=f"{gid.dyad_id}__{gid.modality}__{gid.condition}",
+                dyad_id=gid.dyad_id, modality=gid.modality,
+                condition=gid.condition, code="load_error", stage="loading",
                 detail=str(e),
             ))
+
+    validate_trial_alignment(loader_records)
 
     # records_to_inference_inputs fails loud on duplicate key / hz mismatch /
     # ambiguous column. It silently skips incomplete / too-short rows, so we
