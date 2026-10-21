@@ -1082,3 +1082,27 @@ without a ratifiable record of its own):
 
 Ratification status: (1) and (3) EFFECTIVE with PR #5 (71f304d);
 (2) APPROVED, implementation pending.
+
+## 2026-10-21 — A1: the L1 null lives on the same gapped axis as the observed
+
+Source-verified finding (external review 2026-10-20; severity:
+results-wrong). The L1 (WCC-level) surrogate test computed OBSERVED
+features on the gapped trace (NaN seams + gap_policy='segment') but the
+SURROGATE on the NaN-COMPRESSED trace: the null had no seams, so its
+runs were systematically longer and dwell/switching p-values were
+invalid for any seam-bearing series (multi-trial stacks, masked
+discontinuities).
+
+Fix: surrogate values are scattered back onto the ORIGINAL gapped
+positions and go through the IDENTICAL extraction (same gap_policy).
+With no NaNs the scatter is the identity — seamless traces are
+bit-identical to before (frozen behaviour preserved).
+
+Measured separation on the regression fixture (persistent elevated
+blocks of 100 s, seams every 60 s): compressed-axis null median dwell
+40.8 s vs gapped-axis 24.5 s — the sensitivity test asserts < 32.0 and
+was verified to FAIL when the scatter is disabled (probe: 1 failed).
+
+This composes with the 2026-10-16 trial stacking: seams are now both
+exempt from the missing-data guard (expected_gap) and preserved inside
+the L1 null.
