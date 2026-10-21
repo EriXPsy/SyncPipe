@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -32,7 +32,7 @@ SCHEMA_NAMES = {
 }
 
 
-def load_schema(name: str) -> Dict[str, Any]:
+def load_schema(name: str) -> dict[str, Any]:
     """Load a packaged JSON Schema by stable public name."""
     if name not in SCHEMA_NAMES:
         raise ValueError(f"unknown schema {name!r}; choose from {sorted(SCHEMA_NAMES)}")
@@ -60,16 +60,16 @@ class ManifestRecord:
     signal_type: str
     unit: str
     preprocessing_path: str
-    mask_path: Optional[str] = None
+    mask_path: str | None = None
     # Optional trial columns (OPTIONAL_TRIAL_COLUMNS): when trial_id is
     # given, several rows may share one (dyad_id, modality, condition) --
     # each row is one TRIAL of that series, loaded as separate segments no
     # window can straddle. stimulus_key names the trial's stimulus (used
     # to check that trials are comparable across dyads).
-    trial_id: Optional[str] = None
-    stimulus_key: Optional[str] = None
+    trial_id: str | None = None
+    stimulus_key: str | None = None
 
-    def resolve(self, base_dir: Optional[Union[str, Path]] = None) -> "ManifestRecord":
+    def resolve(self, base_dir: str | Path | None = None) -> ManifestRecord:
         """Return a copy with all paths made absolute against ``base_dir``."""
         base = Path(base_dir) if base_dir else Path.cwd()
 
@@ -91,7 +91,7 @@ class ManifestRecord:
         )
 
 
-def _optional_text(row: Any, df: "pd.DataFrame", column: str) -> Optional[str]:
+def _optional_text(row: Any, df: pd.DataFrame, column: str) -> str | None:
     """A stripped string from an optional column, or ``None`` if the column or the cell is empty."""
     if column not in df.columns:
         return None
@@ -102,50 +102,38 @@ def _optional_text(row: Any, df: "pd.DataFrame", column: str) -> Optional[str]:
     return text or None
 
 
-def _validate_series_keys(records: List["ManifestRecord"]) -> None:
-    """Uniqueness and trial rules for ``(dyad_id, modality, condition)`` series.
+def _validate_one_series(key: tuple, rows: list[ManifestRecord]) -> None:
+    """Trial rules for ONE (dyad_id, modality, condition) series."""
+    dyad, modality, condition = key
+    label = f"(dyad_id={dyad}, modality={modality}, condition={condition})"
+    has_trial = [r.trial_id is not None for r in rows]
+    if not any(has_trial):
+        if len(rows) > 1:
+            raise ValueError("manifest contains duplicate (dyad_id, modality, condition) rows")
+        return
+    if not all(has_trial):
+        raise ValueError(f"manifest series {label} mixes rows with and without trial_id")
+    ids = [r.trial_id for r in rows]
+    if len(set(ids)) != len(ids):
+        raise ValueError(f"manifest series {label} has duplicate trial_id values")
+    keys = [r.stimulus_key for r in rows]
+    if any(k is not None for k in keys):
+        if any(k is None for k in keys):
+            raise ValueError(f"manifest series {label}: stimulus_key must be given for every trial or for none")
+        if len(set(keys)) != len(keys):
+            raise ValueError(f"manifest series {label} repeats a stimulus_key; give each trial a distinct key")
 
-    Rows without ``trial_id`` keep the original rule (one row per series).
-    Rows with ``trial_id`` may share a series, but a series is either all
-    trial rows or a single plain row, trial ids are unique inside it, and
-    ``stimulus_key`` (all or none, unique) is only allowed with
-    ``trial_id``. Where stimulus keys are given, every dyad of a
-    (modality, condition) must show the same stimuli in the same order,
-    because the stranger control pairs trials by position.
-    """
-    series: Dict[tuple, List["ManifestRecord"]] = {}
-    for r in records:
-        if r.stimulus_key is not None and r.trial_id is None:
-            raise ValueError(f"manifest row dyad={r.dyad_id}: stimulus_key requires trial_id")
-        series.setdefault((r.dyad_id, r.modality, r.condition), []).append(r)
 
+def _validate_cross_dyad_stimuli(series: dict[tuple, list[ManifestRecord]]) -> None:
+    """Every dyad of a (modality, condition) cell must declare the same
+    stimuli in the same order (the stranger control pairs trials by
+    position)."""
+    by_cell: dict[tuple, dict[str, list[str]]] = {}
     for (dyad, modality, condition), rows in series.items():
-        label = f"(dyad_id={dyad}, modality={modality}, condition={condition})"
-        has_trial = [r.trial_id is not None for r in rows]
-        if not any(has_trial):
-            if len(rows) > 1:
-                raise ValueError("manifest contains duplicate (dyad_id, modality, condition) rows")
+        if not rows or rows[0].stimulus_key is None:
             continue
-        if not all(has_trial):
-            raise ValueError(f"manifest series {label} mixes rows with and without trial_id")
-        ids = [r.trial_id for r in rows]
-        if len(set(ids)) != len(ids):
-            raise ValueError(f"manifest series {label} has duplicate trial_id values")
-        keys = [r.stimulus_key for r in rows]
-        if any(k is not None for k in keys):
-            if any(k is None for k in keys):
-                raise ValueError(f"manifest series {label}: stimulus_key must be given for every trial or for none")
-            if len(set(keys)) != len(keys):
-                raise ValueError(f"manifest series {label} repeats a stimulus_key; give each trial a distinct key")
-
-    by_cell: Dict[tuple, Dict[str, List[str]]] = {}
-    for r in records:
-        if r.stimulus_key is None:
-            continue
-        cell = (r.modality, r.condition)
-        by_cell.setdefault(cell, {})[r.dyad_id] = [
-            x.stimulus_key for x in series[(r.dyad_id, r.modality, r.condition)]
-        ]
+        cell = (modality, condition)
+        by_cell.setdefault(cell, {})[dyad] = [r.stimulus_key for r in rows]
     for cell, per_dyad in by_cell.items():
         reference = next(iter(per_dyad.values()))
         for dyad, keys in per_dyad.items():
@@ -157,7 +145,29 @@ def _validate_series_keys(records: List["ManifestRecord"]) -> None:
                 )
 
 
-def parse_manifest(path: Union[str, Path]) -> List[ManifestRecord]:
+def _validate_series_keys(records: list[ManifestRecord]) -> None:
+    """Uniqueness and trial rules for ``(dyad_id, modality, condition)`` series.
+
+    Rows without ``trial_id`` keep the original rule (one row per series).
+    Rows with ``trial_id`` may share a series, but a series is either all
+    trial rows or a single plain row, trial ids are unique inside it, and
+    ``stimulus_key`` (all or none, unique) is only allowed with
+    ``trial_id``. Where stimulus keys are given, every dyad of a
+    (modality, condition) must show the same stimuli in the same order,
+    because the stranger control pairs trials by position.
+    """
+    series: dict[tuple, list[ManifestRecord]] = {}
+    for r in records:
+        if r.stimulus_key is not None and r.trial_id is None:
+            raise ValueError(f"manifest row dyad={r.dyad_id}: stimulus_key requires trial_id")
+        series.setdefault((r.dyad_id, r.modality, r.condition), []).append(r)
+
+    for key, rows in series.items():
+        _validate_one_series(key, rows)
+    _validate_cross_dyad_stimuli(series)
+
+
+def parse_manifest(path: str | Path) -> list[ManifestRecord]:
     """Parse the strict manifest CSV into :class:`ManifestRecord` objects.
 
     All rows must share one ``hz`` (fail-loud otherwise); ``mask_path`` is
@@ -174,7 +184,7 @@ def parse_manifest(path: Union[str, Path]) -> List[ManifestRecord]:
     if missing:
         raise ValueError(f"manifest missing required columns: {missing}")
 
-    records: List[ManifestRecord] = []
+    records: list[ManifestRecord] = []
     hz_set = set()
     for _, row in df.iterrows():
         hz = float(row["hz"])
@@ -185,7 +195,7 @@ def parse_manifest(path: Union[str, Path]) -> List[ManifestRecord]:
             )
         hz_set.add(round(hz, 9))
         mp_raw = row["mask_path"] if "mask_path" in df.columns else None
-        mask_path: Optional[str] = None
+        mask_path: str | None = None
         if mp_raw is not None and not (isinstance(mp_raw, float) and np.isnan(mp_raw)):
             s = str(mp_raw).strip()
             if s:
@@ -231,7 +241,7 @@ def parse_manifest(path: Union[str, Path]) -> List[ManifestRecord]:
 
 def load_preprocessing_provenance(
     path: str, *, expected_signal_type: str, expected_unit: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Load and validate the mandatory preprocessing provenance document."""
     try:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))

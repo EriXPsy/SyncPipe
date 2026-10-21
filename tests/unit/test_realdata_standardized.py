@@ -129,5 +129,9 @@ def test_boundary_gate_retained_and_context_trials_ineligible():
     assert diagnostics['design_invalid_window_fraction'] > .2
     assert diagnostics['context_segments_below_3window'] == 3
     result = compute_pair_pipeline(a, a, hz=1., window_size=30, discontinuity_mask=mask)
-    assert np.isnan(result.features.mean_synchrony)
+    # 2026-10-16 seam semantics: the masked-out windows are absent BY DESIGN
+    # (expected_gap), so a perfectly synchronous pair stays estimable at 1.0
+    # instead of being NaN'd by the old missing-data guard.
+    assert result.features.mean_synchrony == 1.0
+    assert result.features.eligible_fraction < 1.0  # the seams really were excluded
     assert all(not r['context_eligible'] for r in independent_segment_reference(a, a, mask, 30, 1.))

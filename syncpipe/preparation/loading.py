@@ -2,7 +2,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any
+from collections.abc import Sequence
 import numpy as np
 import pandas as pd
 from ..contracts.manifest import ManifestRecord
@@ -15,13 +16,13 @@ class LoaderRecord:
     person_a: Any
     person_b: Any
     target_hz: float
-    discontinuity_mask: Optional[np.ndarray] = None
+    discontinuity_mask: np.ndarray | None = None
     incomplete: bool = False
     # Set only for series assembled from trial rows (ManifestRecord.trial_id,
     # 2026-10-16): per-trial ids/stimulus keys and lengths, in stack order.
-    trial_ids: Optional[tuple] = None
-    stimulus_keys: Optional[tuple] = None
-    trial_lengths: Optional[tuple] = None
+    trial_ids: tuple | None = None
+    stimulus_keys: tuple | None = None
+    trial_lengths: tuple | None = None
 
 def _load_mask(path: str) -> np.ndarray:
     """Load a discontinuity mask CSV (single 0/1 or boolean column)."""
@@ -59,7 +60,7 @@ def _validate_aligned_signal_frames(a_df: pd.DataFrame, b_df: pd.DataFrame, *, h
 
 
 def _manifest_record_to_loader_record(
-    rec: ManifestRecord, base_dir: Optional[Union[str, Path]] = None
+    rec: ManifestRecord, base_dir: str | Path | None = None
 ) -> LoaderRecord:
     """Resolve paths and load signals/mask for one manifest row."""
     from ..io import load_csv  # local import avoids core/preparation cycle
@@ -90,7 +91,7 @@ def _manifest_record_to_loader_record(
 load_manifest_record = _manifest_record_to_loader_record
 
 
-def iter_record_groups(records: Sequence[ManifestRecord]) -> List[List[ManifestRecord]]:
+def iter_record_groups(records: Sequence[ManifestRecord]) -> list[list[ManifestRecord]]:
     """Group manifest rows into series, preserving first-seen order.
 
     Rows that all carry a ``trial_id`` and share
@@ -98,10 +99,10 @@ def iter_record_groups(records: Sequence[ManifestRecord]) -> List[List[ManifestR
     stays a single-row group, so a plain duplicate key still reaches the
     downstream duplicate check exactly as it did before trials existed.
     """
-    by_key: Dict[tuple, List[ManifestRecord]] = {}
+    by_key: dict[tuple, list[ManifestRecord]] = {}
     for rec in records:
         by_key.setdefault((rec.dyad_id, rec.modality, rec.condition), []).append(rec)
-    groups: List[List[ManifestRecord]] = []
+    groups: list[list[ManifestRecord]] = []
     for rows in by_key.values():
         if len(rows) > 1 and all(r.trial_id is not None for r in rows):
             groups.append(rows)
@@ -139,7 +140,7 @@ def _stack_trials(
     a_parts, b_parts, mask_parts = [], [], []
     t_offset = 0.0
     dt = 1.0 / first.target_hz
-    for lr, rec in zip(loaded, group):
+    for lr, rec in zip(loaded, group, strict=True):
         n = len(lr.person_a)
         if len(lr.person_b) != n:
             raise ValueError(
@@ -189,7 +190,7 @@ def _stack_trials(
 
 
 def load_record_group(
-    group: Sequence[ManifestRecord], base_dir: Optional[Union[str, Path]] = None
+    group: Sequence[ManifestRecord], base_dir: str | Path | None = None
 ) -> LoaderRecord:
     """Load one series: a single row as-is, or a trial stack (seam-aware)."""
     if len(group) == 1:
@@ -207,8 +208,8 @@ def validate_trial_alignment(loader_records: Sequence[LoaderRecord]) -> None:
     declared they must agree across dyads (parse_manifest already
     enforces same-order; this catches load-level divergence).
     """
-    per_cell: Dict[tuple, Dict[str, tuple]] = {}
-    per_cell_keys: Dict[tuple, Dict[str, tuple]] = {}
+    per_cell: dict[tuple, dict[str, tuple]] = {}
+    per_cell_keys: dict[tuple, dict[str, tuple]] = {}
     unkeyed_cells: set = set()
     for lr in loader_records:
         if lr.trial_lengths is None:

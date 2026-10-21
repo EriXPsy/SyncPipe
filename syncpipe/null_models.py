@@ -5,10 +5,10 @@ import logging
 import warnings
 import numpy as np
 
-from .surrogate import iaaft_surrogate, block_permutation_surrogate, state_transition_shuffle_surrogate
+from .surrogate import iaaft_surrogate
 from .preparation import resolve_signal_geometry
 from .feature_definitions import compute_surrogate_threshold, ONSET_THRESHOLD, SURROGATE_THRESHOLD_PERCENTILE, SWITCHING_HYSTERESIS_DELTA
-from .wcc import sliding_window_wcc, _apply_discontinuity_mask
+from .wcc import _apply_discontinuity_mask, sliding_window_wcc
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +26,6 @@ SURROGATE_MEM_GUARD_BYTES = 512 * 1024 * 1024  # 512 MiB
 # Sliding-window WCC (Weighted Cross-Correlation)
 # ---------------------------------------------------------------------------
 
-
-from .wcc import (
-    _make_window_kernel, _sliding_window_wcc_cumsum, _sliding_window_wcc_stride,
-    sliding_window_wcc, _apply_discontinuity_mask, sliding_window_wcc_masked,
-)
 
 
 

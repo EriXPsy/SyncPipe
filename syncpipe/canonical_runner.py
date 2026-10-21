@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -21,7 +21,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised only on <3.11
 
 from .pipeline_bridge import InferenceInputs, records_to_inference_inputs
 from .preparation import (
-    LoaderRecord, PreparationExclusion, iter_record_groups, load_manifest_record,
+    LoaderRecord, PreparationExclusion, iter_record_groups,
     load_record_group, validate_trial_alignment,
 )
 from .evidence import derive_claimability
