@@ -1106,3 +1106,21 @@ was verified to FAIL when the scatter is disabled (probe: 1 failed).
 This composes with the 2026-10-16 trial stacking: seams are now both
 exempt from the missing-data guard (expected_gap) and preserved inside
 the L1 null.
+
+## 2026-10-27 — A2: per-dyad L0 audit counters follow the gate's tail policy
+
+External-review finding A2 (2026-10-20). The per-dyad l0_pass /
+l0_feature_pass audit counters in run_full_cascade counted the legacy
+TWO-SIDED per_feature_significant flags while the existence gate is
+ONE-SIDED upper (R4a): an anti-phase dyad (obs far below its null,
+two-sided flag True) counted as an audit "pass" while the gate rejected
+its modality — the audit contradicted the decision layer.
+
+Change: the counters prefer direction_resolved.significant_upper (the
+gate's own tail) and fall back to the legacy flag only when
+direction_resolved is absent (historical artifacts stay interpretable).
+The counters remain explicitly DESCRIPTIVE (V1_PROTOCOL: a p-value is a
+population statement, not a per-dyad proposition).
+
+Sensitivity verified: with the tail-alignment probe-disabled (two-sided
+counting restored) both regression tests fail.

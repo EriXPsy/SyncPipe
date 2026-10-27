@@ -1250,9 +1250,22 @@ class InferencePipeline:
                 )
                 l0_total += 1
                 pfs0 = l0_result.get("per_feature_significant", {})
+                # A2 (2026-10-27): the per-dyad audit counters follow the
+                # GATE's tail policy (one-sided upper, via
+                # direction_resolved) so the audit never contradicts the
+                # decision layer. These counts remain DESCRIPTIVE — a
+                # p-value is a population statement, not a per-dyad
+                # proposition (V1_PROTOCOL). Falls back to the legacy
+                # two-sided flag only when direction_resolved is absent.
+                dr0 = (l0_result.get("direction_resolved") or {}).get(L0_PRIMARY, {})
+                primary_sig_upper = bool(
+                    dr0.get("significant_upper", pfs0.get(L0_PRIMARY, False))
+                )
                 for f, sig in pfs0.items():
-                    l0_feature_pass[f] = l0_feature_pass.get(f, 0) + int(bool(sig))
-                if pfs0.get(L0_PRIMARY, False):
+                    dr_f = (l0_result.get("direction_resolved") or {}).get(f, {})
+                    counted = bool(dr_f.get("significant_upper", sig)) if f != L0_PRIMARY else primary_sig_upper
+                    l0_feature_pass[f] = l0_feature_pass.get(f, 0) + int(counted)
+                if primary_sig_upper:
                     l0_pass += 1
 
             if label in wcc_dict:
