@@ -5,10 +5,10 @@ import logging
 import warnings
 import numpy as np
 
-from .surrogate import iaaft_surrogate, block_permutation_surrogate, state_transition_shuffle_surrogate
+from .surrogate import iaaft_surrogate
 from .preparation import resolve_signal_geometry
 from .feature_definitions import compute_surrogate_threshold, ONSET_THRESHOLD, SURROGATE_THRESHOLD_PERCENTILE, SWITCHING_HYSTERESIS_DELTA
-from .wcc import sliding_window_wcc, _apply_discontinuity_mask
+from .wcc import _apply_discontinuity_mask, sliding_window_wcc
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +26,6 @@ SURROGATE_MEM_GUARD_BYTES = 512 * 1024 * 1024  # 512 MiB
 # Sliding-window WCC (Weighted Cross-Correlation)
 # ---------------------------------------------------------------------------
 
-
-from .wcc import (
-    _make_window_kernel, _sliding_window_wcc_cumsum, _sliding_window_wcc_stride,
-    sliding_window_wcc, _apply_discontinuity_mask, sliding_window_wcc_masked,
-)
 
 
 
@@ -591,6 +586,16 @@ def _wcc_level_surrogate_test(
     # Collect null feature values
     null_values: Dict[str, list] = {f: [] for f in features}
 
+    # A1 (2026-10-20, DeepSeek-review finding, source-verified): the
+    # observed features are computed on the GAPPED axis (NaN seams, with
+    # gap_policy), but the surrogate used to be computed on the
+    # NaN-COMPRESSED axis — run-length features (dwell/switching) then had
+    # a systematically longer-run null, invalidating the p-values. Fix:
+    # scatter the surrogate values back onto the ORIGINAL gapped axis and
+    # run the SAME feature extraction (same gap_policy) as the observed.
+    # With no NaNs (valid_mask all True) the scatter is the identity —
+    # seamless traces keep bit-identical behaviour.
+    has_gaps = not bool(valid_mask.all())
     for i in range(surrogate_n):
         if null_model == "block_permutation":
             wcc_s = block_permutation_surrogate(wcc_valid, rng=rng, block_size=block_size)
@@ -601,6 +606,10 @@ def _wcc_level_surrogate_test(
                 hysteresis_delta=SWITCHING_HYSTERESIS_DELTA)
         else:
             wcc_s = iaaft_surrogate(wcc_valid, rng=rng)
+        if has_gaps:
+            full = np.full_like(wcc, np.nan)
+            full[valid_mask] = wcc_s
+            wcc_s = full
         feats_s = extract_features(
             wcc_s, hz=hz, wcc_window_sec=wcc_window_sec, threshold=threshold,
             gap_policy=gap_policy,

@@ -841,6 +841,9 @@ class DynamicFeatures:
     # a confound for the "quality of synchrony" argument built on those two
     # FDR-family features (Claude review finding #1, mitigation v1b).
     nan_fraction: float = float("nan")
+    # Share of samples ELIGIBLE for feature extraction after declared
+    # by-design gaps (seams) are excluded (2026-10-16); 1.0 when none declared.
+    eligible_fraction: float = 1.0
 
     # --- Meta ---
     notes: str = ""

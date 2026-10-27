@@ -1,10 +1,10 @@
 {
-  "measured_at_commit": "62ccd80",
+  "measured_at_commit": "807a5ca",
   "metrics": {
-    "ruff_core_E_F": 79,
-    "ruff_core_extended": 917,
+    "ruff_core_E_F": 71,
+    "ruff_core_extended": 903,
     "undocumented_public_callables": 51,
-    "public_callables": 290,
+    "public_callables": 293,
     "strict_history_tag_mentions": 0,
     "files_over_800_lines": 7,
     "functions_cc_over_20": 20,

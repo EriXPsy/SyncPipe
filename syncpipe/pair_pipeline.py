@@ -53,27 +53,37 @@ def compute_pair_pipeline(
             hz, window_size, backend, "cumsum", normalize, window_type,
             wclr_max_lag_samples, wclr_metric,
         )
+        expected_gap = None
         if discontinuity_mask is not None:
+            unmasked = wcc_arr
             wcc_arr = _apply_discontinuity_mask(
                 wcc_arr, np.asarray(discontinuity_mask, dtype=bool), window_size
             )
+            # By-design seam NaNs must not count toward max_nan_ratio
+            # (2026-10-16 trial/seam support).
+            expected_gap = np.isnan(wcc_arr) & ~np.isnan(unmasked)
         kwargs = {}
         if onset_threshold is not None:
             kwargs["onset_threshold"] = onset_threshold
         if discontinuity_mask is not None:
             kwargs["gap_policy"] = "segment"
+            kwargs["expected_gap"] = expected_gap
         features = extract_dynamic_features(
             wcc_arr, hz=hz, wcc_window_sec=window_size / hz, **kwargs
         )
     else:
         wcc_arr = np.asarray(wcc, dtype=float)
+        expected_gap = None
         if discontinuity_mask is not None:
+            unmasked = wcc_arr
             wcc_arr = _apply_discontinuity_mask(
                 wcc_arr, np.asarray(discontinuity_mask, dtype=bool), window_size
             )
+            expected_gap = np.isnan(wcc_arr) & ~np.isnan(unmasked)
         kwargs = {"onset_threshold": onset_threshold} if onset_threshold is not None else {}
         if discontinuity_mask is not None:
             kwargs["gap_policy"] = "segment"
+            kwargs["expected_gap"] = expected_gap
         features = extract_dynamic_features(
             wcc_arr, hz=hz, wcc_window_sec=window_size / hz, **kwargs
         )

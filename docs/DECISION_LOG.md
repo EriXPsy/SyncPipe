@@ -1056,3 +1056,53 @@ never requires re-estimating).
 Public surface: 9 names. Not landed here (staged): manifest trial
 columns, lag range in the confirmatory chain, the bsync R-side adapter,
 quality ratchet (R6).
+
+## 2026-10-16 — R7: owner ratification of the 2026-10-08 repositioning decisions
+
+The three owner decisions cited by the 2026-10-08 changeset were
+re-confirmed explicitly by the owner on 2026-10-16 (session record:
+"显示确认R7工作"), closing the procedural gap flagged in the 2026-10-13
+dialectical review (the changeset quoted "owner decisions 2026-10-08"
+without a ratifiable record of its own):
+
+1. **Lag-range declaration** (V1_PROTOCOL §4 amendment): the frozen
+   protocol's zero-lag-only restriction is lifted in favour of a
+   DECLARED lag range (`lag_max_sec`; 0 = zero-lag). The confirmatory
+   chain stays zero-lag until the endpoint comparison selects a
+   lag-aware endpoint; non-zero lag is exploratory surface only.
+   Ratified together with the landing of `syncpipe.surface` (PR #5).
+2. **Manifest trial columns** (`trial_id` / `stimulus_key`, optional,
+   `MANIFEST_COLUMNS` unchanged): approved in principle; implementation
+   staged as the next feature PR (trial stacking with seam-aware masks,
+   equivalence-tested against hand-concatenated files).
+3. **Quality bar** (bsync's maturity profile as the yardstick, quality
+   ratchet with a committed baseline, strict gates for new packages):
+   ratified as landed in PR #5, with the review-scoped deviation that
+   history-tag metrics apply to strict packages only.
+
+Ratification status: (1) and (3) EFFECTIVE with PR #5 (71f304d);
+(2) APPROVED, implementation pending.
+
+## 2026-10-21 — A1: the L1 null lives on the same gapped axis as the observed
+
+Source-verified finding (external review 2026-10-20; severity:
+results-wrong). The L1 (WCC-level) surrogate test computed OBSERVED
+features on the gapped trace (NaN seams + gap_policy='segment') but the
+SURROGATE on the NaN-COMPRESSED trace: the null had no seams, so its
+runs were systematically longer and dwell/switching p-values were
+invalid for any seam-bearing series (multi-trial stacks, masked
+discontinuities).
+
+Fix: surrogate values are scattered back onto the ORIGINAL gapped
+positions and go through the IDENTICAL extraction (same gap_policy).
+With no NaNs the scatter is the identity — seamless traces are
+bit-identical to before (frozen behaviour preserved).
+
+Measured separation on the regression fixture (persistent elevated
+blocks of 100 s, seams every 60 s): compressed-axis null median dwell
+40.8 s vs gapped-axis 24.5 s — the sensitivity test asserts < 32.0 and
+was verified to FAIL when the scatter is disabled (probe: 1 failed).
+
+This composes with the 2026-10-16 trial stacking: seams are now both
+exempt from the missing-data guard (expected_gap) and preserved inside
+the L1 null.

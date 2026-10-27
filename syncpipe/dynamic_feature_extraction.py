@@ -28,8 +28,16 @@ def extract_dynamic_features(
     return_raw_profiles: bool = False,
     wcc_window_sec: float = 1.0,
     gap_policy: Optional[str] = None,
+    expected_gap: Optional[np.ndarray] = None,
 ) -> Any:
-    """Extract features from a WCC series via the SSoT."""
+    """Extract features from a WCC series via the SSoT.
+
+    ``expected_gap`` (optional, boolean mask over ``wcc``) marks samples
+    that are NaN BY DESIGN (segment seams from trial stacking or a
+    declared discontinuity mask). Those samples do not count toward
+    ``max_nan_ratio`` and are excluded from ``nan_fraction``: absence by
+    design is reported, never mistaken for missing data (2026-10-16).
+    """
     if onset_k != 2.0:
         warnings.warn(
             "`onset_k` is deprecated and ignored: data-driven onset "
@@ -55,7 +63,22 @@ def extract_dynamic_features(
         )
     wcc_arr = np.asarray(wcc, dtype=float)
     valid = np.isfinite(wcc_arr)
-    nan_ratio = 1.0 if wcc_arr.size == 0 else 1.0 - float(valid.mean())
+    # Samples removed BY DESIGN (seams/declared gaps) are not missing data:
+    # they leave the denominator too (the guard compares like with like).
+    if expected_gap is not None:
+        gap = np.asarray(expected_gap, dtype=bool)
+        if gap.size != wcc_arr.size:
+            raise ValueError(
+                f"expected_gap and wcc must have the same shape: {gap.size} != {wcc_arr.size}"
+            )
+        eligible = ~gap
+    else:
+        eligible = np.ones(wcc_arr.size, dtype=bool)
+    eligible_frac = float(eligible.mean()) if wcc_arr.size else 0.0
+    nan_ratio = (
+        1.0 if wcc_arr.size == 0 or eligible.sum() == 0
+        else 1.0 - float(valid[eligible].sum() / eligible.sum())
+    )
     if nan_ratio > max_nan_ratio or int(valid.sum()) < 5:
         logger.warning(
             "extract_dynamic_features: NaN ratio %.3f exceeds "
@@ -77,4 +100,5 @@ def extract_dynamic_features(
         threshold=threshold, gap_policy=gap_policy,
     )
     features.nan_fraction = nan_ratio
+    features.eligible_fraction = eligible_frac
     return (features, []) if return_raw_profiles else features
